@@ -852,6 +852,23 @@ class App {
 
   // ===== History =====
 
+  // Helper function: Convert HH:MM to hours
+  timeToHours(timeStr) {
+    if (!timeStr) return 0;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours + (minutes / 60);
+  }
+
+  // Helper function: Calculate work hours (total time - pause, travel time is INCLUDED)
+  calculateWorkHours(entry) {
+    const startHours = this.timeToHours(entry.startTime);
+    const endHours = this.timeToHours(entry.endTime);
+    const pauseHours = this.timeToHours(entry.pause);
+
+    // Total time - pause (travel time stays in)
+    return (endHours - startHours) - pauseHours;
+  }
+
   async showHistory() {
     const entries = await storage.getAllWorklogEntries();
 
@@ -879,6 +896,52 @@ class App {
       return dateB.localeCompare(dateA);
     });
 
+    // Calculate statistics
+    const now = new Date();
+    const currentWeekStart = new Date(now);
+    currentWeekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+    currentWeekStart.setHours(0, 0, 0, 0);
+
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    let weekHours = 0;
+    let weekDays = 0;
+    let monthHours = 0;
+    let monthDays = 0;
+
+    entries.forEach(entry => {
+      const [day, month, year] = entry.date.split('.');
+      const entryDate = new Date(year, month - 1, day);
+      const workHours = this.calculateWorkHours(entry);
+
+      if (entryDate >= currentWeekStart) {
+        weekHours += workHours;
+        weekDays++;
+      }
+
+      if (entryDate >= currentMonthStart) {
+        monthHours += workHours;
+        monthDays++;
+      }
+    });
+
+    // Statistics HTML
+    const statsHtml = `
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="bg-primary bg-opacity-20 rounded-lg p-4">
+          <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Diese Woche</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">${weekHours.toFixed(1)}h</div>
+          <div class="text-xs text-gray-500 mt-1">${weekDays} ${weekDays === 1 ? 'Tag' : 'Tage'}</div>
+        </div>
+        <div class="bg-blue-100 dark:bg-blue-900 rounded-lg p-4">
+          <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Dieser Monat</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">${monthHours.toFixed(1)}h</div>
+          <div class="text-xs text-gray-500 mt-1">${monthDays} ${monthDays === 1 ? 'Tag' : 'Tage'}</div>
+        </div>
+      </div>
+    `;
+
+    // Entries HTML with calculated hours
     const entriesHtml = entries.map(entry => {
       // Parse date from DD.MM.YYYY format
       const [day, month, year] = entry.date.split('.');
@@ -889,10 +952,13 @@ class App {
         ? entry.tasks.map(t => `${t.type}: ${t.description}`).join('<br>')
         : '';
 
+      const workHours = this.calculateWorkHours(entry);
+
       return `
-        <div class="border-b border-gray-200 py-3 last:border-0">
+        <div class="border-b border-gray-200 dark:border-gray-700 py-3 last:border-0">
           <div class="flex justify-between items-start mb-1">
             <span class="font-medium text-gray-900 dark:text-white">${dateStr}</span>
+            <span class="font-semibold text-primary">${workHours.toFixed(1)}h</span>
           </div>
           <div class="text-sm text-gray-600 dark:text-gray-400">
             ${entry.startTime} - ${entry.endTime}
@@ -907,14 +973,19 @@ class App {
 
     const content = `
       <div class="p-6">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-semibold">📋 ${ui.t('recordings')}</h3>
-          <span class="text-sm text-gray-500">${entries.length} ${entries.length === 1 ? 'Eintrag' : 'Einträge'}</span>
+        <h3 class="text-lg font-semibold mb-4">📋 ${ui.t('recordings')}</h3>
+
+        ${statsHtml}
+
+        <div class="mb-3">
+          <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Alle Einträge (${entries.length})</div>
         </div>
-        <div class="max-h-96 overflow-y-auto">
+
+        <div class="max-h-64 overflow-y-auto border-t border-gray-200 dark:border-gray-700">
           ${entriesHtml}
         </div>
-        <button id="dialog-ok" class="w-full mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+
+        <button id="dialog-ok" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">
           ${ui.t('close')}
         </button>
       </div>
