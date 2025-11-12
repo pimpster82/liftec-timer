@@ -245,7 +245,17 @@ class UI {
     return `
       <div class="hero-card rounded-xl p-5 ${session ? 'h-44' : 'h-36'} text-gray-900">
         <div class="flex items-center space-x-3 mb-4">
-          <div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg"></div>
+          <div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center p-1.5">
+            <svg viewBox="0 0 100 100" class="w-full h-full">
+              <!-- Top bar -->
+              <rect x="0" y="0" width="100" height="20" fill="white"/>
+              <!-- Bottom bars -->
+              <rect x="0" y="24" width="18" height="76" fill="white"/>
+              <rect x="21" y="24" width="24" height="76" fill="white"/>
+              <rect x="48" y="24" width="30" height="76" fill="white"/>
+              <rect x="81" y="24" width="19" height="76" fill="white"/>
+            </svg>
+          </div>
           <div>
             <p class="text-sm opacity-70">${greeting}</p>
             <h2 class="text-xl font-bold">${username}</h2>
