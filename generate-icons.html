@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIFTEC Icon Generator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #FFB300;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        #preview {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        .icon-preview {
+            text-align: center;
+        }
+        .icon-preview canvas {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .icon-size {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        button {
+            background: #FFB300;
+            color: #212121;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #FFA000;
+        }
+        .instructions {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .instructions code {
+            background: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 LIFTEC Icon Generator</h1>
+        <p class="subtitle">Generate PWA icons for LIFTEC Timer</p>
+
+        <div id="preview"></div>
+
+        <button onclick="generateIcons()">Generate Icons</button>
+        <button onclick="downloadAll()">Download All as ZIP</button>
+
+        <div class="instructions">
+            <strong>Instructions:</strong><br>
+            1. Click "Generate Icons" to create all required icon sizes<br>
+            2. Right-click each icon and "Save Image As..." to save individually, OR<br>
+            3. Click "Download All as ZIP" (requires JSZip library)<br>
+            4. Save all icons to the <code>/icons</code> directory<br>
+            5. Ensure filenames match exactly: <code>icon-72.png</code>, <code>icon-96.png</code>, etc.
+        </div>
+    </div>
+
+    <script>
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        const canvases = {};
+
+        function drawLiftecIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            canvas.width = size;
+            canvas.height = size;
+
+            // Background
+            ctx.fillStyle = '#FFB300';
+            ctx.fillRect(0, 0, size, size);
+
+            // Calculate proportions
+            const padding = size * 0.15;
+            const logoWidth = size - (padding * 2);
+            const logoHeight = size - (padding * 2);
+            const x = padding;
+            const y = padding;
+
+            // Draw LIFTEC-style logo
+            ctx.fillStyle = '#FFFFFF';
+
+            // Top bar (20% of height)
+            const topBarHeight = Math.floor(logoHeight * 0.20);
+            ctx.fillRect(x, y, logoWidth, topBarHeight);
+
+            // Bottom bars
+            const gap = Math.max(2, size * 0.005);
+            const startY = y + topBarHeight + gap;
+            const barHeight = logoHeight - topBarHeight - gap;
+
+            // Calculate bar widths
+            const totalGaps = 3 * gap;
+            const availableWidth = logoWidth - totalGaps;
+
+            const bar1Width = Math.floor(availableWidth * 0.18);
+            const bar2Width = Math.floor(availableWidth * 0.24);
+            const bar3Width = Math.floor(availableWidth * 0.28);
+            const bar4Width = availableWidth - bar1Width - bar2Width - bar3Width;
+
+            let currentX = x;
+
+            // Bar 1
+            ctx.fillRect(currentX, startY, bar1Width, barHeight);
+            currentX += bar1Width + gap;
+
+            // Bar 2
+            ctx.fillRect(currentX, startY, bar2Width, barHeight);
+            currentX += bar2Width + gap;
+
+            // Bar 3
+            ctx.fillRect(currentX, startY, bar3Width, barHeight);
+            currentX += bar3Width + gap;
+
+            // Bar 4
+            ctx.fillRect(currentX, startY, bar4Width, barHeight);
+
+            return canvas;
+        }
+
+        function generateIcons() {
+            const preview = document.getElementById('preview');
+            preview.innerHTML = '';
+
+            sizes.forEach(size => {
+                const container = document.createElement('div');
+                container.className = 'icon-preview';
+
+                const canvas = document.createElement('canvas');
+                drawLiftecIcon(canvas, size);
+                canvases[size] = canvas;
+
+                const sizeLabel = document.createElement('div');
+                sizeLabel.className = 'icon-size';
+                sizeLabel.textContent = `${size}x${size}`;
+
+                container.appendChild(canvas);
+                container.appendChild(sizeLabel);
+                preview.appendChild(container);
+            });
+        }
+
+        function downloadAll() {
+            alert('For ZIP download, you need to include JSZip library.\n\nAlternatively, right-click each icon and select "Save Image As..." to download individually.');
+
+            // Simple alternative: download each icon separately
+            sizes.forEach(size => {
+                const canvas = canvases[size];
+                if (canvas) {
+                    canvas.toBlob(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `icon-${size}.png`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
+                }
+            });
+        }
+
+        // Generate icons on load
+        window.addEventListener('load', generateIcons);
+    </script>
+</body>
+</html>
