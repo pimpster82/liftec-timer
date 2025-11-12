@@ -173,6 +173,21 @@ class App {
           </div>
         </div>
       `;
+
+      // Add event listeners for edit/delete buttons
+      document.querySelectorAll('.task-edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = parseInt(e.target.dataset.index);
+          this.editTask(index);
+        });
+      });
+
+      document.querySelectorAll('.task-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = parseInt(e.target.dataset.index);
+          this.deleteTask(index);
+        });
+      });
     } else {
       sessionInfo.innerHTML = '';
     }
@@ -211,13 +226,18 @@ class App {
     const typeLabel = task.type ? `<span class="badge ml-2">${task.type}</span>` : '';
 
     return `
-      <div class="task-item bg-gray-50 dark:bg-gray-800 rounded-lg p-3 flex items-center justify-between cursor-pointer" data-index="${index}">
+      <div class="task-item bg-gray-50 dark:bg-gray-800 rounded-lg p-3 flex items-center justify-between" data-index="${index}">
         <div class="flex-1">
           <p class="text-gray-900 dark:text-white">${task.description} ${typeLabel}</p>
         </div>
-        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-        </svg>
+        <div class="flex gap-2">
+          <button class="task-edit-btn text-blue-500 hover:text-blue-700 p-1" data-index="${index}" title="Bearbeiten">
+            ✏️
+          </button>
+          <button class="task-delete-btn text-red-500 hover:text-red-700 p-1" data-index="${index}" title="Löschen">
+            🗑️
+          </button>
+        </div>
       </div>
     `;
   }
@@ -279,6 +299,44 @@ class App {
     await this.renderMainScreen();
 
     ui.showToast('Aufgabe hinzugefügt', 'success');
+  }
+
+  async editTask(index) {
+    if (!this.session || !this.session.tasks[index]) return;
+
+    const task = this.session.tasks[index];
+
+    // Show task type selector
+    const taskType = await this.showTaskTypeSelector(task.type);
+    if (taskType === null) return;
+
+    // Show description input
+    const description = await this.showInputDialog(ui.t('description'), task.description);
+    if (!description) return;
+
+    this.session.tasks[index] = {
+      type: taskType,
+      description: description.trim()
+    };
+
+    await storage.saveCurrentSession(this.session);
+    await this.renderMainScreen();
+
+    ui.showToast('Aufgabe aktualisiert', 'success');
+  }
+
+  async deleteTask(index) {
+    if (!this.session || !this.session.tasks[index]) return;
+
+    const confirmed = await this.showConfirmDialog('Aufgabe löschen?', 'Diese Aktion kann nicht rückgängig gemacht werden.');
+    if (!confirmed) return;
+
+    this.session.tasks.splice(index, 1);
+
+    await storage.saveCurrentSession(this.session);
+    await this.renderMainScreen();
+
+    ui.showToast('Aufgabe gelöscht', 'success');
   }
 
   async endSession() {
@@ -454,17 +512,21 @@ class App {
     });
   }
 
-  showTaskTypeSelector() {
+  showTaskTypeSelector(defaultType = null) {
     return new Promise((resolve) => {
       const content = `
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4">${ui.t('taskType')}</h3>
           <div class="space-y-2 mb-4">
-            ${Object.entries(TASK_TYPES).map(([code, name]) => `
-              <button class="task-type-btn w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 rounded-lg" data-type="${code}">
-                ${name} ${code ? `<span class="badge float-right">${code}</span>` : ''}
-              </button>
-            `).join('')}
+            ${Object.entries(TASK_TYPES).map(([code, name]) => {
+              const isSelected = code === defaultType;
+              const bgClass = isSelected ? 'bg-primary text-gray-900' : 'bg-gray-100 hover:bg-gray-200';
+              return `
+                <button class="task-type-btn w-full px-4 py-3 text-left ${bgClass} rounded-lg" data-type="${code}">
+                  ${name} ${code ? `<span class="badge float-right">${code}</span>` : ''}
+                </button>
+              `;
+            }).join('')}
           </div>
           <button id="dialog-cancel" class="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
             ${ui.t('cancel')}
@@ -627,8 +689,84 @@ class App {
   // ===== Settings =====
 
   async showSettings() {
-    ui.showToast('Settings screen coming soon...', 'info');
-    // TODO: Implement settings screen
+    const settings = ui.settings;
+
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4">⚙️ ${ui.t('settings')}</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input type="text" id="setting-username" value="${settings.username}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input type="email" id="setting-email" value="${settings.email}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">${ui.t('language')}</label>
+            <select id="setting-language"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+              <option value="de" ${settings.language === 'de' ? 'selected' : ''}>Deutsch</option>
+              <option value="en" ${settings.language === 'en' ? 'selected' : ''}>English</option>
+              <option value="hr" ${settings.language === 'hr' ? 'selected' : ''}>Hrvatski</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">${ui.t('surcharge')} (%)</label>
+            <input type="number" id="setting-surcharge" value="${settings.surchargePercent}" min="0" max="200"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Email Betreff</label>
+            <input type="text" id="setting-email-subject" value="${settings.emailSubject}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            <p class="text-xs text-gray-500 mt-1">Platzhalter: {month}, {name}</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Email Text</label>
+            <textarea id="setting-email-body" rows="3"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">${settings.emailBody}</textarea>
+            <p class="text-xs text-gray-500 mt-1">Platzhalter: {month}, {name}</p>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-6">
+          <button id="settings-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold">
+            ${ui.t('save')}
+          </button>
+          <button id="settings-cancel" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+            ${ui.t('cancel')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('settings-save').addEventListener('click', async () => {
+      const newSettings = {
+        username: document.getElementById('setting-username').value,
+        email: document.getElementById('setting-email').value,
+        language: document.getElementById('setting-language').value,
+        surchargePercent: parseInt(document.getElementById('setting-surcharge').value),
+        emailSubject: document.getElementById('setting-email-subject').value,
+        emailBody: document.getElementById('setting-email-body').value
+      };
+
+      await storage.saveSettings(newSettings);
+      ui.settings = newSettings;
+      ui.i18n = ui.getI18N();
+
+      ui.hideModal();
+      ui.showToast(ui.t('settingsSaved'), 'success');
+      await this.renderMainScreen();
+    });
+
+    document.getElementById('settings-cancel').addEventListener('click', () => {
+      ui.hideModal();
+    });
   }
 
   // ===== Export =====
@@ -684,8 +822,70 @@ class App {
   // ===== History =====
 
   async showHistory() {
-    ui.showToast('History screen coming soon...', 'info');
-    // TODO: Implement history screen
+    const entries = await storage.getAllWorklogEntries();
+
+    if (entries.length === 0) {
+      const content = `
+        <div class="p-6 text-center">
+          <h3 class="text-lg font-semibold mb-4">📋 ${ui.t('recordings')}</h3>
+          <p class="text-gray-500">Noch keine Einträge vorhanden</p>
+          <button id="dialog-ok" class="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+            OK
+          </button>
+        </div>
+      `;
+      ui.showModal(content);
+      document.getElementById('dialog-ok').addEventListener('click', () => {
+        ui.hideModal();
+      });
+      return;
+    }
+
+    // Sort entries by date (newest first)
+    entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const entriesHtml = entries.map(entry => {
+      const date = new Date(entry.date);
+      const dateStr = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+      const taskList = entry.tasks.map(t => `${t.type}: ${t.description}`).join('<br>');
+      const totalHours = entry.totalHours.toFixed(2);
+
+      return `
+        <div class="border-b border-gray-200 py-3 last:border-0">
+          <div class="flex justify-between items-start mb-1">
+            <span class="font-medium text-gray-900">${dateStr}</span>
+            <span class="font-semibold text-primary">${totalHours}h</span>
+          </div>
+          <div class="text-sm text-gray-600">
+            ${entry.start} - ${entry.end}
+          </div>
+          ${entry.pauseHours > 0 ? `<div class="text-xs text-gray-500">Pause: ${entry.pauseHours}h</div>` : ''}
+          ${entry.travelHours > 0 ? `<div class="text-xs text-gray-500">Fahrt: ${entry.travelHours}h</div>` : ''}
+          ${taskList ? `<div class="text-sm text-gray-700 mt-2">${taskList}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    const content = `
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold">📋 ${ui.t('recordings')}</h3>
+          <span class="text-sm text-gray-500">${entries.length} ${entries.length === 1 ? 'Eintrag' : 'Einträge'}</span>
+        </div>
+        <div class="max-h-96 overflow-y-auto">
+          ${entriesHtml}
+        </div>
+        <button id="dialog-ok" class="w-full mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+          ${ui.t('close')}
+        </button>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('dialog-ok').addEventListener('click', () => {
+      ui.hideModal();
+    });
   }
 
   // ===== About =====

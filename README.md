@@ -2,6 +2,23 @@
 
 A modern, offline-first time tracking application for LIFTEC. Converted from iOS Scriptable app to a cross-platform Progressive Web App (PWA).
 
+## ⚠️ Important: Storage Limitations
+
+**Current Version (1.0.0) stores all data locally in your browser using IndexedDB.**
+
+This means:
+- ❌ **No sync between devices** - Data on your phone won't appear on your desktop
+- ❌ **No cloud backup** - Data can be lost if browser cache/data is cleared
+- ❌ **Browser-specific** - Chrome and Safari on the same device have separate data
+- ✅ **Fully offline** - Works without internet, completely private
+- ✅ **Manual export** - You can export CSV reports anytime
+
+**📋 See [ROADMAP.md](ROADMAP.md) for upcoming cloud sync features (Supabase, Dropbox, iCloud, etc.)**
+
+**💡 Recommendation:** Export your data regularly until cloud sync is implemented!
+
+---
+
 ## Features
 
 - ⏱️ **Time Tracking** - Track work sessions with start/end times
