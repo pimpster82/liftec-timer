@@ -512,6 +512,37 @@ class App {
     });
   }
 
+  showConfirmDialog(title, message) {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-2">${title}</h3>
+          <p class="text-gray-600 dark:text-gray-400 mb-6">${message}</p>
+          <div class="flex space-x-3">
+            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+              ${ui.t('cancel')}
+            </button>
+            <button id="dialog-confirm" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg font-semibold">
+              ${ui.t('delete')}
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.getElementById('dialog-confirm').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(true);
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(false);
+      });
+    });
+  }
+
   showTaskTypeSelector(defaultType = null) {
     return new Promise((resolve) => {
       const content = `
@@ -842,26 +873,34 @@ class App {
     }
 
     // Sort entries by date (newest first)
-    entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    entries.sort((a, b) => {
+      const dateA = a.date.split('.').reverse().join('-');
+      const dateB = b.date.split('.').reverse().join('-');
+      return dateB.localeCompare(dateA);
+    });
 
     const entriesHtml = entries.map(entry => {
-      const date = new Date(entry.date);
+      // Parse date from DD.MM.YYYY format
+      const [day, month, year] = entry.date.split('.');
+      const date = new Date(year, month - 1, day);
       const dateStr = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-      const taskList = entry.tasks.map(t => `${t.type}: ${t.description}`).join('<br>');
-      const totalHours = entry.totalHours.toFixed(2);
+
+      const taskList = entry.tasks && entry.tasks.length > 0
+        ? entry.tasks.map(t => `${t.type}: ${t.description}`).join('<br>')
+        : '';
 
       return `
         <div class="border-b border-gray-200 py-3 last:border-0">
           <div class="flex justify-between items-start mb-1">
-            <span class="font-medium text-gray-900">${dateStr}</span>
-            <span class="font-semibold text-primary">${totalHours}h</span>
+            <span class="font-medium text-gray-900 dark:text-white">${dateStr}</span>
           </div>
-          <div class="text-sm text-gray-600">
-            ${entry.start} - ${entry.end}
+          <div class="text-sm text-gray-600 dark:text-gray-400">
+            ${entry.startTime} - ${entry.endTime}
           </div>
-          ${entry.pauseHours > 0 ? `<div class="text-xs text-gray-500">Pause: ${entry.pauseHours}h</div>` : ''}
-          ${entry.travelHours > 0 ? `<div class="text-xs text-gray-500">Fahrt: ${entry.travelHours}h</div>` : ''}
-          ${taskList ? `<div class="text-sm text-gray-700 mt-2">${taskList}</div>` : ''}
+          ${entry.pause ? `<div class="text-xs text-gray-500">Pause: ${entry.pause}</div>` : ''}
+          ${entry.travelTime ? `<div class="text-xs text-gray-500">Fahrt: ${entry.travelTime}</div>` : ''}
+          ${entry.surcharge ? `<div class="text-xs text-gray-500">Zuschlag: ${entry.surcharge}</div>` : ''}
+          ${taskList ? `<div class="text-sm text-gray-700 dark:text-gray-300 mt-2">${taskList}</div>` : ''}
         </div>
       `;
     }).join('');
