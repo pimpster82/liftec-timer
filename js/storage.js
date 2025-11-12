@@ -186,6 +186,19 @@ class Storage {
     return await this.getWorklogEntries(yearMonth);
   }
 
+  async updateWorklogEntry(entry) {
+    // Update yearMonth index if date changed
+    if (entry.date) {
+      const [day, month, year] = entry.date.split('.');
+      entry.yearMonth = `${year}-${month.padStart(2, '0')}`;
+    }
+    return await this.put('worklog', entry);
+  }
+
+  async deleteWorklogEntry(id) {
+    return await this.delete('worklog', id);
+  }
+
   // ===== Export/Import Methods =====
 
   async exportAllData() {

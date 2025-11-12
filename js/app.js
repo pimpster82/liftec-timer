@@ -955,10 +955,14 @@ class App {
       const workHours = this.calculateWorkHours(entry);
 
       return `
-        <div class="border-b border-gray-200 dark:border-gray-700 py-3 last:border-0">
+        <div class="border-b border-gray-200 dark:border-gray-700 py-3 last:border-0" data-entry-id="${entry.id}">
           <div class="flex justify-between items-start mb-1">
             <span class="font-medium text-gray-900 dark:text-white">${dateStr}</span>
-            <span class="font-semibold text-primary">${workHours.toFixed(1)}h</span>
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-primary">${workHours.toFixed(1)}h</span>
+              <button class="history-edit-btn text-blue-500 hover:text-blue-700 p-1" data-id="${entry.id}" title="Bearbeiten">✏️</button>
+              <button class="history-delete-btn text-red-500 hover:text-red-700 p-1" data-id="${entry.id}" title="Löschen">🗑️</button>
+            </div>
           </div>
           <div class="text-sm text-gray-600 dark:text-gray-400">
             ${entry.startTime} - ${entry.endTime}
@@ -993,9 +997,203 @@ class App {
 
     ui.showModal(content);
 
+    // Add event listeners for edit buttons
+    document.querySelectorAll('.history-edit-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const entryId = parseInt(e.target.dataset.id);
+        const entry = entries.find(e => e.id === entryId);
+        if (entry) {
+          ui.hideModal();
+          await this.editWorklogEntry(entry);
+          await this.showHistory(); // Refresh history
+        }
+      });
+    });
+
+    // Add event listeners for delete buttons
+    document.querySelectorAll('.history-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const entryId = parseInt(e.target.dataset.id);
+        const entry = entries.find(e => e.id === entryId);
+        if (entry) {
+          ui.hideModal();
+          await this.deleteWorklogEntry(entry);
+          await this.showHistory(); // Refresh history
+        }
+      });
+    });
+
     document.getElementById('dialog-ok').addEventListener('click', () => {
       ui.hideModal();
     });
+  }
+
+  async editWorklogEntry(entry) {
+    const content = `
+      <div class="p-6 max-h-[80vh] overflow-y-auto">
+        <h3 class="text-lg font-semibold mb-4">Eintrag bearbeiten</h3>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Datum</label>
+            <input type="date" id="edit-date" value="${entry.date.split('.').reverse().join('-')}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startzeit</label>
+              <input type="time" id="edit-start" value="${entry.startTime}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endzeit</label>
+              <input type="time" id="edit-end" value="${entry.endTime}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pause (HH:MM)</label>
+              <input type="time" id="edit-pause" value="${entry.pause || '00:00'}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fahrtzeit (HH:MM)</label>
+              <input type="time" id="edit-travel" value="${entry.travelTime || '00:00'}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Zuschlag (HH:MM)</label>
+            <input type="time" id="edit-surcharge" value="${entry.surcharge || '00:00'}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Aufgaben</label>
+            <div id="edit-tasks-list" class="space-y-2 mb-2">
+              ${entry.tasks && entry.tasks.length > 0 ? entry.tasks.map((task, idx) => `
+                <div class="flex gap-2">
+                  <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 rounded"
+                    value="${task.type}" placeholder="Typ">
+                  <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 rounded"
+                    value="${task.description}" placeholder="Beschreibung">
+                  <button class="remove-task-btn text-red-500 hover:text-red-700 px-2" data-index="${idx}">✕</button>
+                </div>
+              `).join('') : '<p class="text-sm text-gray-500">Keine Aufgaben</p>'}
+            </div>
+            <button id="add-task-to-entry" class="text-sm text-blue-500 hover:text-blue-700">+ Aufgabe hinzufügen</button>
+          </div>
+        </div>
+
+        <div class="flex gap-2 mt-6">
+          <button id="edit-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold">
+            Speichern
+          </button>
+          <button id="edit-cancel" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    // Add task button
+    document.getElementById('add-task-to-entry').addEventListener('click', () => {
+      const tasksList = document.getElementById('edit-tasks-list');
+      const existingTasks = tasksList.querySelectorAll('.flex');
+      const newIndex = existingTasks.length;
+
+      const newTaskHtml = `
+        <div class="flex gap-2">
+          <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 rounded"
+            value="" placeholder="Typ">
+          <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 rounded"
+            value="" placeholder="Beschreibung">
+          <button class="remove-task-btn text-red-500 hover:text-red-700 px-2" data-index="${newIndex}">✕</button>
+        </div>
+      `;
+
+      if (tasksList.querySelector('p')) {
+        tasksList.innerHTML = newTaskHtml;
+      } else {
+        tasksList.insertAdjacentHTML('beforeend', newTaskHtml);
+      }
+
+      // Re-attach remove listeners
+      tasksList.querySelectorAll('.remove-task-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.target.closest('.flex').remove();
+          if (tasksList.querySelectorAll('.flex').length === 0) {
+            tasksList.innerHTML = '<p class="text-sm text-gray-500">Keine Aufgaben</p>';
+          }
+        });
+      });
+    });
+
+    // Remove task buttons
+    document.querySelectorAll('.remove-task-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.target.closest('.flex').remove();
+        const tasksList = document.getElementById('edit-tasks-list');
+        if (tasksList.querySelectorAll('.flex').length === 0) {
+          tasksList.innerHTML = '<p class="text-sm text-gray-500">Keine Aufgaben</p>';
+        }
+      });
+    });
+
+    // Save button
+    document.getElementById('edit-save').addEventListener('click', async () => {
+      const dateInput = document.getElementById('edit-date').value;
+      const [year, month, day] = dateInput.split('-');
+      const formattedDate = `${day}.${month}.${year}`;
+
+      const taskElements = document.querySelectorAll('#edit-tasks-list .flex');
+      const tasks = Array.from(taskElements).map(el => ({
+        type: el.querySelector('.task-type').value.trim(),
+        description: el.querySelector('.task-desc').value.trim()
+      })).filter(t => t.description); // Only keep tasks with descriptions
+
+      const updatedEntry = {
+        ...entry,
+        date: formattedDate,
+        startTime: document.getElementById('edit-start').value,
+        endTime: document.getElementById('edit-end').value,
+        pause: document.getElementById('edit-pause').value,
+        travelTime: document.getElementById('edit-travel').value,
+        surcharge: document.getElementById('edit-surcharge').value,
+        tasks: tasks
+      };
+
+      await storage.updateWorklogEntry(updatedEntry);
+      ui.hideModal();
+      ui.showToast('Eintrag aktualisiert', 'success');
+    });
+
+    // Cancel button
+    document.getElementById('edit-cancel').addEventListener('click', () => {
+      ui.hideModal();
+    });
+  }
+
+  async deleteWorklogEntry(entry) {
+    const [day, month, year] = entry.date.split('.');
+    const date = new Date(year, month - 1, day);
+    const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const confirmed = await this.showConfirmDialog(
+      'Eintrag löschen?',
+      `Möchtest du den Eintrag vom ${dateStr} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
+    );
+
+    if (!confirmed) return;
+
+    await storage.deleteWorklogEntry(entry.id);
+    ui.showToast('Eintrag gelöscht', 'success');
   }
 
   // ===== About =====
