@@ -128,14 +128,89 @@ class Storage {
   }
 
   async saveCurrentSession(sessionData) {
-    return await this.put('currentSession', {
+    // OFFLINE FIRST: Save to IndexedDB immediately
+    const result = await this.put('currentSession', {
       id: 'active',
       ...sessionData
     });
+
+    // OPTIONAL: Sync to Firebase in background (non-blocking)
+    this.syncToCloud('session', sessionData);
+
+    return result;
   }
 
   async deleteCurrentSession() {
-    return await this.delete('currentSession', 'active');
+    // OFFLINE FIRST: Delete from IndexedDB immediately
+    const result = await this.delete('currentSession', 'active');
+
+    // OPTIONAL: Sync deletion to Firebase in background (non-blocking)
+    this.syncToCloud('session-delete');
+
+    return result;
+  }
+
+  // ===== Cloud Sync Methods (Offline First - Non-Blocking) =====
+
+  syncToCloud(type, data) {
+    // Fire-and-forget: Don't await, don't block
+    // This runs in background, app continues immediately
+    this._syncToCloudAsync(type, data).catch(err => {
+      // Silent fail - offline first means we don't break on sync errors
+      console.log(`Background sync failed (${type}):`, err.message);
+    });
+  }
+
+  async _syncToCloudAsync(type, data) {
+    // Check if Firebase is available
+    if (typeof firebaseService === 'undefined' || !firebaseService.isInitialized) {
+      return; // No Firebase, skip silently
+    }
+
+    // Check if user wants cloud sync
+    const settings = await this.getSettings();
+    if (!settings.cloudSync) {
+      return; // Sync disabled, skip silently
+    }
+
+    // Check if user is signed in
+    if (!firebaseService.isSignedIn()) {
+      return; // Not signed in, skip silently
+    }
+
+    // Perform sync based on type
+    switch (type) {
+      case 'worklog':
+        await firebaseService.syncWorklogEntry(data);
+        break;
+
+      case 'worklog-delete':
+        await firebaseService.deleteWorklogEntry(data);
+        break;
+
+      case 'session':
+        await firebaseService.syncCurrentSession(data);
+        break;
+
+      case 'session-delete':
+        // Delete current session from cloud
+        if (firebaseService.currentUser) {
+          await firebaseService.db
+            .collection('users')
+            .doc(firebaseService.currentUser.uid)
+            .collection('sessions')
+            .doc('current')
+            .delete();
+        }
+        break;
+
+      case 'settings':
+        await firebaseService.syncSettings(data);
+        break;
+
+      default:
+        console.warn('Unknown sync type:', type);
+    }
   }
 
   // ===== Settings Methods =====
@@ -148,15 +223,22 @@ class Storage {
       surchargePercent: 80,
       email: 'daniel@liftec.at',
       emailSubject: 'Arbeitszeit {month} - {name}',
-      emailBody: 'Hi Stefan. Anbei meine Arbeitszeit für {month}.'
+      emailBody: 'Hi Stefan. Anbei meine Arbeitszeit für {month}.',
+      cloudSync: false  // Cloud sync disabled by default
     };
   }
 
   async saveSettings(settingsData) {
-    return await this.put('settings', {
+    // OFFLINE FIRST: Save to IndexedDB immediately
+    const result = await this.put('settings', {
       key: 'app',
       data: settingsData
     });
+
+    // OPTIONAL: Sync to Firebase in background (non-blocking)
+    this.syncToCloud('settings', settingsData);
+
+    return result;
   }
 
   // ===== Worklog Methods =====
@@ -166,7 +248,13 @@ class Storage {
     const [day, month, year] = entry.date.split('.');
     entry.yearMonth = `${year}-${month.padStart(2, '0')}`;
 
-    return await this.put('worklog', entry);
+    // OFFLINE FIRST: Save to IndexedDB immediately
+    const result = await this.put('worklog', entry);
+
+    // OPTIONAL: Sync to Firebase in background (non-blocking)
+    this.syncToCloud('worklog', entry);
+
+    return result;
   }
 
   async getWorklogEntries(yearMonth = null) {
@@ -192,11 +280,24 @@ class Storage {
       const [day, month, year] = entry.date.split('.');
       entry.yearMonth = `${year}-${month.padStart(2, '0')}`;
     }
-    return await this.put('worklog', entry);
+
+    // OFFLINE FIRST: Save to IndexedDB immediately
+    const result = await this.put('worklog', entry);
+
+    // OPTIONAL: Sync to Firebase in background (non-blocking)
+    this.syncToCloud('worklog', entry);
+
+    return result;
   }
 
   async deleteWorklogEntry(id) {
-    return await this.delete('worklog', id);
+    // OFFLINE FIRST: Delete from IndexedDB immediately
+    const result = await this.delete('worklog', id);
+
+    // OPTIONAL: Sync deletion to Firebase in background (non-blocking)
+    this.syncToCloud('worklog-delete', id);
+
+    return result;
   }
 
   // ===== Export/Import Methods =====

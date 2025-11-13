@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -26,6 +26,12 @@ class App {
 
       // Load settings
       ui.settings = await storage.getSettings();
+
+      // Initialize Firebase
+      if (typeof firebaseService !== 'undefined') {
+        await firebaseService.init();
+        console.log('Firebase service initialized');
+      }
 
       // Load current session
       this.session = await storage.getCurrentSession();
@@ -773,14 +779,88 @@ class App {
 
   async showSettings() {
     const settings = ui.settings;
+    const isSignedIn = firebaseService && firebaseService.isSignedIn();
+    const isAnonymous = firebaseService && firebaseService.isAnonymous();
+    const userEmail = firebaseService ? firebaseService.getUserEmail() : null;
+
+    // Cloud sync status
+    let syncStatusHTML = '';
+    if (firebaseService && firebaseService.isInitialized) {
+      if (isSignedIn) {
+        const statusText = isAnonymous ? 'Anonym angemeldet' : `Angemeldet als ${userEmail}`;
+        const statusColor = settings.cloudSync ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400';
+        syncStatusHTML = `
+          <div class="mt-2 text-sm ${statusColor}">
+            ● ${statusText}${settings.cloudSync ? ' (Sync aktiv)' : ' (Sync deaktiviert)'}
+          </div>
+        `;
+      } else {
+        syncStatusHTML = `
+          <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Nicht angemeldet
+          </div>
+        `;
+      }
+    }
 
     const content = `
-      <div class="p-6">
+      <div class="p-6 max-h-[85vh] overflow-y-auto">
         <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
           ${ui.icon('settings')}
           <span>${ui.t('settings')}</span>
         </h3>
+
         <div class="space-y-4">
+          <!-- Cloud Sync Section -->
+          ${firebaseService && firebaseService.isInitialized ? `
+            <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+              <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">☁️ Cloud Synchronisation</h4>
+
+              ${syncStatusHTML}
+
+              <div class="mt-3 flex items-center gap-3">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="setting-cloud-sync" ${settings.cloudSync ? 'checked' : ''}
+                    class="w-4 h-4 text-primary focus:ring-primary rounded" ${!isSignedIn ? 'disabled' : ''}>
+                  <span class="text-sm text-gray-700 dark:text-gray-300">Cloud Sync aktivieren</span>
+                </label>
+              </div>
+
+              <div class="mt-3 space-y-2">
+                ${!isSignedIn ? `
+                  <button id="firebase-login-anon" class="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">
+                    Anonym anmelden
+                  </button>
+                  <button id="firebase-login-email" class="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600">
+                    Mit Email anmelden
+                  </button>
+                ` : isAnonymous ? `
+                  <button id="firebase-link-email" class="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600">
+                    Account mit Email verbinden
+                  </button>
+                  <button id="firebase-logout" class="w-full px-3 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600">
+                    Abmelden
+                  </button>
+                ` : `
+                  <button id="firebase-logout" class="w-full px-3 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600">
+                    Abmelden
+                  </button>
+                `}
+              </div>
+
+              ${isSignedIn ? `
+                <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  💡 Deine Daten werden automatisch zwischen allen Geräten synchronisiert
+                </p>
+              ` : `
+                <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  💡 Melde dich an, um deine Daten zwischen Geräten zu synchronisieren
+                </p>
+              `}
+            </div>
+          ` : ''}
+
+          <!-- Basic Settings -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
             <input type="text" id="setting-username" value="${settings.username}"
@@ -831,6 +911,76 @@ class App {
 
     ui.showModal(content);
 
+    // ===== Firebase Event Listeners =====
+    if (firebaseService && firebaseService.isInitialized) {
+      // Cloud Sync Toggle
+      const cloudSyncCheckbox = document.getElementById('setting-cloud-sync');
+      if (cloudSyncCheckbox) {
+        cloudSyncCheckbox.addEventListener('change', async (e) => {
+          const enabled = e.target.checked;
+          if (enabled) {
+            firebaseService.enableSync();
+            // Start initial sync
+            const entries = await storage.getAllWorklogEntries();
+            if (entries.length > 0) {
+              ui.showToast('Synchronisiere Daten...', 'info');
+              await firebaseService.syncWorklogEntries(entries);
+            }
+          } else {
+            firebaseService.disableSync();
+          }
+        });
+      }
+
+      // Anonymous Login
+      const anonLoginBtn = document.getElementById('firebase-login-anon');
+      if (anonLoginBtn) {
+        anonLoginBtn.addEventListener('click', async () => {
+          try {
+            ui.showToast('Anmeldung läuft...', 'info');
+            await firebaseService.signInAnonymously();
+            ui.hideModal();
+            ui.showToast('Erfolgreich anonym angemeldet', 'success');
+            await this.showSettings(); // Refresh settings to show new state
+          } catch (error) {
+            ui.showToast('Anmeldung fehlgeschlagen: ' + error.message, 'error');
+          }
+        });
+      }
+
+      // Email Login
+      const emailLoginBtn = document.getElementById('firebase-login-email');
+      if (emailLoginBtn) {
+        emailLoginBtn.addEventListener('click', async () => {
+          await this.showEmailLoginDialog();
+        });
+      }
+
+      // Link Anonymous to Email
+      const linkEmailBtn = document.getElementById('firebase-link-email');
+      if (linkEmailBtn) {
+        linkEmailBtn.addEventListener('click', async () => {
+          await this.showLinkEmailDialog();
+        });
+      }
+
+      // Logout
+      const logoutBtn = document.getElementById('firebase-logout');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+          try {
+            await firebaseService.signOut();
+            ui.hideModal();
+            ui.showToast('Erfolgreich abgemeldet', 'success');
+            await this.showSettings(); // Refresh settings
+          } catch (error) {
+            ui.showToast('Abmeldung fehlgeschlagen: ' + error.message, 'error');
+          }
+        });
+      }
+    }
+
+    // ===== Settings Save =====
     document.getElementById('settings-save').addEventListener('click', async () => {
       const newSettings = {
         username: document.getElementById('setting-username').value,
@@ -838,7 +988,10 @@ class App {
         language: document.getElementById('setting-language').value,
         surchargePercent: parseInt(document.getElementById('setting-surcharge').value),
         emailSubject: document.getElementById('setting-email-subject').value,
-        emailBody: document.getElementById('setting-email-body').value
+        emailBody: document.getElementById('setting-email-body').value,
+        cloudSync: document.getElementById('setting-cloud-sync') ?
+                   document.getElementById('setting-cloud-sync').checked :
+                   settings.cloudSync
       };
 
       await storage.saveSettings(newSettings);
@@ -846,12 +999,176 @@ class App {
       ui.i18n = ui.getI18N();
 
       ui.hideModal();
-      ui.showToast(ui.t('settingsSaved'), 'success');
+      ui.showToast('Einstellungen gespeichert', 'success');
       await this.renderMainScreen();
     });
 
     document.getElementById('settings-cancel').addEventListener('click', () => {
       ui.hideModal();
+    });
+  }
+
+  // ===== Firebase Auth Dialogs =====
+
+  async showEmailLoginDialog() {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Mit Email anmelden</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+              <input type="email" id="login-email" placeholder="deine@email.com"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Passwort</label>
+              <input type="password" id="login-password" placeholder="••••••••"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+            </div>
+          </div>
+          <div class="flex gap-2 mt-6">
+            <button id="login-signin" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+              Anmelden
+            </button>
+            <button id="login-register" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600">
+              Registrieren
+            </button>
+          </div>
+          <button id="dialog-cancel" class="w-full mt-3 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            Abbrechen
+          </button>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      const emailInput = document.getElementById('login-email');
+      const passwordInput = document.getElementById('login-password');
+
+      // Sign In
+      document.getElementById('login-signin').addEventListener('click', async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+          ui.showToast('Bitte Email und Passwort eingeben', 'error');
+          return;
+        }
+
+        try {
+          ui.showToast('Anmeldung läuft...', 'info');
+          await firebaseService.signInWithEmail(email, password);
+          ui.hideModal();
+          ui.showToast('Erfolgreich angemeldet', 'success');
+          await this.showSettings();
+          resolve(true);
+        } catch (error) {
+          ui.showToast('Anmeldung fehlgeschlagen: ' + error.message, 'error');
+        }
+      });
+
+      // Register
+      document.getElementById('login-register').addEventListener('click', async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+          ui.showToast('Bitte Email und Passwort eingeben', 'error');
+          return;
+        }
+
+        if (password.length < 6) {
+          ui.showToast('Passwort muss mindestens 6 Zeichen haben', 'error');
+          return;
+        }
+
+        try {
+          ui.showToast('Account wird erstellt...', 'info');
+          await firebaseService.createAccountWithEmail(email, password);
+          ui.hideModal();
+          ui.showToast('Account erfolgreich erstellt', 'success');
+          await this.showSettings();
+          resolve(true);
+        } catch (error) {
+          ui.showToast('Registrierung fehlgeschlagen: ' + error.message, 'error');
+        }
+      });
+
+      // Cancel
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(false);
+      });
+    });
+  }
+
+  async showLinkEmailDialog() {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Account mit Email verbinden</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Verbinde deinen anonymen Account mit einer Email, um ihn dauerhaft zu sichern.
+          </p>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+              <input type="email" id="link-email" placeholder="deine@email.com"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Passwort</label>
+              <input type="password" id="link-password" placeholder="••••••••"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+            </div>
+          </div>
+          <div class="flex gap-2 mt-6">
+            <button id="link-confirm" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+              Verbinden
+            </button>
+            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      const emailInput = document.getElementById('link-email');
+      const passwordInput = document.getElementById('link-password');
+
+      document.getElementById('link-confirm').addEventListener('click', async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+          ui.showToast('Bitte Email und Passwort eingeben', 'error');
+          return;
+        }
+
+        if (password.length < 6) {
+          ui.showToast('Passwort muss mindestens 6 Zeichen haben', 'error');
+          return;
+        }
+
+        try {
+          ui.showToast('Account wird verbunden...', 'info');
+          await firebaseService.linkAnonymousToEmail(email, password);
+          ui.hideModal();
+          ui.showToast('Account erfolgreich mit Email verbunden', 'success');
+          await this.showSettings();
+          resolve(true);
+        } catch (error) {
+          ui.showToast('Verbindung fehlgeschlagen: ' + error.message, 'error');
+        }
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(false);
+      });
     });
   }
 
