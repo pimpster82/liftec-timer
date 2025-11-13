@@ -179,14 +179,14 @@ class App {
       // Add event listeners for edit/delete buttons
       document.querySelectorAll('.task-edit-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const index = parseInt(e.target.dataset.index);
+          const index = parseInt(e.currentTarget.dataset.index);
           this.editTask(index);
         });
       });
 
       document.querySelectorAll('.task-delete-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const index = parseInt(e.target.dataset.index);
+          const index = parseInt(e.currentTarget.dataset.index);
           this.deleteTask(index);
         });
       });
@@ -1161,7 +1161,7 @@ class App {
     // Add event listeners for edit buttons
     document.querySelectorAll('.history-edit-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const entryId = parseInt(e.target.dataset.id);
+        const entryId = parseInt(e.currentTarget.dataset.id);
         const entry = entries.find(e => e.id === entryId);
         if (entry) {
           ui.hideModal();
@@ -1174,7 +1174,7 @@ class App {
     // Add event listeners for delete buttons
     document.querySelectorAll('.history-delete-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const entryId = parseInt(e.target.dataset.id);
+        const entryId = parseInt(e.currentTarget.dataset.id);
         const entry = entries.find(e => e.id === entryId);
         if (entry) {
           ui.hideModal();
@@ -1295,7 +1295,7 @@ class App {
         // Re-attach remove listeners
         tasksList.querySelectorAll('.remove-task-btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
-            e.target.closest('.flex').remove();
+            e.currentTarget.closest('.flex').remove();
             if (tasksList.querySelectorAll('.flex').length === 0) {
               tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>';
             }
@@ -1306,7 +1306,7 @@ class App {
       // Remove task buttons
       document.querySelectorAll('.remove-task-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          e.target.closest('.flex').remove();
+          e.currentTarget.closest('.flex').remove();
           const tasksList = document.getElementById('edit-tasks-list');
           if (tasksList.querySelectorAll('.flex').length === 0) {
             tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>';
