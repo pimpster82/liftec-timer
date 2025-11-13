@@ -286,3 +286,66 @@ body {
     background-size: 200% 100%;
   }
 }
+
+/* Icon Styles */
+.icon {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  vertical-align: middle;
+}
+
+.icon-lg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.icon-xl {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* Modal Improvements for Mobile */
+#modal-overlay {
+  align-items: flex-end;
+}
+
+@media (min-width: 640px) {
+  #modal-overlay {
+    align-items: center;
+  }
+}
+
+#modal-content {
+  max-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem);
+  overflow-y: auto;
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (min-width: 640px) {
+  #modal-content {
+    max-height: 90vh;
+    margin-bottom: 0;
+  }
+}
+
+/* Dark mode input fixes */
+@media (prefers-color-scheme: dark) {
+  input[type="text"],
+  input[type="email"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  select,
+  textarea {
+    background-color: #1f2937;
+    border-color: #4b5563;
+    color: #ffffff;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af;
+  }
+}

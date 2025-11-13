@@ -140,8 +140,10 @@ class App {
   // ===== Event Listeners =====
 
   setupEventListeners() {
-    // Menu button
-    document.getElementById('menu-btn').addEventListener('click', () => {
+    // Menu button - add icon
+    const menuBtn = document.getElementById('menu-btn');
+    menuBtn.innerHTML = ui.icon('menu', 'icon-lg');
+    menuBtn.addEventListener('click', () => {
       this.showMenu();
     });
 
@@ -198,7 +200,7 @@ class App {
       // No session - show start button
       actions.innerHTML = `
         <button id="start-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-4 rounded-lg flex items-center justify-center space-x-2 btn-press">
-          <span class="text-2xl">▶</span>
+          ${ui.icon('play', 'icon-lg')}
           <span>${ui.t('startSession')}</span>
         </button>
       `;
@@ -208,11 +210,11 @@ class App {
       // Active session - show add task and end session buttons
       actions.innerHTML = `
         <button id="add-task-btn" class="w-full bg-primary hover:bg-primary-dark text-gray-900 font-semibold py-4 rounded-lg flex items-center justify-center space-x-2 btn-press">
-          <span class="text-xl">+</span>
+          ${ui.icon('plus', 'icon-lg')}
           <span>${ui.t('addTask')}</span>
         </button>
         <button id="end-btn" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-4 rounded-lg flex items-center justify-center space-x-2 btn-press">
-          <span class="text-xl">■</span>
+          ${ui.icon('stop', 'icon-lg')}
           <span>${ui.t('endSession')}</span>
         </button>
       `;
@@ -231,11 +233,11 @@ class App {
           <p class="text-gray-900 dark:text-white">${task.description} ${typeLabel}</p>
         </div>
         <div class="flex gap-2">
-          <button class="task-edit-btn text-blue-500 hover:text-blue-700 p-1" data-index="${index}" title="Bearbeiten">
-            ✏️
+          <button class="task-edit-btn text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 p-1" data-index="${index}" title="Bearbeiten">
+            ${ui.icon('edit')}
           </button>
-          <button class="task-delete-btn text-red-500 hover:text-red-700 p-1" data-index="${index}" title="Löschen">
-            🗑️
+          <button class="task-delete-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1" data-index="${index}" title="Löschen">
+            ${ui.icon('trash')}
           </button>
         </div>
       </div>
@@ -438,14 +440,14 @@ class App {
 
       const content = `
         <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4">${title}</h3>
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${title}</h3>
           <input type="datetime-local" id="datetime-input" value="${dateStr}"
-                 class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" step="300">
+                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" step="300">
           <div class="flex space-x-3">
-            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
               ${ui.t('cancel')}
             </button>
-            <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold">
+            <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
               OK
             </button>
           </div>
@@ -471,14 +473,14 @@ class App {
     return new Promise((resolve) => {
       const content = `
         <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4">${title}</h3>
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${title}</h3>
           <input type="text" id="text-input" value="${initialValue}"
-                 class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4">
+                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
           <div class="flex space-x-3">
-            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
               ${ui.t('cancel')}
             </button>
-            <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold">
+            <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
               ${ui.t('save')}
             </button>
           </div>
@@ -543,15 +545,52 @@ class App {
     });
   }
 
+  showImportConfirmDialog() {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('warning')}
+            <span>CSV importieren?</span>
+          </h3>
+          <p class="text-gray-600 dark:text-gray-400 mb-6">
+            Beim Import werden alle Einträge aus der CSV-Datei hinzugefügt.
+            Bereits vorhandene Einträge werden nicht überschrieben, es können Duplikate entstehen.
+          </p>
+          <div class="flex space-x-3">
+            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+            <button id="dialog-confirm" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+              Importieren
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.getElementById('dialog-confirm').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(true);
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(false);
+      });
+    });
+  }
+
   showTaskTypeSelector(defaultType = null) {
     return new Promise((resolve) => {
       const content = `
         <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4">${ui.t('taskType')}</h3>
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${ui.t('taskType')}</h3>
           <div class="space-y-2 mb-4">
             ${Object.entries(TASK_TYPES).map(([code, name]) => {
               const isSelected = code === defaultType;
-              const bgClass = isSelected ? 'bg-primary text-gray-900' : 'bg-gray-100 hover:bg-gray-200';
+              const bgClass = isSelected ? 'bg-primary text-gray-900' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white';
               return `
                 <button class="task-type-btn w-full px-4 py-3 text-left ${bgClass} rounded-lg" data-type="${code}">
                   ${name} ${code ? `<span class="badge float-right">${code}</span>` : ''}
@@ -559,7 +598,7 @@ class App {
               `;
             }).join('')}
           </div>
-          <button id="dialog-cancel" class="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+          <button id="dialog-cancel" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
             ${ui.t('cancel')}
           </button>
         </div>
@@ -590,7 +629,7 @@ class App {
               • ${t.description} ${t.type ? `<span class="badge">${t.type}</span>` : ''}
             </div>
           `).join('')
-        : `<p class="text-sm text-gray-500">${ui.t('noTasks')}</p>`;
+        : `<p class="text-sm text-gray-500 dark:text-gray-400">${ui.t('noTasks')}</p>`;
 
       const content = `
         <div class="p-6 max-h-[80vh] overflow-y-auto">
@@ -599,30 +638,30 @@ class App {
           <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 space-y-2">
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">${ui.t('date')}</span>
-              <span class="font-semibold">${ui.formatDate(data.startTime)}</span>
+              <span class="font-semibold text-gray-900 dark:text-white">${ui.formatDate(data.startTime)}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">${ui.t('start')}</span>
-              <span class="font-semibold">${ui.formatTime(data.startTime)}</span>
+              <span class="font-semibold text-gray-900 dark:text-white">${ui.formatTime(data.startTime)}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">${ui.t('end')}</span>
-              <span class="font-semibold">${ui.formatTime(data.endTime)}</span>
+              <span class="font-semibold text-gray-900 dark:text-white">${ui.formatTime(data.endTime)}</span>
             </div>
           </div>
 
           <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 space-y-2">
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">${ui.t('pause')}</span>
-              <span class="font-semibold">${ui.hoursToHHMM(data.pauseHours)} h</span>
+              <span class="font-semibold text-gray-900 dark:text-white">${ui.hoursToHHMM(data.pauseHours)} h</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">${ui.t('travelTime')}</span>
-              <span class="font-semibold">${ui.hoursToHHMM(data.travelHours)} h</span>
+              <span class="font-semibold text-gray-900 dark:text-white">${ui.hoursToHHMM(data.travelHours)} h</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600 dark:text-gray-400">${ui.t('netWorkTime')}</span>
-              <span class="font-semibold">${ui.hoursToHHMM(data.netHours)} h</span>
+              <span class="font-semibold text-gray-900 dark:text-white">${ui.hoursToHHMM(data.netHours)} h</span>
             </div>
             <div class="flex justify-between border-t border-gray-300 dark:border-gray-600 pt-2">
               <span class="text-gray-600 dark:text-gray-400">${ui.t('surcharge')} (${data.surchargePercent}%)</span>
@@ -632,7 +671,7 @@ class App {
 
           ${data.tasks.length > 0 ? `
             <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4">
-              <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">${ui.t('tasks')} (${data.tasks.length})</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">${ui.t('tasks')} (${data.tasks.length})</p>
               <div class="space-y-1">
                 ${tasksHTML}
               </div>
@@ -640,10 +679,10 @@ class App {
           ` : ''}
 
           <div class="flex space-x-3">
-            <button id="dialog-cancel" class="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-lg">
+            <button id="dialog-cancel" class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
               ${ui.t('cancel')}
             </button>
-            <button id="dialog-ok" class="flex-1 px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold">
+            <button id="dialog-ok" class="flex-1 px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
               ${ui.t('save')}
             </button>
           </div>
@@ -669,22 +708,30 @@ class App {
   async showMenu() {
     const content = `
       <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4">${ui.t('menu')}</h3>
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${ui.t('menu')}</h3>
         <div class="space-y-2">
-          <button id="menu-settings" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 rounded-lg">
-            ⚙️ ${ui.t('settings')}
+          <button id="menu-settings" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
+            ${ui.icon('settings')}
+            <span>${ui.t('settings')}</span>
           </button>
-          <button id="menu-export" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 rounded-lg">
-            📤 ${ui.t('monthExport')}
+          <button id="menu-export" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
+            ${ui.icon('upload')}
+            <span>${ui.t('monthExport')}</span>
           </button>
-          <button id="menu-history" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 rounded-lg">
-            📋 ${ui.t('recordings')}
+          <button id="menu-import" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
+            ${ui.icon('download')}
+            <span>${ui.t('importCSV')}</span>
           </button>
-          <button id="menu-about" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 rounded-lg">
-            ℹ️ Info
+          <button id="menu-history" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
+            ${ui.icon('history')}
+            <span>${ui.t('recordings')}</span>
+          </button>
+          <button id="menu-about" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
+            ${ui.icon('info')}
+            <span>Info</span>
           </button>
         </div>
-        <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+        <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">
           ${ui.t('cancel')}
         </button>
       </div>
@@ -700,6 +747,11 @@ class App {
     document.getElementById('menu-export').addEventListener('click', () => {
       ui.hideModal();
       this.showExportMenu();
+    });
+
+    document.getElementById('menu-import').addEventListener('click', () => {
+      ui.hideModal();
+      this.showImportMenu();
     });
 
     document.getElementById('menu-history').addEventListener('click', () => {
@@ -724,50 +776,53 @@ class App {
 
     const content = `
       <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4">⚙️ ${ui.t('settings')}</h3>
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+          ${ui.icon('settings')}
+          <span>${ui.t('settings')}</span>
+        </h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
             <input type="text" id="setting-username" value="${settings.username}"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
             <input type="email" id="setting-email" value="${settings.email}"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">${ui.t('language')}</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${ui.t('language')}</label>
             <select id="setting-language"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               <option value="de" ${settings.language === 'de' ? 'selected' : ''}>Deutsch</option>
               <option value="en" ${settings.language === 'en' ? 'selected' : ''}>English</option>
               <option value="hr" ${settings.language === 'hr' ? 'selected' : ''}>Hrvatski</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">${ui.t('surcharge')} (%)</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${ui.t('surcharge')} (%)</label>
             <input type="number" id="setting-surcharge" value="${settings.surchargePercent}" min="0" max="200"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email Betreff</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Betreff</label>
             <input type="text" id="setting-email-subject" value="${settings.emailSubject}"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
-            <p class="text-xs text-gray-500 mt-1">Platzhalter: {month}, {name}</p>
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Platzhalter: {month}, {name}</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email Text</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Text</label>
             <textarea id="setting-email-body" rows="3"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">${settings.emailBody}</textarea>
-            <p class="text-xs text-gray-500 mt-1">Platzhalter: {month}, {name}</p>
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">${settings.emailBody}</textarea>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Platzhalter: {month}, {name}</p>
           </div>
         </div>
         <div class="flex gap-2 mt-6">
-          <button id="settings-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold">
+          <button id="settings-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
             ${ui.t('save')}
           </button>
-          <button id="settings-cancel" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+          <button id="settings-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
             ${ui.t('cancel')}
           </button>
         </div>
@@ -812,17 +867,22 @@ class App {
 
       const dialogContent = `
         <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4">${ui.t('exportSuccess')}</h3>
-          <p class="text-sm text-gray-600 mb-4">${filename}</p>
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('check')}
+            <span>${ui.t('exportSuccess')}</span>
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${filename}</p>
           <div class="space-y-2">
-            <button id="export-download" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold">
-              ${ui.t('download')}
+            <button id="export-download" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+              ${ui.icon('download')}
+              <span>${ui.t('download')}</span>
             </button>
-            <button id="export-email" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold">
-              ${ui.t('sendEmail')}
+            <button id="export-email" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
+              ${ui.icon('mail')}
+              <span>${ui.t('sendEmail')}</span>
             </button>
           </div>
-          <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+          <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
             ${ui.t('close')}
           </button>
         </div>
@@ -850,6 +910,97 @@ class App {
     }
   }
 
+  // ===== Import =====
+
+  async showImportMenu() {
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+          ${ui.icon('download')}
+          <span>${ui.t('importCSV')}</span>
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Wähle eine CSV-Datei aus, um Einträge zu importieren.
+        </p>
+        <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+        <button id="select-file-btn" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold mb-2 hover:bg-primary-dark flex items-center justify-center gap-2">
+          ${ui.icon('folder')}
+          <span>${ui.t('selectFile')}</span>
+        </button>
+        <div id="file-name" class="text-sm text-gray-600 dark:text-gray-400 mb-4 min-h-6"></div>
+        <button id="import-btn" class="w-full px-4 py-3 bg-green-500 text-white rounded-lg font-semibold disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-gray-600 dark:disabled:text-gray-400 hover:bg-green-600 flex items-center justify-center gap-2" disabled>
+          ${ui.icon('upload')}
+          <span>Importieren</span>
+        </button>
+        <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+          ${ui.t('cancel')}
+        </button>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    const fileInput = document.getElementById('csv-file-input');
+    const importBtn = document.getElementById('import-btn');
+    const fileNameDisplay = document.getElementById('file-name');
+    let selectedFile = null;
+
+    document.getElementById('select-file-btn').addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      selectedFile = e.target.files[0];
+      if (selectedFile) {
+        fileNameDisplay.innerHTML = `<div class="flex items-center gap-2">${ui.icon('file')}<span>${selectedFile.name}</span></div>`;
+        importBtn.disabled = false;
+      } else {
+        fileNameDisplay.textContent = '';
+        importBtn.disabled = true;
+      }
+    });
+
+    importBtn.addEventListener('click', async () => {
+      if (!selectedFile) {
+        ui.showToast(ui.t('noFileSelected'), 'error');
+        return;
+      }
+
+      // Show confirmation dialog
+      const confirmed = await this.showImportConfirmDialog();
+
+      if (!confirmed) return;
+
+      try {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const csvContent = e.target.result;
+            const count = await csvExport.importCSV(csvContent);
+
+            ui.hideModal();
+            if (count > 0) {
+              ui.showToast(ui.t('entriesImported').replace('{count}', count), 'success');
+            } else {
+              ui.showToast('Keine gültigen Einträge gefunden', 'warning');
+            }
+          } catch (error) {
+            console.error('Import error:', error);
+            ui.showToast(ui.t('importError'), 'error');
+          }
+        };
+        reader.readAsText(selectedFile);
+      } catch (error) {
+        console.error('File read error:', error);
+        ui.showToast(ui.t('importError'), 'error');
+      }
+    });
+
+    document.getElementById('dialog-cancel').addEventListener('click', () => {
+      ui.hideModal();
+    });
+  }
+
   // ===== History =====
 
   // Helper function: Convert HH:MM to hours
@@ -875,9 +1026,12 @@ class App {
     if (entries.length === 0) {
       const content = `
         <div class="p-6 text-center">
-          <h3 class="text-lg font-semibold mb-4">📋 ${ui.t('recordings')}</h3>
-          <p class="text-gray-500">Noch keine Einträge vorhanden</p>
-          <button id="dialog-ok" class="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center justify-center gap-2">
+            ${ui.icon('history')}
+            <span>${ui.t('recordings')}</span>
+          </h3>
+          <p class="text-gray-500 dark:text-gray-400">Noch keine Einträge vorhanden</p>
+          <button id="dialog-ok" class="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
             OK
           </button>
         </div>
@@ -960,16 +1114,20 @@ class App {
             <span class="font-medium text-gray-900 dark:text-white">${dateStr}</span>
             <div class="flex items-center gap-2">
               <span class="font-semibold text-primary">${workHours.toFixed(1)}h</span>
-              <button class="history-edit-btn text-blue-500 hover:text-blue-700 p-1" data-id="${entry.id}" title="Bearbeiten">✏️</button>
-              <button class="history-delete-btn text-red-500 hover:text-red-700 p-1" data-id="${entry.id}" title="Löschen">🗑️</button>
+              <button class="history-edit-btn text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 p-1" data-id="${entry.id}" title="Bearbeiten">
+                ${ui.icon('edit')}
+              </button>
+              <button class="history-delete-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1" data-id="${entry.id}" title="Löschen">
+                ${ui.icon('trash')}
+              </button>
             </div>
           </div>
           <div class="text-sm text-gray-600 dark:text-gray-400">
             ${entry.startTime} - ${entry.endTime}
           </div>
-          ${entry.pause ? `<div class="text-xs text-gray-500">Pause: ${entry.pause}</div>` : ''}
-          ${entry.travelTime ? `<div class="text-xs text-gray-500">Fahrt: ${entry.travelTime}</div>` : ''}
-          ${entry.surcharge ? `<div class="text-xs text-gray-500">Zuschlag: ${entry.surcharge}</div>` : ''}
+          ${entry.pause ? `<div class="text-xs text-gray-500 dark:text-gray-400">Pause: ${entry.pause}</div>` : ''}
+          ${entry.travelTime ? `<div class="text-xs text-gray-500 dark:text-gray-400">Fahrt: ${entry.travelTime}</div>` : ''}
+          ${entry.surcharge ? `<div class="text-xs text-gray-500 dark:text-gray-400">Zuschlag: ${entry.surcharge}</div>` : ''}
           ${taskList ? `<div class="text-sm text-gray-700 dark:text-gray-300 mt-2">${taskList}</div>` : ''}
         </div>
       `;
@@ -977,19 +1135,22 @@ class App {
 
     const content = `
       <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4">📋 ${ui.t('recordings')}</h3>
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+          ${ui.icon('history')}
+          <span>${ui.t('recordings')}</span>
+        </h3>
 
         ${statsHtml}
 
         <div class="mb-3">
-          <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Alle Einträge (${entries.length})</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Alle Einträge (${entries.length})</div>
         </div>
 
         <div class="max-h-64 overflow-y-auto border-t border-gray-200 dark:border-gray-700">
           ${entriesHtml}
         </div>
 
-        <button id="dialog-ok" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">
+        <button id="dialog-ok" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
           ${ui.t('close')}
         </button>
       </div>
@@ -1032,25 +1193,28 @@ class App {
     return new Promise((resolve) => {
       const content = `
         <div class="p-6 max-h-[80vh] overflow-y-auto">
-          <h3 class="text-lg font-semibold mb-4">Eintrag bearbeiten</h3>
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('edit')}
+            <span>Eintrag bearbeiten</span>
+          </h3>
 
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Datum</label>
               <input type="date" id="edit-date" value="${entry.date.split('.').reverse().join('-')}"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startzeit</label>
                 <input type="time" id="edit-start" value="${entry.startTime}"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endzeit</label>
                 <input type="time" id="edit-end" value="${entry.endTime}"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               </div>
             </div>
 
@@ -1058,19 +1222,19 @@ class App {
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pause (HH:MM)</label>
                 <input type="time" id="edit-pause" value="${entry.pause || '00:00'}"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fahrtzeit (HH:MM)</label>
                 <input type="time" id="edit-travel" value="${entry.travelTime || '00:00'}"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               </div>
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Zuschlag (HH:MM)</label>
               <input type="time" id="edit-surcharge" value="${entry.surcharge || '00:00'}"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
             </div>
 
             <div>
@@ -1078,23 +1242,26 @@ class App {
               <div id="edit-tasks-list" class="space-y-2 mb-2">
                 ${entry.tasks && entry.tasks.length > 0 ? entry.tasks.map((task, idx) => `
                   <div class="flex gap-2">
-                    <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 rounded"
+                    <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                       value="${task.type}" placeholder="Typ">
-                    <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 rounded"
+                    <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                       value="${task.description}" placeholder="Beschreibung">
-                    <button class="remove-task-btn text-red-500 hover:text-red-700 px-2" data-index="${idx}">✕</button>
+                    <button class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${idx}">${ui.icon('x')}</button>
                   </div>
-                `).join('') : '<p class="text-sm text-gray-500">Keine Aufgaben</p>'}
+                `).join('') : '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>'}
               </div>
-              <button id="add-task-to-entry" class="text-sm text-blue-500 hover:text-blue-700">+ Aufgabe hinzufügen</button>
+              <button id="add-task-to-entry" class="text-sm text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-1">
+                ${ui.icon('plus')}
+                <span>Aufgabe hinzufügen</span>
+              </button>
             </div>
           </div>
 
           <div class="flex gap-2 mt-6">
-            <button id="edit-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold">
+            <button id="edit-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
               Speichern
             </button>
-            <button id="edit-cancel" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+            <button id="edit-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
               Abbrechen
             </button>
           </div>
@@ -1111,11 +1278,11 @@ class App {
 
         const newTaskHtml = `
           <div class="flex gap-2">
-            <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 rounded"
+            <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               value="" placeholder="Typ">
-            <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 rounded"
+            <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               value="" placeholder="Beschreibung">
-            <button class="remove-task-btn text-red-500 hover:text-red-700 px-2" data-index="${newIndex}">✕</button>
+            <button class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${newIndex}">${ui.icon('x')}</button>
           </div>
         `;
 
@@ -1130,7 +1297,7 @@ class App {
           btn.addEventListener('click', (e) => {
             e.target.closest('.flex').remove();
             if (tasksList.querySelectorAll('.flex').length === 0) {
-              tasksList.innerHTML = '<p class="text-sm text-gray-500">Keine Aufgaben</p>';
+              tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>';
             }
           });
         });
@@ -1142,7 +1309,7 @@ class App {
           e.target.closest('.flex').remove();
           const tasksList = document.getElementById('edit-tasks-list');
           if (tasksList.querySelectorAll('.flex').length === 0) {
-            tasksList.innerHTML = '<p class="text-sm text-gray-500">Keine Aufgaben</p>';
+            tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>';
           }
         });
       });
