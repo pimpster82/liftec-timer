@@ -1254,6 +1254,73 @@ class App {
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
 
+    // First: Choose export format
+    const formatDialogContent = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+          ${ui.icon('download')}
+          <span>Export-Format wählen</span>
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Welches Format möchtest du exportieren?
+        </p>
+        <div class="space-y-3">
+          <button id="export-xlsx" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+            ${ui.icon('document')}
+            <span>Excel (.xlsx) - Formatiert</span>
+          </button>
+          <button id="export-csv" class="w-full px-4 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 flex items-center justify-center gap-2">
+            ${ui.icon('document')}
+            <span>CSV - Einfach</span>
+          </button>
+        </div>
+        <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+          Abbrechen
+        </button>
+      </div>
+    `;
+
+    ui.showModal(formatDialogContent);
+
+    // Excel export
+    document.getElementById('export-xlsx').addEventListener('click', async () => {
+      try {
+        ui.hideModal();
+        ui.showToast('Generiere Excel-Datei...', 'info');
+
+        // Get entries for the month
+        const entries = await storage.getMonthEntries(year, month);
+
+        if (!entries || entries.length === 0) {
+          ui.showToast('Keine Einträge für diesen Monat', 'error');
+          return;
+        }
+
+        await excelExport.generateXLSX(entries, year, month, ui.settings.username);
+        ui.showToast('Excel-Datei heruntergeladen', 'success');
+      } catch (error) {
+        ui.showToast('Export fehlgeschlagen: ' + error.message, 'error');
+        console.error(error);
+      }
+    });
+
+    // CSV export (existing functionality)
+    document.getElementById('export-csv').addEventListener('click', async () => {
+      ui.hideModal();
+      await this.showCSVExport();
+    });
+
+    document.getElementById('dialog-cancel').addEventListener('click', () => {
+      ui.hideModal();
+    });
+  }
+
+  // CSV export dialog (extracted from old showExportMenu)
+  async showCSVExport() {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+
     try {
       const { content, filename } = await csvExport.generateMonthlyCSV(year, month, ui.settings.username);
 
