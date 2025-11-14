@@ -909,21 +909,7 @@ class App {
     ui.settings.language = langResult;
     ui.i18n = ui.getI18N();
 
-    // Step 3: Surcharge
-    const surchargeResult = await this.showOnboardingStep({
-      step: currentStep++,
-      total: totalSteps,
-      title: ui.t('onboardingSurchargeTitle'),
-      description: ui.t('onboardingSurchargeDesc'),
-      type: 'number',
-      placeholder: ui.t('onboardingSurchargePlaceholder'),
-      required: true,
-      value: onboardingData.surchargePercent
-    });
-    if (!surchargeResult) return;
-    onboardingData.surchargePercent = parseInt(surchargeResult);
-
-    // Step 4: Email
+    // Step 3: Email
     const emailResult = await this.showOnboardingStep({
       step: currentStep++,
       total: totalSteps,
@@ -932,23 +918,111 @@ class App {
       type: 'email',
       placeholder: ui.t('onboardingEmailPlaceholder'),
       required: false,
-      value: onboardingData.email,
-      isLast: true
+      value: onboardingData.email
     });
     if (emailResult !== null) {
       onboardingData.email = emailResult || ui.settings.email;
     }
 
-    // Save settings
-    const newSettings = {
-      ...ui.settings,
-      ...onboardingData,
-      onboardingCompleted: true
-    };
+    // Step 4: Surcharge
+    const surchargeResult = await this.showOnboardingStep({
+      step: currentStep++,
+      total: totalSteps,
+      title: ui.t('onboardingSurchargeTitle'),
+      description: ui.t('onboardingSurchargeDesc'),
+      type: 'number',
+      placeholder: ui.t('onboardingSurchargePlaceholder'),
+      required: true,
+      value: onboardingData.surchargePercent,
+      isLast: true
+    });
+    if (!surchargeResult) return;
+    onboardingData.surchargePercent = parseInt(surchargeResult);
 
-    await storage.saveSettings(newSettings);
-    ui.settings = newSettings;
-    ui.showToast('Willkommen! 👋', 'success');
+    // Show summary before completion
+    const languageName = {
+      de: 'Deutsch',
+      en: 'English',
+      hr: 'Hrvatski'
+    }[onboardingData.language];
+
+    const summaryHTML = `
+      <div class="text-center mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          ${ui.t('onboardingWelcome')}
+        </h2>
+        <p class="text-gray-600 dark:text-gray-300">${ui.t('onboardingSummaryTitle')}</p>
+      </div>
+
+      <div class="space-y-4 mb-8 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+        <div class="flex items-center justify-between">
+          <span class="text-gray-700 dark:text-gray-300">${ui.t('onboardingSummaryName')}</span>
+          <span class="font-semibold text-gray-900 dark:text-white">${onboardingData.username}</span>
+        </div>
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-700 dark:text-gray-300">${ui.t('onboardingSummaryLanguage')}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${languageName}</span>
+          </div>
+        </div>
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-700 dark:text-gray-300">${ui.t('onboardingSummarySurcharge')}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${onboardingData.surchargePercent}%</span>
+          </div>
+        </div>
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-700 dark:text-gray-300">${ui.t('onboardingSummaryEmail')}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${onboardingData.email || ui.t('onboardingSummaryNotSet')}</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-sm text-gray-600 dark:text-gray-300 mb-6 text-center">
+        ${ui.t('onboardingSummaryNote')}
+      </p>
+
+      <div class="flex gap-3">
+        <button id="summary-back-btn" class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium">
+          ${ui.t('onboardingSummaryBack')}
+        </button>
+        <button id="summary-confirm-btn" class="flex-1 px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors font-medium">
+          ${ui.t('onboardingSummaryConfirm')}
+        </button>
+      </div>
+    `;
+
+    return new Promise((resolve) => {
+      ui.showModal(summaryHTML);
+
+      document.getElementById('summary-back-btn').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(false); // Go back
+      });
+
+      document.getElementById('summary-confirm-btn').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(true); // Proceed to save
+      });
+    }).then(async (confirmed) => {
+      if (!confirmed) {
+        // User went back - show surcharge step again
+        await this.showOnboarding();
+        return;
+      }
+
+      // Save settings
+      const newSettings = {
+        ...ui.settings,
+        ...onboardingData,
+        onboardingCompleted: true
+      };
+
+      await storage.saveSettings(newSettings);
+      ui.settings = newSettings;
+      ui.showToast('Willkommen! 👋', 'success');
+    });
   }
 
   async showOnboardingStep(config) {
