@@ -48,6 +48,12 @@ class Storage {
           worklogStore.createIndex('yearMonth', 'yearMonth', { unique: false });
         }
 
+        if (!db.objectStoreNames.contains('backups')) {
+          const backupStore = db.createObjectStore('backups', { keyPath: 'id', autoIncrement: true });
+          backupStore.createIndex('timestamp', 'timestamp', { unique: false });
+          backupStore.createIndex('username', 'username', { unique: false });
+        }
+
         console.log('Database setup complete');
       };
     });
@@ -397,6 +403,145 @@ class Storage {
     }
 
     return true;
+  }
+
+  // ===== Backup Methods =====
+
+  async createBackup(username) {
+    // Create complete data snapshot
+    const backup = {
+      timestamp: new Date().toISOString(),
+      date: new Date(),
+      username: username,
+      entryCount: 0,
+      data: {
+        sessions: [],
+        currentSession: null,
+        worklog: [],
+        settings: null
+      }
+    };
+
+    try {
+      // Get all data
+      backup.data.sessions = await this.getAll('sessions') || [];
+      backup.data.currentSession = await this.get('currentSession', 'active') || null;
+      backup.data.worklog = await this.getAll('worklog') || [];
+      backup.data.settings = await this.get('settings', 'app') || null;
+
+      // Count entries
+      backup.entryCount = backup.data.worklog.length;
+
+      // Save backup to backups store
+      const backupId = await this.put('backups', backup);
+      backup.id = backupId;
+
+      console.log(`Backup created: ID ${backupId}, ${backup.entryCount} entries`);
+      return backup;
+    } catch (error) {
+      console.error('Backup creation failed:', error);
+      throw error;
+    }
+  }
+
+  async getBackups() {
+    try {
+      return await this.getAll('backups') || [];
+    } catch (error) {
+      console.error('Get backups failed:', error);
+      return [];
+    }
+  }
+
+  async getBackup(backupId) {
+    try {
+      return await this.get('backups', backupId);
+    } catch (error) {
+      console.error('Get backup failed:', error);
+      return null;
+    }
+  }
+
+  async restoreBackup(backupId) {
+    try {
+      const backup = await this.get('backups', backupId);
+      if (!backup) throw new Error('Backup not found');
+
+      // Clear current data
+      await this.clear('sessions');
+      await this.clear('currentSession');
+      await this.clear('worklog');
+      // Don't clear settings - user keeps current config
+
+      // Import backup data
+      if (backup.data.sessions && backup.data.sessions.length > 0) {
+        for (const session of backup.data.sessions) {
+          await this.put('sessions', session);
+        }
+      }
+
+      if (backup.data.currentSession) {
+        await this.saveCurrentSession(backup.data.currentSession);
+      }
+
+      if (backup.data.worklog && backup.data.worklog.length > 0) {
+        for (const entry of backup.data.worklog) {
+          await this.put('worklog', entry);
+        }
+      }
+
+      console.log(`Backup restored: ${backup.entryCount} entries`);
+      return true;
+    } catch (error) {
+      console.error('Backup restore failed:', error);
+      throw error;
+    }
+  }
+
+  async deleteBackup(backupId) {
+    try {
+      await this.delete('backups', backupId);
+      console.log(`Backup deleted: ID ${backupId}`);
+      return true;
+    } catch (error) {
+      console.error('Backup deletion failed:', error);
+      throw error;
+    }
+  }
+
+  async backupToCSV(backup) {
+    // Convert backup to CSV format
+    if (!backup.data.worklog || backup.data.worklog.length === 0) {
+      return 'Datum;Start;Ende;Pause;Fahrtzeit;SZ;N;D;R;W;Taetigkeiten\n';
+    }
+
+    let csv = 'Datum;Start;Ende;Pause;Fahrtzeit;SZ;N;D;R;W;Taetigkeiten\n';
+
+    const sortedEntries = [...backup.data.worklog].sort((a, b) => {
+      const dateA = this._parseDate(a.date);
+      const dateB = this._parseDate(b.date);
+      return dateA - dateB;
+    });
+
+    for (const entry of sortedEntries) {
+      const taskStr = entry.tasks && entry.tasks.length > 0
+        ? `"${entry.tasks.map(t => `${t.description} [${t.type}]`).join(', ')}"`
+        : '';
+
+      const nFlag = entry.tasks?.some(t => t.type === 'N') ? 'X' : '';
+      const dFlag = entry.tasks?.some(t => t.type === 'D') ? 'X' : '';
+      const rFlag = entry.tasks?.some(t => t.type === 'R') ? 'X' : '';
+      const wFlag = entry.tasks?.some(t => t.type === 'W') ? 'X' : '';
+
+      csv += `${entry.date};${entry.startTime};${entry.endTime};${entry.pause};${entry.travelTime};${entry.surcharge};${nFlag};${dFlag};${rFlag};${wFlag};${taskStr}\n`;
+    }
+
+    return csv;
+  }
+
+  _parseDate(dateStr) {
+    const [day, month, year] = dateStr.split('.');
+    return new Date(year, month - 1, day);
   }
 
   // ===== Utility Methods =====

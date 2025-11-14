@@ -1,11 +1,13 @@
 {
-  "version": "1.1.4",
+  "version": "1.1.5",
   "releaseDate": "2025-11-14",
   "changelog": [
-    "Onboarding UX improvements: reordered steps for better flow",
-    "Added onboarding summary screen before app launch",
-    "Improved descriptions: Surcharge as suggestion, Email more action-oriented",
-    "All 3 languages updated with new translations"
+    "Local backup system for safe offline data storage",
+    "Delete all data with automatic backup creation",
+    "Backup management: restore, share, and delete backups",
+    "IndexedDB 'backups' store for snapshot-based backups",
+    "Web Share API support for iOS file sharing",
+    "Fallback download for desktop backup export"
   ],
   "critical": false
 }

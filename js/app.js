@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.1.4';
+const APP_VERSION = '1.1.5';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1648,7 +1648,10 @@ class App {
             </div>
           </div>
         </div>
-        <div class="flex gap-2 mt-6">
+        <button id="settings-backups" class="w-full px-4 py-3 mt-6 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700">
+          ${ui.t('backupTitle')}
+        </button>
+        <div class="flex gap-2 mt-4">
           <button id="settings-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
             ${ui.t('save')}
           </button>
@@ -1859,6 +1862,11 @@ class App {
       ui.hideModal();
       ui.showToast('Einstellungen gespeichert', 'success');
       await this.renderMainScreen();
+    });
+
+    document.getElementById('settings-backups').addEventListener('click', () => {
+      ui.hideModal();
+      this.showBackupManager();
     });
 
     document.getElementById('settings-cancel').addEventListener('click', () => {
@@ -2776,6 +2784,279 @@ class App {
     document.getElementById('dialog-ok').addEventListener('click', () => {
       ui.hideModal();
     });
+  }
+
+  // ===== Backup & Data Management =====
+
+  async showBackupManager() {
+    const backups = await storage.getBackups();
+
+    // Build backups list HTML
+    let backupsListHTML = '';
+    if (backups.length === 0) {
+      backupsListHTML = `
+        <div class="text-center py-6 text-gray-500 dark:text-gray-400">
+          <p>${ui.t('noBackups')}</p>
+        </div>
+      `;
+    } else {
+      backupsListHTML = `
+        <div class="space-y-3">
+          ${backups.map(backup => {
+            const date = new Date(backup.timestamp);
+            const dateStr = date.toLocaleDateString(ui.settings.language === 'de' ? 'de-DE' : 'en-US');
+            const timeStr = date.toLocaleTimeString(ui.settings.language === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+
+            return `
+              <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg flex items-center justify-between">
+                <div>
+                  <p class="font-medium text-gray-900 dark:text-white">
+                    ${ui.t('backupDate')} ${dateStr} ${timeStr}
+                  </p>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">
+                    ${backup.entryCount} ${ui.t('backupSize')}
+                  </p>
+                </div>
+                <div class="flex gap-2">
+                  <button class="restore-btn px-3 py-2 text-sm bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors" data-id="${backup.id}">
+                    ${ui.t('restoreBackup')}
+                  </button>
+                  <button class="share-btn px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors" data-id="${backup.id}">
+                    ${ui.t('shareBackup')}
+                  </button>
+                  <button class="delete-btn px-3 py-2 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors" data-id="${backup.id}">
+                    ${ui.t('deleteBackup')}
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    const content = `
+      <div class="space-y-6">
+        <div class="text-center">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            ${ui.t('backupTitle')}
+          </h2>
+          <p class="text-gray-600 dark:text-gray-300 text-sm">
+            ${ui.t('backupDescription')}
+          </p>
+        </div>
+
+        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <h3 class="font-semibold text-red-900 dark:text-red-200 mb-2">
+            ${ui.t('deleteAllData')}
+          </h3>
+          <p class="text-sm text-red-800 dark:text-red-300 mb-4">
+            ${ui.t('deleteAllDataDescription')}
+          </p>
+          <button id="delete-all-data-btn" class="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium">
+            ${ui.t('deleteAllData')}
+          </button>
+        </div>
+
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            ${ui.t('backupsList')}
+          </h3>
+          ${backupsListHTML}
+        </div>
+
+        <button id="close-backup-btn" class="w-full px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium">
+          ${ui.t('close')}
+        </button>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    // Delete all data
+    document.getElementById('delete-all-data-btn').addEventListener('click', async () => {
+      await this.showDeleteAllDataDialog();
+    });
+
+    // Restore backup
+    document.querySelectorAll('.restore-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const backupId = parseInt(e.target.dataset.id);
+        await this.restoreBackupDialog(backupId);
+      });
+    });
+
+    // Share backup
+    document.querySelectorAll('.share-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const backupId = parseInt(e.target.dataset.id);
+        await this.shareBackup(backupId);
+      });
+    });
+
+    // Delete backup
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const backupId = parseInt(e.target.dataset.id);
+        const confirmed = await this.showConfirmDialog(ui.t('confirmDelete'), ui.t('confirmDeleteMessage'));
+        if (confirmed) {
+          try {
+            await storage.deleteBackup(backupId);
+            ui.showToast(ui.t('deleted'), 'success');
+            await this.showBackupManager();
+          } catch (error) {
+            ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+          }
+        }
+      });
+    });
+
+    // Close button
+    document.getElementById('close-backup-btn').addEventListener('click', () => {
+      ui.hideModal();
+      this.showSettings();
+    });
+  }
+
+  async showDeleteAllDataDialog() {
+    // First warning
+    const confirmed1 = await this.showConfirmDialog(
+      ui.t('deleteAllDataWarning'),
+      ui.t('deleteAllDataInfo')
+    );
+
+    if (!confirmed1) return;
+
+    try {
+      ui.showLoading();
+
+      // Create backup automatically
+      const backup = await storage.createBackup(ui.settings.username);
+      ui.hideLoading();
+
+      // Show backup created message
+      const message = ui.t('backupCreated').replace('{count}', backup.entryCount);
+      ui.showToast(message, 'success');
+
+      // Second confirmation
+      const confirmed2 = await this.showConfirmDialog(
+        ui.t('deleteAllDataConfirm'),
+        ui.t('deleteAllDataFinal').replace('{count}', backup.entryCount)
+      );
+
+      if (!confirmed2) return;
+
+      // Delete all data
+      await storage.clear('worklog');
+      await storage.clear('currentSession');
+
+      ui.showToast(ui.t('dataDeleted'), 'success');
+
+      // Refresh UI
+      await this.renderMainScreen();
+      ui.hideModal();
+    } catch (error) {
+      ui.hideLoading();
+      ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+    }
+  }
+
+  async restoreBackupDialog(backupId) {
+    const backup = await storage.getBackup(backupId);
+    if (!backup) {
+      ui.showToast(ui.t('notFound'), 'error');
+      return;
+    }
+
+    const confirmed = await this.showConfirmDialog(
+      ui.t('restoreBackup'),
+      ui.t('restoreSuccess').replace('{count}', backup.entryCount) + '\n\n' + ui.t('confirmDelete')
+    );
+
+    if (!confirmed) return;
+
+    try {
+      ui.showLoading();
+      await storage.restoreBackup(backupId);
+      ui.hideLoading();
+
+      const message = ui.t('restoreSuccess').replace('{count}', backup.entryCount);
+      ui.showToast(message, 'success');
+
+      await this.renderMainScreen();
+      ui.hideModal();
+    } catch (error) {
+      ui.hideLoading();
+      ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+    }
+  }
+
+  async shareBackup(backupId) {
+    try {
+      const backup = await storage.getBackup(backupId);
+      if (!backup) {
+        ui.showToast(ui.t('notFound'), 'error');
+        return;
+      }
+
+      // Generate CSV from backup
+      const csv = await storage.backupToCSV(backup);
+
+      // Create filename
+      const date = new Date(backup.timestamp);
+      const dateStr = date.toISOString().split('T')[0];
+      const filename = `backup_${ui.settings.username}_${dateStr}_${backup.entryCount}.csv`;
+
+      // Use Web Share API if available
+      if (navigator.share) {
+        try {
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const file = new File([blob], filename, { type: 'text/csv' });
+
+          await navigator.share({
+            files: [file],
+            title: ui.t('backupShareSubject').replace('{name}', ui.settings.username),
+            text: ui.t('backupShareBody').replace('{date}', dateStr)
+          });
+        } catch (error) {
+          if (error.name !== 'AbortError') {
+            console.error('Share failed:', error);
+            // Fallback to download
+            await this.downloadBackupCSV(csv, filename);
+          }
+        }
+      } else {
+        // Fallback: download
+        await this.downloadBackupCSV(csv, filename);
+      }
+    } catch (error) {
+      ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+    }
+  }
+
+  async downloadBackupCSV(csv, filename) {
+    try {
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+
+      const link = document.createElement('a');
+      if (navigator.msSaveBlob) {
+        // IE 10+
+        navigator.msSaveBlob(blob, filename);
+      } else {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      ui.showToast(ui.t('downloaded'), 'success');
+    } catch (error) {
+      ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+    }
   }
 }
 
