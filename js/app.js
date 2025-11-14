@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -45,8 +45,8 @@ class App {
       // Setup install prompt
       this.setupInstallPrompt();
 
-      // Check onboarding
-      if (!ui.settings.onboardingCompleted) {
+      // Check onboarding (only for new users)
+      if (ui.settings.username === 'Benutzer' && !ui.settings.onboardingCompleted) {
         await this.showOnboarding();
       }
 

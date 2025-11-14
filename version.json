@@ -1,11 +1,10 @@
 {
-  "version": "1.1.2",
-  "releaseDate": "2025-01-14",
+  "version": "1.1.3",
+  "releaseDate": "2025-11-14",
   "changelog": [
-    "Onboarding-Walkthrough für neue Benutzer",
-    "Mehrsprachige Erklärungen zu allen Einstellungen",
-    "Cloud Sync: Nur nach Anmeldung aktivierbar",
-    "Pflichtfelder beim ersten Start"
+    "Service Worker cache version synchronization",
+    "Documentation updates to CLAUDE.md",
+    "Code consistency audit completed"
   ],
   "critical": false
 }
