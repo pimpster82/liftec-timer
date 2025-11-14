@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -44,6 +44,11 @@ class App {
 
       // Setup install prompt
       this.setupInstallPrompt();
+
+      // Check onboarding
+      if (!ui.settings.onboardingCompleted) {
+        await this.showOnboarding();
+      }
 
       // Render main screen
       await this.renderMainScreen();
@@ -847,6 +852,159 @@ class App {
       document.getElementById('conflict-cancel').addEventListener('click', () => {
         ui.hideModal();
         resolve('cancel');
+      });
+    });
+  }
+
+  // ===== Onboarding =====
+
+  async showOnboarding() {
+    let currentStep = 1;
+    const totalSteps = 4;
+    const onboardingData = {
+      username: '',
+      language: 'de',
+      surchargePercent: 80,
+      email: ''
+    };
+
+    // Step 1: Name
+    const nameResult = await this.showOnboardingStep({
+      step: currentStep++,
+      total: totalSteps,
+      title: ui.t('onboardingNameTitle'),
+      description: ui.t('onboardingNameDesc'),
+      type: 'text',
+      placeholder: ui.t('onboardingNamePlaceholder'),
+      required: true,
+      value: onboardingData.username
+    });
+    if (!nameResult) return; // User cancelled
+    onboardingData.username = nameResult;
+
+    // Update UI language for next steps
+    ui.settings.username = nameResult;
+    ui.settings.language = onboardingData.language;
+    ui.i18n = ui.getI18N();
+
+    // Step 2: Language
+    const langResult = await this.showOnboardingStep({
+      step: currentStep++,
+      total: totalSteps,
+      title: ui.t('onboardingLanguageTitle'),
+      description: ui.t('onboardingLanguageDesc'),
+      type: 'select',
+      options: [
+        { value: 'de', label: 'Deutsch' },
+        { value: 'en', label: 'English' },
+        { value: 'hr', label: 'Hrvatski' }
+      ],
+      required: true,
+      value: onboardingData.language
+    });
+    if (!langResult) return;
+    onboardingData.language = langResult;
+
+    // Update language immediately
+    ui.settings.language = langResult;
+    ui.i18n = ui.getI18N();
+
+    // Step 3: Surcharge
+    const surchargeResult = await this.showOnboardingStep({
+      step: currentStep++,
+      total: totalSteps,
+      title: ui.t('onboardingSurchargeTitle'),
+      description: ui.t('onboardingSurchargeDesc'),
+      type: 'number',
+      placeholder: ui.t('onboardingSurchargePlaceholder'),
+      required: true,
+      value: onboardingData.surchargePercent
+    });
+    if (!surchargeResult) return;
+    onboardingData.surchargePercent = parseInt(surchargeResult);
+
+    // Step 4: Email
+    const emailResult = await this.showOnboardingStep({
+      step: currentStep++,
+      total: totalSteps,
+      title: ui.t('onboardingEmailTitle'),
+      description: ui.t('onboardingEmailDesc'),
+      type: 'email',
+      placeholder: ui.t('onboardingEmailPlaceholder'),
+      required: false,
+      value: onboardingData.email,
+      isLast: true
+    });
+    if (emailResult !== null) {
+      onboardingData.email = emailResult || ui.settings.email;
+    }
+
+    // Save settings
+    const newSettings = {
+      ...ui.settings,
+      ...onboardingData,
+      onboardingCompleted: true
+    };
+
+    await storage.saveSettings(newSettings);
+    ui.settings = newSettings;
+    ui.showToast('Willkommen! 👋', 'success');
+  }
+
+  async showOnboardingStep(config) {
+    return new Promise((resolve) => {
+      const stepText = ui.t('onboardingStep')
+        .replace('{current}', config.step)
+        .replace('{total}', config.total);
+
+      const inputHTML = config.type === 'select'
+        ? `<select id="onboarding-input" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+            ${config.options.map(opt => `<option value="${opt.value}" ${opt.value === config.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+          </select>`
+        : `<input type="${config.type}" id="onboarding-input" value="${config.value || ''}" placeholder="${config.placeholder}"
+            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">`;
+
+      const content = `
+        <div class="p-6">
+          <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-primary mb-2">${ui.t('onboardingWelcome')}</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400">${stepText}</p>
+          </div>
+
+          <div class="mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">${config.title}</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${config.description}</p>
+            ${inputHTML}
+            ${config.required ? `<p id="error-msg" class="text-sm text-red-500 mt-1 hidden">${ui.t('onboardingRequired')}</p>` : ''}
+          </div>
+
+          <button id="onboarding-next" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${config.isLast ? ui.t('onboardingFinish') : ui.t('onboardingNext')}
+          </button>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      const input = document.getElementById('onboarding-input');
+      const nextBtn = document.getElementById('onboarding-next');
+      const errorMsg = document.getElementById('error-msg');
+
+      if (config.type !== 'select') {
+        input.focus();
+      }
+
+      nextBtn.addEventListener('click', () => {
+        const value = input.value.trim();
+
+        if (config.required && !value) {
+          errorMsg?.classList.remove('hidden');
+          input.classList.add('border-red-500');
+          return;
+        }
+
+        ui.hideModal();
+        resolve(value || (config.required ? null : ''));
       });
     });
   }
