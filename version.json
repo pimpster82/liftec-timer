@@ -1,10 +1,11 @@
 {
-  "version": "1.1.3",
+  "version": "1.1.4",
   "releaseDate": "2025-11-14",
   "changelog": [
-    "Service Worker cache version synchronization",
-    "Documentation updates to CLAUDE.md",
-    "Code consistency audit completed"
+    "Onboarding UX improvements: reordered steps for better flow",
+    "Added onboarding summary screen before app launch",
+    "Improved descriptions: Surcharge as suggestion, Email more action-oriented",
+    "All 3 languages updated with new translations"
   ],
   "critical": false
 }
