@@ -413,7 +413,10 @@ class FirebaseService {
       for (const entry of cloudData.worklog) {
         // Remove Firebase timestamps before saving to IndexedDB
         const { updatedAt, syncedAt, ...cleanEntry } = entry;
-        await storage.addWorklogEntry(cleanEntry);
+
+        // Use put() directly instead of addWorklogEntry() because cloud entries already have IDs
+        // addWorklogEntry() expects autoIncrement, which conflicts with existing IDs
+        await storage.put('worklog', cleanEntry);
       }
       console.log(`Merged ${cloudData.worklog.length} worklog entries from cloud`);
     }
@@ -439,7 +442,9 @@ class FirebaseService {
       for (const change of changes) {
         if (change.type === 'added' || change.type === 'modified') {
           const { updatedAt, syncedAt, ...cleanEntry } = change.data;
-          await storage.addWorklogEntry({
+
+          // Use put() directly because cloud entries already have IDs
+          await storage.put('worklog', {
             id: change.id,
             ...cleanEntry
           });
