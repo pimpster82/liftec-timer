@@ -22,7 +22,9 @@ class ExcelExport {
 
   async generateXLSX(entries, year, month, userName) {
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(`Arbeitszeit {name} MM JJJJ`);
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const sheetName = `Arbeitszeit ${userName} ${pad2(month)} ${year}`;
+    const worksheet = workbook.addWorksheet(sheetName);
 
     // Set column widths
     worksheet.columns = [
@@ -62,9 +64,8 @@ class ExcelExport {
       right: { style: 'thin' }
     };
 
-    // Merge cells for name
-    worksheet.mergeCells('E1:L1');
-    const nameCell = worksheet.getCell('E1');
+    // Name cell in L1 (right-aligned, above "Einsatzort")
+    const nameCell = worksheet.getCell('L1');
     nameCell.value = `NAME: ${userName}`;
     nameCell.fill = {
       type: 'pattern',
@@ -72,7 +73,7 @@ class ExcelExport {
       fgColor: { argb: 'FFFFFFFF' } // White
     };
     nameCell.font = { bold: true, size: 14 };
-    nameCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    nameCell.alignment = { vertical: 'middle', horizontal: 'right' };
     nameCell.border = {
       top: { style: 'thin' },
       left: { style: 'thin' },
@@ -130,7 +131,7 @@ class ExcelExport {
       };
     });
 
-    headerRow2.height = 35;
+    headerRow2.height = 71; // Tall enough for vertical text (was 35, caused clipping)
 
     // Create a map of existing entries by date (same as CSV)
     const entriesMap = new Map();
@@ -140,9 +141,6 @@ class ExcelExport {
 
     // Get number of days in month
     const lastDay = new Date(year, month, 0).getDate();
-
-    // Helper to format date
-    const pad2 = (n) => String(n).padStart(2, '0');
 
     // Data Rows - Generate for ALL days in month
     let currentRow = 3;
