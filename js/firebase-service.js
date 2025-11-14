@@ -139,6 +139,12 @@ class FirebaseService {
   // Sync worklog entry to cloud
   async syncWorklogEntry(entry) {
     if (!this.currentUser || !this.syncEnabled) {
+      console.warn('❌ Sync failed: Not signed in or sync disabled');
+      return false;
+    }
+
+    if (!entry.id) {
+      console.error('❌ Sync failed: Entry has no ID!', entry);
       return false;
     }
 
@@ -155,10 +161,10 @@ class FirebaseService {
         syncedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
 
-      console.log('Worklog entry synced:', entry.id);
+      console.log('✅ Worklog entry synced to cloud:', entry.id);
       return true;
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error('❌ Sync error:', error);
       return false;
     }
   }

@@ -164,19 +164,24 @@ class Storage {
   async _syncToCloudAsync(type, data) {
     // Check if Firebase is available
     if (typeof firebaseService === 'undefined' || !firebaseService.isInitialized) {
+      console.log(`⏭️ Sync skipped (${type}): Firebase not initialized`);
       return; // No Firebase, skip silently
     }
 
     // Check if user wants cloud sync
     const settings = await this.getSettings();
     if (!settings.cloudSync) {
+      console.log(`⏭️ Sync skipped (${type}): Cloud sync disabled in settings`);
       return; // Sync disabled, skip silently
     }
 
     // Check if user is signed in
     if (!firebaseService.isSignedIn()) {
+      console.log(`⏭️ Sync skipped (${type}): User not signed in`);
       return; // Not signed in, skip silently
     }
+
+    console.log(`🔄 Syncing to cloud (${type}):`, data?.id || data);
 
     // Perform sync based on type
     switch (type) {
@@ -249,12 +254,15 @@ class Storage {
     entry.yearMonth = `${year}-${month.padStart(2, '0')}`;
 
     // OFFLINE FIRST: Save to IndexedDB immediately
-    const result = await this.put('worklog', entry);
+    const id = await this.put('worklog', entry);
+
+    // IMPORTANT: Add the ID that IndexedDB assigned to the entry
+    entry.id = id;
 
     // OPTIONAL: Sync to Firebase in background (non-blocking)
     this.syncToCloud('worklog', entry);
 
-    return result;
+    return id;
   }
 
   async getWorklogEntries(yearMonth = null) {
