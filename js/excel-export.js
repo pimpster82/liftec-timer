@@ -14,13 +14,6 @@ class ExcelExport {
     ];
   }
 
-  // Convert time string "HH:MM" to decimal hours
-  timeToDecimal(timeStr) {
-    if (!timeStr) return 0;
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours + (minutes / 60);
-  }
-
   // Parse DD.MM.YYYY to Date
   parseDate(dateStr) {
     const [day, month, year] = dateStr.split('.').map(Number);
@@ -40,10 +33,10 @@ class ExcelExport {
       { width: 8 },   // Pause
       { width: 8 },   // Fahrt
       { width: 10 },  // Schmutz
-      { width: 10 },  // Neuanlage (N)
-      { width: 10 },  // Demontage (D)
-      { width: 10 },  // Reparatur (R)
-      { width: 10 },  // Wartung (W)
+      { width: 5 },   // Neuanlage (N)
+      { width: 5 },   // Demontage (D)
+      { width: 5 },   // Reparatur (R)
+      { width: 5 },   // Wartung (W)
       { width: 60 }   // Einsatzort
     ];
 
@@ -113,11 +106,22 @@ class ExcelExport {
         fgColor: { argb: 'FFD9D9D9' } // Light gray
       };
       cell.font = { bold: true, size: 10 };
-      cell.alignment = {
-        vertical: 'middle',
-        horizontal: 'center',
-        wrapText: true
-      };
+
+      // Rotate text 90 degrees for category columns (8-11: N, D, R, W)
+      if (colNumber >= 8 && colNumber <= 11) {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          textRotation: 90
+        };
+      } else {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true
+        };
+      }
+
       cell.border = {
         top: { style: 'thin' },
         left: { style: 'thin' },
@@ -128,59 +132,69 @@ class ExcelExport {
 
     headerRow2.height = 35;
 
-    // Sort entries by date
-    const sortedEntries = entries.sort((a, b) => {
-      const dateA = this.parseDate(a.date);
-      const dateB = this.parseDate(b.date);
-      return dateA - dateB;
+    // Create a map of existing entries by date (same as CSV)
+    const entriesMap = new Map();
+    entries.forEach(entry => {
+      entriesMap.set(entry.date, entry);
     });
 
-    // Data Rows
+    // Get number of days in month
+    const lastDay = new Date(year, month, 0).getDate();
+
+    // Helper to format date
+    const pad2 = (n) => String(n).padStart(2, '0');
+
+    // Data Rows - Generate for ALL days in month
     let currentRow = 3;
-    for (const entry of sortedEntries) {
-      const date = this.parseDate(entry.date);
+    for (let day = 1; day <= lastDay; day++) {
+      const dateStr = `${pad2(day)}.${pad2(month)}.${year}`;
+      const date = this.parseDate(dateStr);
       const dayName = this.dayNames[date.getDay()];
+      const dayOfWeek = date.getDay(); // 0=Sunday, 6=Saturday
 
-      // Get saved values
-      const startTime = entry.startTime || '';
-      const endTime = entry.endTime || '';
+      // Check if we have an entry for this day
+      const entry = entriesMap.get(dateStr);
 
-      // Calculate total work hours for X mark only
-      let totalHours = 0;
-      if (startTime && endTime) {
-        const start = this.timeToDecimal(startTime);
-        const end = this.timeToDecimal(endTime);
-        const pauseDecimal = this.timeToDecimal(entry.pause || '0:00');
-        totalHours = end - start - pauseDecimal;
+      let startTime = '';
+      let endTime = '';
+      let pause = '';
+      let travelTime = '';
+      let schmutzZulage = '';
+      let flags = { N: '', D: '', R: '', W: '' };
+      let tasksDescription = '';
+
+      if (entry) {
+        // Use entry data
+        startTime = entry.startTime || '';
+        endTime = entry.endTime || '';
+        pause = entry.pause || '';
+        travelTime = entry.travelTime || '';
+        schmutzZulage = entry.surcharge || '';
+
+        // Set flags based on task types (same as CSV export)
+        if (entry.tasks && entry.tasks.length > 0) {
+          entry.tasks.forEach(task => {
+            if (flags.hasOwnProperty(task.type)) {
+              flags[task.type] = 'X';
+            }
+          });
+        }
+
+        // Tasks description - match CSV format
+        tasksDescription = entry.tasks && entry.tasks.length > 0
+          ? entry.tasks.map(t => t.type ? `${t.description} [${t.type}]` : t.description).join(', ')
+          : '';
       }
-
-      // Use saved surcharge from entry (don't recalculate!)
-      const schmutzZulage = entry.surcharge || '';
-
-      // Set flags based on task types (same as CSV export)
-      const flags = { N: '', D: '', R: '', W: '' };
-      if (entry.tasks && entry.tasks.length > 0) {
-        entry.tasks.forEach(task => {
-          if (flags.hasOwnProperty(task.type)) {
-            flags[task.type] = 'X';
-          }
-        });
-      }
-
-      // Tasks description - match CSV format
-      const tasksDescription = entry.tasks && entry.tasks.length > 0
-        ? entry.tasks.map(t => t.type ? `${t.description} [${t.type}]` : t.description).join(', ')
-        : '';
 
       const row = worksheet.getRow(currentRow);
       row.values = [
-        entry.date,                          // Datum
+        dateStr,                             // Datum
         dayName,                             // Wochentag
         startTime,                           // ein
         endTime,                             // aus
-        entry.pause || '',                   // Pause (use saved value)
-        entry.travelTime || '',              // Fahrt (use saved value)
-        schmutzZulage,                       // Schmutz (use saved value)
+        pause,                               // Pause
+        travelTime,                          // Fahrt
+        schmutzZulage,                       // Schmutz
         flags.N,                             // Neuanlage
         flags.D,                             // Demontage
         flags.R,                             // Reparatur
@@ -205,6 +219,15 @@ class ExcelExport {
         }
 
         cell.font = { size: 10 };
+
+        // Gray background for weekends (Saturday=6, Sunday=0)
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE0E0E0' } // Light gray
+          };
+        }
       });
 
       currentRow++;
