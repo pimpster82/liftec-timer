@@ -158,8 +158,8 @@ class ExcelExport {
       // Calculate totals
       const startTime = entry.startTime || '';
       const endTime = entry.endTime || '';
-      const pauseDecimal = this.timeToDecimal(entry.pauseTime || '0:00');
-      const fahrtzeitDecimal = this.timeToDecimal(entry.fahrzeit || '0:00');
+      const pauseDecimal = this.timeToDecimal(entry.pause || '0:00');
+      const fahrtzeitDecimal = this.timeToDecimal(entry.travelTime || '0:00');
 
       // Calculate total work hours
       let totalHours = 0;
@@ -172,9 +172,9 @@ class ExcelExport {
       // Schmutz zulage
       const schmutzZulage = this.calculateSchmutzZulage(totalHours);
 
-      // Tasks description
+      // Tasks description - match CSV format
       const tasksDescription = entry.tasks && entry.tasks.length > 0
-        ? entry.tasks.map(t => `${t.type ? `${t.type} - ` : ''}${t.location || ''}`).join('. ')
+        ? entry.tasks.map(t => t.type ? `${t.description} [${t.type}]` : t.description).join(', ')
         : '';
 
       const row = worksheet.getRow(currentRow);
