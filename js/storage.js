@@ -282,6 +282,37 @@ class Storage {
     return await this.getWorklogEntries(yearMonth);
   }
 
+  // Get entries by date range (for conflict checking)
+  async getEntriesByDateRange(startDate, endDate) {
+    const allEntries = await this.getAllWorklogEntries();
+
+    // Convert DD.MM.YYYY to Date object for comparison
+    const parseDate = (dateStr) => {
+      const [day, month, year] = dateStr.split('.');
+      return new Date(year, month - 1, day);
+    };
+
+    const start = parseDate(startDate);
+    const end = parseDate(endDate);
+
+    return allEntries.filter(entry => {
+      const entryDate = parseDate(entry.date);
+      return entryDate >= start && entryDate <= end;
+    });
+  }
+
+  // Delete entries by date (for overwriting absences)
+  async deleteEntriesByDate(date) {
+    const allEntries = await this.getAllWorklogEntries();
+    const entriesToDelete = allEntries.filter(entry => entry.date === date);
+
+    for (const entry of entriesToDelete) {
+      await this.deleteWorklogEntry(entry.id);
+    }
+
+    return entriesToDelete.length;
+  }
+
   async updateWorklogEntry(entry) {
     // Update yearMonth index if date changed
     if (entry.date) {

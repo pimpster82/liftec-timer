@@ -3,12 +3,12 @@
   "short_name": "LIFTEC",
   "description": "Zeiterfassung für Arbeitszeiten und Aufgaben",
   "version": "1.0.0",
-  "start_url": "/",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#FFFFFF",
   "theme_color": "#FFB300",
   "orientation": "portrait",
-  "scope": "/",
+  "scope": "./",
   "icons": [
     {
       "src": "icons/icon-72.png",
@@ -72,7 +72,7 @@
       "name": "Sitzung starten",
       "short_name": "Start",
       "description": "Neue Arbeitssitzung starten",
-      "url": "/?action=start",
+      "url": "./index.html?action=start",
       "icons": [
         {
           "src": "icons/icon-192.png",

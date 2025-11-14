@@ -2,16 +2,19 @@ const CACHE_VERSION = 'v1.0.0';
 const CACHE_NAME = `liftec-timer-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/css/styles.css',
-  '/js/app.js',
-  '/js/storage.js',
-  '/js/csv.js',
-  '/js/ui.js',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  './',
+  './index.html',
+  './manifest.json',
+  './css/styles.css',
+  './js/app.js',
+  './js/storage.js',
+  './js/csv.js',
+  './js/excel-export.js',
+  './js/ui.js',
+  './js/firebase-config.js',
+  './js/firebase-service.js',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 // Install event - cache static assets

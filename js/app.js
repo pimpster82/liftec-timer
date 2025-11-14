@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -71,7 +71,7 @@ class App {
   async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-        this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
+        this.serviceWorkerRegistration = await navigator.serviceWorker.register('./sw.js');
         console.log('Service Worker registered');
 
         // Listen for updates
@@ -91,24 +91,155 @@ class App {
     }
   }
 
-  checkForUpdates() {
-    if (this.serviceWorkerRegistration) {
-      this.serviceWorkerRegistration.update();
+  // Check for updates (version.json)
+  async checkForUpdates(silent = false) {
+    try {
+      // Also update service worker
+      if (this.serviceWorkerRegistration) {
+        this.serviceWorkerRegistration.update();
+      }
+
+      const response = await fetch('./version.json?t=' + Date.now());
+      const remote = await response.json();
+
+      // Store remote version for settings display
+      this.remoteVersion = remote;
+
+      if (remote.version !== APP_VERSION) {
+        // Check if user dismissed this version
+        const dismissedVersion = localStorage.getItem('dismissedUpdateVersion');
+        const remindLater = localStorage.getItem('remindUpdateLater');
+
+        if (dismissedVersion === remote.version) {
+          console.log('Update available but dismissed by user:', remote.version);
+          return { available: true, dismissed: true, remote };
+        }
+
+        if (remindLater) {
+          const remindTime = parseInt(remindLater);
+          if (Date.now() < remindTime) {
+            console.log('Update available but remind later active');
+            return { available: true, remindLater: true, remote };
+          }
+        }
+
+        // Show update banner
+        if (!silent) {
+          this.showUpdateBanner(remote);
+        }
+
+        return { available: true, remote };
+      } else {
+        if (!silent) {
+          console.log('App is up to date');
+        }
+        return { available: false, remote };
+      }
+    } catch (err) {
+      console.log('Update check failed:', err);
+      return { available: false, error: err };
     }
+  }
+
+  showUpdateBanner(updateInfo) {
+    const banner = document.createElement('div');
+    banner.id = 'update-banner';
+    banner.className = 'fixed top-0 left-0 right-0 bg-blue-600 text-white p-4 shadow-lg z-50 animate-slide-down';
+
+    const changelogHtml = updateInfo.changelog
+      ? `<ul class="text-sm mt-2 space-y-1 list-disc list-inside">${updateInfo.changelog.map(item => `<li>${item}</li>`).join('')}</ul>`
+      : '';
+
+    banner.innerHTML = `
+      <div class="max-w-4xl mx-auto">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              ${ui.icon('arrow-down-circle')}
+              <strong class="text-lg">Update verfügbar: v${updateInfo.version}</strong>
+              ${updateInfo.critical ? '<span class="bg-red-500 px-2 py-0.5 rounded text-xs ml-2">Wichtig</span>' : ''}
+            </div>
+            <p class="text-sm opacity-90">Veröffentlicht am ${updateInfo.releaseDate}</p>
+            ${changelogHtml}
+          </div>
+          <button id="update-banner-close" class="ml-4 text-white hover:text-gray-200" ${updateInfo.critical ? 'disabled style="display:none"' : ''}>
+            ${ui.icon('x')}
+          </button>
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button id="update-now-btn" class="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100">
+            Jetzt aktualisieren
+          </button>
+          ${!updateInfo.critical ? `
+            <button id="update-later-btn" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-400">
+              Später erinnern
+            </button>
+            <button id="update-dismiss-btn" class="px-4 py-2 text-white hover:bg-blue-500 rounded-lg">
+              Nicht mehr anzeigen
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    document.body.prepend(banner);
+
+    // Event listeners
+    document.getElementById('update-now-btn').addEventListener('click', () => {
+      this.performUpdate();
+    });
+
+    if (!updateInfo.critical) {
+      document.getElementById('update-banner-close')?.addEventListener('click', () => {
+        banner.remove();
+      });
+
+      document.getElementById('update-later-btn')?.addEventListener('click', () => {
+        // Remind in 24 hours
+        localStorage.setItem('remindUpdateLater', String(Date.now() + 24 * 60 * 60 * 1000));
+        banner.remove();
+        ui.showToast('Erinnerung in 24 Stunden', 'info');
+      });
+
+      document.getElementById('update-dismiss-btn')?.addEventListener('click', () => {
+        localStorage.setItem('dismissedUpdateVersion', updateInfo.version);
+        banner.remove();
+        ui.showToast('Update-Benachrichtigung deaktiviert', 'info');
+      });
+    }
+  }
+
+  async performUpdate() {
+    ui.showToast('Aktualisierung wird durchgeführt...', 'info');
+
+    // Clear localStorage flags
+    localStorage.removeItem('dismissedUpdateVersion');
+    localStorage.removeItem('remindUpdateLater');
+
+    // Clear all caches
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+      console.log('All caches cleared');
+    }
+
+    // Tell service worker to skip waiting if available
+    if (this.serviceWorkerRegistration?.waiting) {
+      this.serviceWorkerRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+
+    // Hard reload
+    setTimeout(() => {
+      window.location.reload(true);
+    }, 500);
   }
 
   showUpdateAvailable() {
     const updateBanner = document.getElementById('update-available');
-    updateBanner.classList.remove('hidden');
+    updateBanner?.classList.remove('hidden');
 
-    document.getElementById('update-btn').addEventListener('click', () => {
-      // Tell the service worker to skip waiting
-      if (this.serviceWorkerRegistration.waiting) {
-        this.serviceWorkerRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
-      }
-
-      // Reload the page
-      window.location.reload();
+    document.getElementById('update-btn')?.addEventListener('click', () => {
+      this.performUpdate();
     });
   }
 
@@ -203,15 +334,20 @@ class App {
     // Render actions
     const actions = document.getElementById('actions');
     if (!this.session) {
-      // No session - show start button
+      // No session - show start button and absence button
       actions.innerHTML = `
         <button id="start-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-4 rounded-lg flex items-center justify-center space-x-2 btn-press">
           ${ui.icon('play', 'icon-lg')}
           <span>${ui.t('startSession')}</span>
         </button>
+        <button id="absence-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg flex items-center justify-center space-x-2 btn-press mt-3">
+          ${ui.icon('calendar', 'icon-md')}
+          <span>Abwesenheit eintragen</span>
+        </button>
       `;
 
       document.getElementById('start-btn').addEventListener('click', () => this.startSession());
+      document.getElementById('absence-btn').addEventListener('click', () => this.showAbsenceEntry());
     } else {
       // Active session - show add task and end session buttons
       actions.innerHTML = `
@@ -438,6 +574,283 @@ class App {
     ui.showToast('Sitzung gespeichert', 'success');
   }
 
+  // ===== Absence Entry =====
+
+  async showAbsenceEntry() {
+    // Step 1: Choose absence type
+    const absenceType = await this.showAbsenceTypeDialog();
+    if (!absenceType) return;
+
+    // Step 2: Choose period type (single day or range)
+    const periodType = await this.showPeriodTypeDialog();
+    if (!periodType) return;
+
+    // Step 3: Choose date(s)
+    let startDate, endDate;
+
+    if (periodType === 'single') {
+      startDate = await this.showDatePicker('Datum wählen');
+      if (!startDate) return;
+      endDate = startDate;
+    } else {
+      startDate = await this.showDatePicker('Von (Datum)');
+      if (!startDate) return;
+
+      endDate = await this.showDatePicker('Bis (Datum)');
+      if (!endDate) return;
+
+      // Validate date range
+      if (endDate < startDate) {
+        ui.showToast('End-Datum muss nach Start-Datum liegen', 'error');
+        return;
+      }
+    }
+
+    // Format dates to DD.MM.YYYY
+    const formatDate = (date) => {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    };
+
+    const startDateStr = formatDate(startDate);
+    const endDateStr = formatDate(endDate);
+
+    // Step 4: Check for conflicts
+    const conflicts = await storage.getEntriesByDateRange(startDateStr, endDateStr);
+
+    if (conflicts.length > 0) {
+      const action = await this.showConflictDialog(conflicts);
+
+      if (action === 'cancel') {
+        return;
+      } else if (action === 'reselect') {
+        // Restart flow
+        return this.showAbsenceEntry();
+      } else if (action === 'overwrite') {
+        // Delete conflicting entries
+        for (const conflict of conflicts) {
+          await storage.deleteWorklogEntry(conflict.id);
+        }
+      }
+    }
+
+    // Step 5: Save absence entries
+    const entries = [];
+    const currentDate = new Date(startDate);
+
+    while (currentDate <= endDate) {
+      const dateStr = formatDate(currentDate);
+
+      const entry = {
+        date: dateStr,
+        startTime: '',
+        endTime: '',
+        pause: '',
+        travelTime: '',
+        surcharge: '',
+        tasks: [{ type: '', description: absenceType }]
+      };
+
+      entries.push(entry);
+      await storage.addWorklogEntry(entry);
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    await this.renderMainScreen();
+    ui.showToast(`${entries.length} Abwesenheitseintrag/e gespeichert`, 'success');
+  }
+
+  async showAbsenceTypeDialog() {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('calendar')}
+            <span>Abwesenheit eintragen</span>
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Art wählen:</p>
+          <div class="space-y-2">
+            <button class="absence-type-btn w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2" data-type="Urlaub">
+              ${ui.icon('sun')}
+              <span>Urlaub</span>
+            </button>
+            <button class="absence-type-btn w-full px-4 py-3 bg-purple-500 text-white rounded-lg font-semibold hover:bg-purple-600 flex items-center justify-center gap-2" data-type="Zeitausgleich">
+              ${ui.icon('clock')}
+              <span>Zeitausgleich</span>
+            </button>
+            <button class="absence-type-btn w-full px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 flex items-center justify-center gap-2" data-type="Krankenstand">
+              ${ui.icon('heart-pulse')}
+              <span>Krankenstand</span>
+            </button>
+            <button class="absence-type-btn w-full px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2" data-type="Feiertag">
+              ${ui.icon('star')}
+              <span>Feiertag</span>
+            </button>
+          </div>
+          <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            Abbrechen
+          </button>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.querySelectorAll('.absence-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const type = btn.getAttribute('data-type');
+          ui.hideModal();
+          resolve(type);
+        });
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(null);
+      });
+    });
+  }
+
+  async showPeriodTypeDialog() {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('calendar')}
+            <span>Zeitraum wählen</span>
+          </h3>
+          <div class="space-y-2">
+            <button id="period-single" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+              ${ui.icon('calendar-day')}
+              <span>Einzelner Tag</span>
+            </button>
+            <button id="period-range" class="w-full px-4 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 flex items-center justify-center gap-2">
+              ${ui.icon('calendar-range')}
+              <span>Zeitraum (Von-Bis)</span>
+            </button>
+          </div>
+          <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            Abbrechen
+          </button>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.getElementById('period-single').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('single');
+      });
+
+      document.getElementById('period-range').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('range');
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(null);
+      });
+    });
+  }
+
+  showDatePicker(title) {
+    return new Promise((resolve) => {
+      const today = new Date().toISOString().split('T')[0];
+
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${title}</h3>
+          <input type="date" id="date-input" value="${today}"
+                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          <div class="flex space-x-3">
+            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+            <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+              OK
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.getElementById('dialog-ok').addEventListener('click', () => {
+        const value = document.getElementById('date-input').value;
+        ui.hideModal();
+        resolve(value ? new Date(value) : null);
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(null);
+      });
+    });
+  }
+
+  async showConflictDialog(conflicts) {
+    return new Promise((resolve) => {
+      // Build conflict list
+      const conflictList = conflicts.map(c => `
+        <div class="text-sm text-gray-700 dark:text-gray-300 py-2 border-b border-gray-200 dark:border-gray-700">
+          <strong>${c.date}</strong>
+          ${c.startTime && c.endTime ? `<br/><span class="text-gray-500">${c.startTime} - ${c.endTime}</span>` : ''}
+          ${c.tasks && c.tasks.length > 0 ? `<br/><span class="text-gray-500">${c.tasks.map(t => t.description).join(', ')}</span>` : ''}
+        </div>
+      `).join('');
+
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('exclamation-triangle')}
+            <span>Konflikt erkannt</span>
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Für folgende Tage existieren bereits Einträge:
+          </p>
+          <div class="max-h-48 overflow-y-auto mb-4 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+            ${conflictList}
+          </div>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Was möchtest du tun?</p>
+          <div class="space-y-2">
+            <button id="conflict-overwrite" class="w-full px-4 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 flex items-center justify-center gap-2">
+              ${ui.icon('refresh')}
+              <span>Überschreiben</span>
+            </button>
+            <button id="conflict-reselect" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
+              ${ui.icon('pencil')}
+              <span>Neu wählen</span>
+            </button>
+            <button id="conflict-cancel" class="w-full px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-2">
+              ${ui.icon('x')}
+              <span>Abbrechen</span>
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.getElementById('conflict-overwrite').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('overwrite');
+      });
+
+      document.getElementById('conflict-reselect').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('reselect');
+      });
+
+      document.getElementById('conflict-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('cancel');
+      });
+    });
+  }
+
   // ===== Dialogs =====
 
   showDateTimePicker(title, initialDate) {
@@ -638,7 +1051,7 @@ class App {
         : `<p class="text-sm text-gray-500 dark:text-gray-400">${ui.t('noTasks')}</p>`;
 
       const content = `
-        <div class="p-6 max-h-[80vh] overflow-y-auto">
+        <div class="p-6">
           <h3 class="text-xl font-bold text-primary mb-4">${ui.t('sessionSummary')}</h3>
 
           <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 space-y-2">
@@ -827,7 +1240,7 @@ class App {
     }
 
     const content = `
-      <div class="p-6 max-h-[85vh] overflow-y-auto">
+      <div class="p-6">
         <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
           ${ui.icon('settings')}
           <span>${ui.t('settings')}</span>
@@ -837,7 +1250,14 @@ class App {
           <!-- Cloud Sync Section -->
           ${firebaseService && firebaseService.isInitialized ? `
             <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
-              <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">☁️ Cloud Synchronisation</h4>
+              <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="cloud-sync-content">
+                <div class="flex items-center gap-2">
+                  ${ui.icon('cloud')}
+                  <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Cloud Synchronisation</h4>
+                </div>
+                ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+              </button>
+              <div id="cloud-sync-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
 
               ${syncStatusHTML}
               ${lastSyncHTML}
@@ -861,8 +1281,9 @@ class App {
                       </svg>
                     </span>
                   </button>
-                  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    ⏰ Automatischer Sync: alle 60 Minuten
+                  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
+                    ${ui.icon('clock', 'flex-shrink-0 mt-0.5')}
+                    <span>Automatischer Sync: alle 60 Minuten</span>
                   </p>
                 </div>
               ` : ''}
@@ -890,26 +1311,58 @@ class App {
               </div>
 
               ${isSignedIn ? `
-                <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                  💡 Deine Daten werden automatisch zwischen allen Geräten synchronisiert
+                <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
+                  ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
+                  <span>Deine Daten werden automatisch zwischen allen Geräten synchronisiert</span>
                 </p>
               ` : `
-                <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                  💡 Melde dich an, um deine Daten zwischen Geräten zu synchronisieren
+                <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
+                  ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
+                  <span>Melde dich an, um deine Daten zwischen Geräten zu synchronisieren</span>
                 </p>
               `}
+              </div>
             </div>
           ` : ''}
+
+          <!-- Update Section -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="update-content">
+              <div class="flex items-center gap-2">
+                ${ui.icon('arrow-down-circle')}
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">App-Updates</h4>
+              </div>
+              ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+            </button>
+            <div id="update-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600 dark:text-gray-400">Aktuelle Version:</span>
+                <span class="font-semibold text-gray-900 dark:text-white">v${APP_VERSION}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600 dark:text-gray-400">Verfügbare Version:</span>
+                <span id="remote-version-display" class="font-semibold text-gray-900 dark:text-white">-</span>
+              </div>
+            </div>
+
+            <button id="check-update-btn" class="w-full mt-3 px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+              ${ui.icon('refresh')}
+              <span>Auf Updates prüfen</span>
+            </button>
+
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
+              ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
+              <span>Updates werden automatisch beim App-Start geprüft</span>
+            </p>
+            </div>
+          </div>
 
           <!-- Basic Settings -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
             <input type="text" id="setting-username" value="${settings.username}"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-            <input type="email" id="setting-email" value="${settings.email}"
               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
           </div>
           <div>
@@ -926,17 +1379,41 @@ class App {
             <input type="number" id="setting-surcharge" value="${settings.surchargePercent}" min="0" max="200"
               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Betreff</label>
-            <input type="text" id="setting-email-subject" value="${settings.emailSubject}"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Platzhalter: {month}, {name}</p>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Text</label>
-            <textarea id="setting-email-body" rows="3"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">${settings.emailBody}</textarea>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Platzhalter: {month}, {name}</p>
+
+          <!-- Email Export Settings -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="email-content">
+              <div class="flex items-center gap-2">
+                ${ui.icon('mail')}
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Email-Export</h4>
+              </div>
+              ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+            </button>
+            <div id="email-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email-Adresse</label>
+                <input type="email" id="setting-email" value="${settings.email}"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Betreff</label>
+                <input type="text" id="setting-email-subject" value="${settings.emailSubject}"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-start gap-1">
+                  ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
+                  <span>Platzhalter: {month}, {name}</span>
+                </p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Text</label>
+                <textarea id="setting-email-body" rows="3"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">${settings.emailBody}</textarea>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-start gap-1">
+                  ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
+                  <span>Platzhalter: {month}, {name}</span>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
         <div class="flex gap-2 mt-6">
@@ -1054,6 +1531,80 @@ class App {
         });
       }
     }
+
+    // ===== Collapsible Sections =====
+    document.querySelectorAll('.collapsible-header').forEach(button => {
+      button.addEventListener('click', () => {
+        const targetId = button.getAttribute('data-target');
+        const content = document.getElementById(targetId);
+        const icon = button.querySelector('.collapsible-icon');
+
+        // Store current scroll position
+        const scrollableParent = document.getElementById('modal-content');
+        const scrollBefore = scrollableParent ? scrollableParent.scrollTop : 0;
+
+        if (content.classList.contains('hidden')) {
+          // Opening
+          content.classList.remove('hidden');
+          icon.style.transform = 'rotate(180deg)';
+
+          // Restore scroll position to prevent jumping up
+          if (scrollableParent) {
+            scrollableParent.scrollTop = scrollBefore;
+          }
+        } else {
+          // Closing
+          content.classList.add('hidden');
+          icon.style.transform = 'rotate(0deg)';
+        }
+      });
+    });
+
+    // ===== Update Check Button =====
+    const updateBtn = document.getElementById('check-update-btn');
+    const remoteVersionDisplay = document.getElementById('remote-version-display');
+
+    // Display remote version if already fetched
+    if (this.remoteVersion) {
+      remoteVersionDisplay.textContent = `v${this.remoteVersion.version}`;
+      if (this.remoteVersion.version !== APP_VERSION) {
+        remoteVersionDisplay.classList.add('text-green-600', 'dark:text-green-400');
+      }
+    }
+
+    updateBtn.addEventListener('click', async () => {
+      const btnText = updateBtn.querySelector('span');
+      const originalText = btnText.textContent;
+
+      try {
+        btnText.textContent = 'Prüfe...';
+        updateBtn.disabled = true;
+
+        const result = await this.checkForUpdates(true); // silent = true
+
+        if (result.available) {
+          remoteVersionDisplay.textContent = `v${result.remote.version}`;
+          remoteVersionDisplay.classList.add('text-green-600', 'dark:text-green-400');
+          ui.showToast('Update verfügbar!', 'success');
+
+          // Show update banner
+          ui.hideModal();
+          this.showUpdateBanner(result.remote);
+        } else if (result.error) {
+          ui.showToast('Update-Prüfung fehlgeschlagen', 'error');
+          remoteVersionDisplay.textContent = 'Fehler';
+        } else {
+          remoteVersionDisplay.textContent = `v${result.remote.version}`;
+          ui.showToast('App ist aktuell', 'success');
+        }
+      } catch (error) {
+        ui.showToast('Fehler beim Prüfen', 'error');
+        console.error(error);
+      } finally {
+        btnText.textContent = originalText;
+        updateBtn.disabled = false;
+      }
+    });
 
     // ===== Settings Save =====
     document.getElementById('settings-save').addEventListener('click', async () => {
@@ -1249,12 +1800,112 @@ class App {
 
   // ===== Export =====
 
-  async showExportMenu() {
+  // Helper: Get auto month (previous month if day 1-5, else current month)
+  getAutoMonth() {
     const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
+    const day = now.getDate();
+    let year = now.getFullYear();
+    let month = now.getMonth() + 1;
 
-    // First: Choose export format
+    // If day 1-5, use previous month
+    if (day <= 5) {
+      month--;
+      if (month === 0) {
+        month = 12;
+        year--;
+      }
+    }
+
+    return { year, month };
+  }
+
+  // Helper: Parse manual month input (MM.YYYY or YYYY-MM)
+  parseManualMonth(input) {
+    const parts = input.split(/[.-]/);
+    if (parts.length !== 2) return null;
+
+    let month, year;
+    if (parts[0].length === 4) {
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+    } else {
+      month = parseInt(parts[0]);
+      year = parseInt(parts[1]);
+    }
+
+    if (isNaN(month) || isNaN(year) || month < 1 || month > 12) return null;
+    return { year, month };
+  }
+
+  async showExportMenu() {
+    // Step 1: Choose month (auto or manual)
+    const auto = this.getAutoMonth();
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const autoLabel = `${auto.year}-${pad2(auto.month)}`;
+
+    const monthDialogContent = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+          ${ui.icon('calendar')}
+          <span>Monat wählen</span>
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Automatisch: <strong>${autoLabel}</strong>
+        </p>
+        <div class="space-y-3">
+          <button id="month-auto" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+            ${ui.icon('calendar')}
+            <span>Automatisch: ${autoLabel}</span>
+          </button>
+          <button id="month-manual" class="w-full px-4 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 flex items-center justify-center gap-2">
+            ${ui.icon('pencil')}
+            <span>Monat manuell eingeben</span>
+          </button>
+        </div>
+        <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+          Abbrechen
+        </button>
+      </div>
+    `;
+
+    ui.showModal(monthDialogContent);
+
+    // Wait for month selection
+    const selectedMonth = await new Promise((resolve) => {
+      document.getElementById('month-auto').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(auto);
+      });
+
+      document.getElementById('month-manual').addEventListener('click', async () => {
+        ui.hideModal();
+        const input = prompt('Monat eingeben (Format: MM.YYYY oder YYYY-MM):', `${pad2(auto.month)}.${auto.year}`);
+        if (!input) {
+          resolve(null);
+          return;
+        }
+
+        const parsed = this.parseManualMonth(input);
+        if (!parsed) {
+          ui.showToast('Ungültiges Format', 'error');
+          resolve(null);
+          return;
+        }
+
+        resolve(parsed);
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(null);
+      });
+    });
+
+    if (!selectedMonth) return;
+
+    const { year, month } = selectedMonth;
+
+    // Step 2: Choose export format
     const formatDialogContent = `
       <div class="p-6">
         <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
@@ -1262,7 +1913,7 @@ class App {
           <span>Export-Format wählen</span>
         </h3>
         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Welches Format möchtest du exportieren?
+          Monat: <strong>${year}-${pad2(month)}</strong>
         </p>
         <div class="space-y-3">
           <button id="export-xlsx" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
@@ -1284,30 +1935,14 @@ class App {
 
     // Excel export
     document.getElementById('export-xlsx').addEventListener('click', async () => {
-      try {
-        ui.hideModal();
-        ui.showToast('Generiere Excel-Datei...', 'info');
-
-        // Get entries for the month
-        const entries = await storage.getMonthEntries(year, month);
-
-        if (!entries || entries.length === 0) {
-          ui.showToast('Keine Einträge für diesen Monat', 'error');
-          return;
-        }
-
-        await excelExport.generateXLSX(entries, year, month, ui.settings.username);
-        ui.showToast('Excel-Datei heruntergeladen', 'success');
-      } catch (error) {
-        ui.showToast('Export fehlgeschlagen: ' + error.message, 'error');
-        console.error(error);
-      }
+      ui.hideModal();
+      await this.showExcelExport(year, month);
     });
 
-    // CSV export (existing functionality)
+    // CSV export
     document.getElementById('export-csv').addEventListener('click', async () => {
       ui.hideModal();
-      await this.showCSVExport();
+      await this.showCSVExport(year, month);
     });
 
     document.getElementById('dialog-cancel').addEventListener('click', () => {
@@ -1315,14 +1950,20 @@ class App {
     });
   }
 
-  // CSV export dialog (extracted from old showExportMenu)
-  async showCSVExport() {
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-
+  // Excel export dialog
+  async showExcelExport(year, month) {
     try {
-      const { content, filename } = await csvExport.generateMonthlyCSV(year, month, ui.settings.username);
+      ui.showToast('Generiere Excel-Datei...', 'info');
+
+      const entries = await storage.getMonthEntries(year, month);
+
+      if (!entries || entries.length === 0) {
+        ui.showToast('Keine Einträge für diesen Monat', 'error');
+        return;
+      }
+
+      // Generate Excel → get blob + filename
+      const { blob, filename } = await excelExport.generateXLSX(entries, year, month, ui.settings.username);
 
       const dialogContent = `
         <div class="p-6">
@@ -1332,11 +1973,11 @@ class App {
           </h3>
           <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${filename}</p>
           <div class="space-y-2">
-            <button id="export-download" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+            <button id="xlsx-download" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
               ${ui.icon('download')}
               <span>${ui.t('download')}</span>
             </button>
-            <button id="export-email" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
+            <button id="xlsx-email" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
               ${ui.icon('mail')}
               <span>${ui.t('sendEmail')}</span>
             </button>
@@ -1349,13 +1990,68 @@ class App {
 
       ui.showModal(dialogContent);
 
-      document.getElementById('export-download').addEventListener('click', () => {
+      // Download Button
+      document.getElementById('xlsx-download').addEventListener('click', () => {
+        excelExport.downloadExcel(blob, filename);
+        ui.hideModal();
+        ui.showToast('Excel heruntergeladen', 'success');
+      });
+
+      // E-Mail / Share Button
+      document.getElementById('xlsx-email').addEventListener('click', () => {
+        excelExport.sendEmail(blob, filename, ui.settings);
+        ui.hideModal();
+      });
+
+      // Cancel
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+      });
+
+    } catch (error) {
+      ui.showToast('Export fehlgeschlagen: ' + error.message, 'error');
+      console.error(error);
+    }
+  }
+
+  // CSV export dialog
+  async showCSVExport(year, month) {
+    try {
+      ui.showToast('Generiere CSV-Datei...', 'info');
+      const { content, filename } = await csvExport.generateMonthlyCSV(year, month, ui.settings.username);
+
+      const dialogContent = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('check')}
+            <span>${ui.t('exportSuccess')}</span>
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${filename}</p>
+          <div class="space-y-2">
+            <button id="csv-download" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+              ${ui.icon('download')}
+              <span>${ui.t('download')}</span>
+            </button>
+            <button id="csv-email" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
+              ${ui.icon('mail')}
+              <span>${ui.t('sendEmail')}</span>
+            </button>
+          </div>
+          <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('close')}
+          </button>
+        </div>
+      `;
+
+      ui.showModal(dialogContent);
+
+      document.getElementById('csv-download').addEventListener('click', () => {
         csvExport.downloadCSV(content, filename);
         ui.hideModal();
         ui.showToast('CSV heruntergeladen', 'success');
       });
 
-      document.getElementById('export-email').addEventListener('click', () => {
+      document.getElementById('csv-email').addEventListener('click', () => {
         csvExport.sendEmail(content, filename, ui.settings);
         ui.hideModal();
       });
@@ -1651,7 +2347,7 @@ class App {
   async editWorklogEntry(entry) {
     return new Promise((resolve) => {
       const content = `
-        <div class="p-6 max-h-[80vh] overflow-y-auto">
+        <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
             ${ui.icon('edit')}
             <span>Eintrag bearbeiten</span>
