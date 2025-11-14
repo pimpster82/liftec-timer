@@ -4,12 +4,12 @@
 // WICHTIG: Diese Werte müssen durch echte Firebase-Projekt-Credentials ersetzt werden
 // Erstelle ein Firebase-Projekt auf: https://console.firebase.google.com
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBnWDuPt2ApeBSr1NDRFxQBSng63u6YqTk",
+  authDomain: "liftec-timer.firebaseapp.com",
+  projectId: "liftec-timer",
+  storageBucket: "liftec-timer.firebasestorage.app",
+  messagingSenderId: "249820052612",
+  appId: "1:249820052612:web:97218e6487d95b580f96d1"
 };
 
 // Firebase Feature Flags
