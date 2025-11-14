@@ -40,9 +40,10 @@ class ExcelExport {
       { width: 8 },   // Pause
       { width: 8 },   // Fahrt
       { width: 10 },  // Schmutz
-      { width: 5 },   // X1
-      { width: 5 },   // X2
-      { width: 5 },   // X3
+      { width: 10 },  // Neuanlage (N)
+      { width: 10 },  // Demontage (D)
+      { width: 10 },  // Reparatur (R)
+      { width: 10 },  // Wartung (W)
       { width: 60 }   // Einsatzort
     ];
 
@@ -69,7 +70,7 @@ class ExcelExport {
     };
 
     // Merge cells for name
-    worksheet.mergeCells('E1:K1');
+    worksheet.mergeCells('E1:L1');
     const nameCell = worksheet.getCell('E1');
     nameCell.value = `NAME: ${userName}`;
     nameCell.fill = {
@@ -98,9 +99,10 @@ class ExcelExport {
       'Pause\nDauer',
       'Fahrt\nzeit',
       'Schmutz\nzulage',
-      '',
-      '',
-      '',
+      'Neuanlage',
+      'Demontage',
+      'Reparatur',
+      'Wartung',
       'Einsatzort, Tätigkeit, Bemerkungen'
     ];
 
@@ -155,6 +157,16 @@ class ExcelExport {
       // Use saved surcharge from entry (don't recalculate!)
       const schmutzZulage = entry.surcharge || '';
 
+      // Set flags based on task types (same as CSV export)
+      const flags = { N: '', D: '', R: '', W: '' };
+      if (entry.tasks && entry.tasks.length > 0) {
+        entry.tasks.forEach(task => {
+          if (flags.hasOwnProperty(task.type)) {
+            flags[task.type] = 'X';
+          }
+        });
+      }
+
       // Tasks description - match CSV format
       const tasksDescription = entry.tasks && entry.tasks.length > 0
         ? entry.tasks.map(t => t.type ? `${t.description} [${t.type}]` : t.description).join(', ')
@@ -169,9 +181,10 @@ class ExcelExport {
         entry.pause || '',                   // Pause (use saved value)
         entry.travelTime || '',              // Fahrt (use saved value)
         schmutzZulage,                       // Schmutz (use saved value)
-        totalHours > 0 ? 'X' : '',          // X1
-        '',                                  // X2 (leer)
-        '',                                  // X3 (leer)
+        flags.N,                             // Neuanlage
+        flags.D,                             // Demontage
+        flags.R,                             // Reparatur
+        flags.W,                             // Wartung
         tasksDescription                     // Einsatzort
       ];
 
@@ -184,8 +197,8 @@ class ExcelExport {
           right: { style: 'thin' }
         };
 
-        // Center align for all except last column
-        if (colNumber <= 10) {
+        // Center align for all except last column (Einsatzort)
+        if (colNumber <= 11) {
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
         } else {
           cell.alignment = { vertical: 'middle', horizontal: 'left' };
