@@ -21,26 +21,10 @@ class ExcelExport {
     return hours + (minutes / 60);
   }
 
-  // Convert decimal hours to time string "H:MM"
-  decimalToTime(decimal) {
-    if (!decimal || decimal === 0) return '';
-    const hours = Math.floor(decimal);
-    const minutes = Math.round((decimal - hours) * 60);
-    return `${hours}:${minutes.toString().padStart(2, '0')}`;
-  }
-
   // Parse DD.MM.YYYY to Date
   parseDate(dateStr) {
     const [day, month, year] = dateStr.split('.').map(Number);
     return new Date(year, month - 1, day);
-  }
-
-  // Calculate Schmutz zulage based on total hours
-  calculateSchmutzZulage(totalHours) {
-    if (totalHours >= 7) return '7:00';
-    if (totalHours >= 6) return '6:00';
-    if (totalHours >= 3) return '3:00';
-    return '';
   }
 
   async generateXLSX(entries, year, month, userName) {
@@ -155,22 +139,21 @@ class ExcelExport {
       const date = this.parseDate(entry.date);
       const dayName = this.dayNames[date.getDay()];
 
-      // Calculate totals
+      // Get saved values
       const startTime = entry.startTime || '';
       const endTime = entry.endTime || '';
-      const pauseDecimal = this.timeToDecimal(entry.pause || '0:00');
-      const fahrtzeitDecimal = this.timeToDecimal(entry.travelTime || '0:00');
 
-      // Calculate total work hours
+      // Calculate total work hours for X mark only
       let totalHours = 0;
       if (startTime && endTime) {
         const start = this.timeToDecimal(startTime);
         const end = this.timeToDecimal(endTime);
+        const pauseDecimal = this.timeToDecimal(entry.pause || '0:00');
         totalHours = end - start - pauseDecimal;
       }
 
-      // Schmutz zulage
-      const schmutzZulage = this.calculateSchmutzZulage(totalHours);
+      // Use saved surcharge from entry (don't recalculate!)
+      const schmutzZulage = entry.surcharge || '';
 
       // Tasks description - match CSV format
       const tasksDescription = entry.tasks && entry.tasks.length > 0
@@ -183,9 +166,9 @@ class ExcelExport {
         dayName,                             // Wochentag
         startTime,                           // ein
         endTime,                             // aus
-        this.decimalToTime(pauseDecimal),    // Pause
-        this.decimalToTime(fahrtzeitDecimal),// Fahrt
-        schmutzZulage,                       // Schmutz
+        entry.pause || '',                   // Pause (use saved value)
+        entry.travelTime || '',              // Fahrt (use saved value)
+        schmutzZulage,                       // Schmutz (use saved value)
         totalHours > 0 ? 'X' : '',          // X1
         '',                                  // X2 (leer)
         '',                                  // X3 (leer)
