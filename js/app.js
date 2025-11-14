@@ -46,7 +46,7 @@ class App {
       this.setupInstallPrompt();
 
       // Check onboarding
-      if (!ui.settings.onboardingCompleted) {
+      if (!ui.settings.onboardingCompleted && ui.settings.username === 'Benutzer') {
         await this.showOnboarding();
       }
 
