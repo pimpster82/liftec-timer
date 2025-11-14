@@ -10,6 +10,12 @@ class FirebaseService {
     this.syncEnabled = false;
     this.isInitialized = false;
     this.listeners = [];
+
+    // NEW: Scheduled sync (1 hour intervals)
+    this.syncTimer = null;
+    this.syncInterval = 60 * 60 * 1000; // 1 hour in milliseconds
+    this.lastSyncTime = null;
+    this.isSyncing = false;
   }
 
   // Initialize Firebase
@@ -416,21 +422,17 @@ class FirebaseService {
     this.syncEnabled = localSettings.cloudSync !== false;
 
     if (this.syncEnabled) {
-      // Pull cloud data and merge with local
-      const cloudData = await this.pullCloudData();
+      // Initial pull from cloud
+      await this.fullSync();
 
-      if (cloudData) {
-        // Merge strategy: Cloud data takes precedence for conflicts
-        await this.mergeCloudData(cloudData);
-      }
-
-      // Start realtime sync
-      this.startRealtimeSync();
+      // Start scheduled sync (every 1 hour)
+      this.startScheduledSync();
     }
   }
 
   async onUserSignedOut() {
     this.syncEnabled = false;
+    this.stopScheduledSync();
     this.unsubscribeAll();
   }
 
@@ -461,31 +463,74 @@ class FirebaseService {
     }
   }
 
-  startRealtimeSync() {
-    // Only start if sync is enabled
+  // ===== NEW: Scheduled Sync (1 hour intervals) =====
+
+  // Full sync: Pull from cloud and merge with local
+  async fullSync() {
+    if (!this.currentUser || !this.syncEnabled) {
+      console.log('⏭️ Full sync skipped: Not signed in or sync disabled');
+      return false;
+    }
+
+    if (this.isSyncing) {
+      console.log('⏭️ Full sync skipped: Already syncing');
+      return false;
+    }
+
+    try {
+      this.isSyncing = true;
+      console.log('🔄 Starting full sync...');
+
+      // Pull cloud data
+      const cloudData = await this.pullCloudData();
+
+      if (cloudData) {
+        // Merge with local data
+        await this.mergeCloudData(cloudData);
+        this.lastSyncTime = new Date();
+        console.log('✅ Full sync completed:', this.lastSyncTime.toLocaleTimeString());
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('❌ Full sync failed:', error);
+      return false;
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  // Start scheduled sync timer (every 1 hour)
+  startScheduledSync() {
+    // Clear existing timer if any
+    this.stopScheduledSync();
+
     if (!this.syncEnabled) {
-      console.log('Realtime sync not started: sync disabled');
+      console.log('⏭️ Scheduled sync not started: sync disabled');
       return;
     }
 
-    // Subscribe to worklog changes
-    this.subscribeToWorklog(async (changes) => {
-      for (const change of changes) {
-        if (change.type === 'added' || change.type === 'modified') {
-          // Clean Firestore data (convert timestamps, remove undefined)
-          const cleanEntry = this.cleanFirestoreData(change.data);
+    console.log(`⏰ Scheduled sync started (every ${this.syncInterval / 60000} minutes)`);
 
-          // Use put() directly because cloud entries already have IDs
-          await storage.put('worklog', {
-            id: change.id,
-            ...cleanEntry
-          });
-        } else if (change.type === 'removed') {
-          await storage.deleteWorklogEntry(change.id);
-        }
-      }
-      console.log(`Processed ${changes.length} realtime changes`);
-    });
+    this.syncTimer = setInterval(async () => {
+      console.log('⏰ Scheduled sync triggered');
+      await this.fullSync();
+    }, this.syncInterval);
+  }
+
+  // Stop scheduled sync timer
+  stopScheduledSync() {
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+      this.syncTimer = null;
+      console.log('⏹️ Scheduled sync stopped');
+    }
+  }
+
+  // Get last sync time for UI display
+  getLastSyncTime() {
+    return this.lastSyncTime;
   }
 
   // ===== Utility Methods =====

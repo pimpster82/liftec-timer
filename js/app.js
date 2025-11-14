@@ -785,6 +785,7 @@ class App {
 
     // Cloud sync status
     let syncStatusHTML = '';
+    let lastSyncHTML = '';
     if (firebaseService && firebaseService.isInitialized) {
       if (isSignedIn) {
         const statusText = isAnonymous ? 'Anonym angemeldet' : `Angemeldet als ${userEmail}`;
@@ -794,6 +795,28 @@ class App {
             ● ${statusText}${settings.cloudSync ? ' (Sync aktiv)' : ' (Sync deaktiviert)'}
           </div>
         `;
+
+        // Last sync time
+        if (settings.cloudSync) {
+          const lastSync = firebaseService.getLastSyncTime();
+          if (lastSync) {
+            const timeSince = Math.floor((Date.now() - lastSync.getTime()) / 1000 / 60); // minutes
+            const timeText = timeSince < 1 ? 'gerade eben' :
+                           timeSince < 60 ? `vor ${timeSince} Min` :
+                           `vor ${Math.floor(timeSince / 60)} Std`;
+            lastSyncHTML = `
+              <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Letzter Sync: ${timeText}
+              </div>
+            `;
+          } else {
+            lastSyncHTML = `
+              <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Noch kein Sync durchgeführt
+              </div>
+            `;
+          }
+        }
       } else {
         syncStatusHTML = `
           <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -817,6 +840,7 @@ class App {
               <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">☁️ Cloud Synchronisation</h4>
 
               ${syncStatusHTML}
+              ${lastSyncHTML}
 
               <div class="mt-3 flex items-center gap-3">
                 <label class="flex items-center gap-2">
@@ -825,6 +849,23 @@ class App {
                   <span class="text-sm text-gray-700 dark:text-gray-300">Cloud Sync aktivieren</span>
                 </label>
               </div>
+
+              ${isSignedIn && settings.cloudSync ? `
+                <div class="mt-3">
+                  <button id="firebase-manual-sync" class="w-full px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+                    <span id="sync-button-text">Jetzt syncen</span>
+                    <span id="sync-button-spinner" class="hidden">
+                      <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </span>
+                  </button>
+                  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    ⏰ Automatischer Sync: alle 60 Minuten
+                  </p>
+                </div>
+              ` : ''}
 
               <div class="mt-3 space-y-2">
                 ${!isSignedIn ? `
@@ -944,6 +985,40 @@ class App {
             await this.showSettings(); // Refresh settings to show new state
           } catch (error) {
             ui.showToast('Anmeldung fehlgeschlagen: ' + error.message, 'error');
+          }
+        });
+      }
+
+      // Manual Sync Button
+      const manualSyncBtn = document.getElementById('firebase-manual-sync');
+      if (manualSyncBtn) {
+        manualSyncBtn.addEventListener('click', async () => {
+          const buttonText = document.getElementById('sync-button-text');
+          const buttonSpinner = document.getElementById('sync-button-spinner');
+
+          try {
+            // Show spinner
+            buttonText.textContent = 'Synchronisiere...';
+            buttonSpinner.classList.remove('hidden');
+            manualSyncBtn.disabled = true;
+
+            // Perform full sync
+            const success = await firebaseService.fullSync();
+
+            if (success) {
+              ui.showToast('Sync erfolgreich abgeschlossen', 'success');
+              // Refresh settings to show new sync time
+              await this.showSettings();
+            } else {
+              ui.showToast('Sync fehlgeschlagen', 'error');
+            }
+          } catch (error) {
+            ui.showToast('Sync-Fehler: ' + error.message, 'error');
+          } finally {
+            // Hide spinner
+            buttonText.textContent = 'Jetzt syncen';
+            buttonSpinner.classList.add('hidden');
+            manualSyncBtn.disabled = false;
           }
         });
       }
