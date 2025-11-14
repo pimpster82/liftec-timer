@@ -134,6 +134,26 @@ class FirebaseService {
     }
   }
 
+  // ===== Helper Methods =====
+
+  // Convert Firestore Timestamps to JavaScript-compatible values
+  cleanFirestoreData(data) {
+    if (!data) return data;
+
+    const cleaned = { ...data };
+    Object.keys(cleaned).forEach(key => {
+      // Convert Firestore Timestamps to ISO strings
+      if (cleaned[key] && typeof cleaned[key].toDate === 'function') {
+        cleaned[key] = cleaned[key].toDate().toISOString();
+      }
+      // Remove undefined values
+      if (cleaned[key] === undefined) {
+        delete cleaned[key];
+      }
+    });
+    return cleaned;
+  }
+
   // ===== Firestore Sync =====
 
   // Sync worklog entry to cloud
@@ -306,10 +326,17 @@ class FirebaseService {
         .collection('worklog')
         .get();
 
-      data.worklog = worklogSnapshot.docs.map(doc => ({
-        id: parseInt(doc.id),
-        ...doc.data()
-      }));
+      data.worklog = worklogSnapshot.docs.map(doc => {
+        const id = parseInt(doc.id);
+        if (isNaN(id)) {
+          console.error(`Invalid worklog ID from Firestore: ${doc.id}`);
+          return null;
+        }
+        return {
+          id,
+          ...this.cleanFirestoreData(doc.data())
+        };
+      }).filter(entry => entry !== null);
 
       // Pull current session
       const sessionDoc = await this.db
@@ -320,7 +347,7 @@ class FirebaseService {
         .get();
 
       if (sessionDoc.exists) {
-        data.session = sessionDoc.data();
+        data.session = this.cleanFirestoreData(sessionDoc.data());
       }
 
       // Pull settings
@@ -332,7 +359,7 @@ class FirebaseService {
         .get();
 
       if (settingsDoc.exists) {
-        data.settings = settingsDoc.data();
+        data.settings = this.cleanFirestoreData(settingsDoc.data());
       }
 
       console.log('Cloud data pulled successfully');
@@ -411,37 +438,42 @@ class FirebaseService {
     // Merge worklog entries
     if (cloudData.worklog && cloudData.worklog.length > 0) {
       for (const entry of cloudData.worklog) {
-        // Remove Firebase timestamps before saving to IndexedDB
-        const { updatedAt, syncedAt, ...cleanEntry } = entry;
-
         // Use put() directly instead of addWorklogEntry() because cloud entries already have IDs
         // addWorklogEntry() expects autoIncrement, which conflicts with existing IDs
-        await storage.put('worklog', cleanEntry);
+        // cleanFirestoreData() already removed timestamps and cleaned the data
+        await storage.put('worklog', entry);
       }
       console.log(`Merged ${cloudData.worklog.length} worklog entries from cloud`);
     }
 
     // Merge settings (cloud takes precedence)
     if (cloudData.settings) {
-      const { updatedAt, ...cleanSettings } = cloudData.settings;
-      await storage.saveSettings(cleanSettings);
+      // cleanFirestoreData() already removed timestamps
+      await storage.saveSettings(cloudData.settings);
       console.log('Merged settings from cloud');
     }
 
     // Merge current session (cloud takes precedence)
     if (cloudData.session) {
-      const { updatedAt, ...cleanSession } = cloudData.session;
-      await storage.saveCurrentSession(cleanSession);
+      // cleanFirestoreData() already removed timestamps
+      await storage.saveCurrentSession(cloudData.session);
       console.log('Merged current session from cloud');
     }
   }
 
   startRealtimeSync() {
+    // Only start if sync is enabled
+    if (!this.syncEnabled) {
+      console.log('Realtime sync not started: sync disabled');
+      return;
+    }
+
     // Subscribe to worklog changes
     this.subscribeToWorklog(async (changes) => {
       for (const change of changes) {
         if (change.type === 'added' || change.type === 'modified') {
-          const { updatedAt, syncedAt, ...cleanEntry } = change.data;
+          // Clean Firestore data (convert timestamps, remove undefined)
+          const cleanEntry = this.cleanFirestoreData(change.data);
 
           // Use put() directly because cloud entries already have IDs
           await storage.put('worklog', {
