@@ -700,12 +700,13 @@ class App {
         `${summary}\n${total}`
       );
 
-      // Clear on-call status
-      await storage.clearOnCall();
-
-      // Update UI
-      await this.renderMainScreen();
-      ui.showToast(ui.t('onCallEnded'), 'success');
+      // Only clear on-call if user confirmed
+      if (confirmed) {
+        await storage.clearOnCall();
+        // Update UI
+        await this.renderMainScreen();
+        ui.showToast(ui.t('onCallEnded'), 'success');
+      }
     } catch (error) {
       console.error('Error ending on-call:', error);
       ui.showToast(ui.t('error'), 'error');
