@@ -714,9 +714,9 @@ class App {
       // Close dialog
       ui.hideModal();
 
-      // Now save end time to storage
+      // Now save end time to storage (keeps data for export)
       await storage.endOnCall(endDate, endTime);
-      await storage.clearOnCall();
+      // Don't clear - we need the data for CSV/Excel export!
 
       // Update UI
       await this.renderMainScreen();
