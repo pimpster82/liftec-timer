@@ -4,7 +4,7 @@
 class Storage {
   constructor() {
     this.dbName = 'LiftecTimerDB';
-    this.version = 1;
+    this.version = 2;  // Incremented for onCall store
     this.db = null;
   }
 
