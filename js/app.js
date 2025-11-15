@@ -692,21 +692,35 @@ class App {
         .replace('{end}', `${endDate} ${endTime}`);
       const total = ui.t('onCallTotal').replace('{hours}', ui.hoursToHHMM(onCallHours));
 
-      const confirmed = await this.showConfirmDialog(
-        ui.t('onCallEnded'),
-        `${summary}\n${total}`
-      );
+      // Show confirmation dialog
+      const dialogContent = `
+        <div style="padding: 20px;">
+          <h3 style="margin-bottom: 15px; font-weight: bold;">${ui.t('onCallEnded')}</h3>
+          <p style="margin-bottom: 10px;">${summary}</p>
+          <p style="font-weight: bold;">${total}</p>
+          <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="confirm-ok-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">OK</button>
+          </div>
+        </div>
+      `;
 
-      // Only save on-call if user confirmed
-      if (confirmed) {
-        ui.hideModal();  // Close dialog first
-        // Now save end time to storage
-        await storage.endOnCall(endDate, endTime);
-        await storage.clearOnCall();
-        // Update UI
-        await this.renderMainScreen();
-        ui.showToast(ui.t('onCallEnded'), 'success');
-      }
+      ui.showModal(dialogContent);
+
+      // Wait for user to click OK
+      await new Promise((resolve) => {
+        document.getElementById('confirm-ok-btn').addEventListener('click', resolve);
+      });
+
+      // Close dialog
+      ui.hideModal();
+
+      // Now save end time to storage
+      await storage.endOnCall(endDate, endTime);
+      await storage.clearOnCall();
+
+      // Update UI
+      await this.renderMainScreen();
+      ui.showToast(ui.t('onCallEnded'), 'success');
     } catch (error) {
       console.error('Error ending on-call:', error);
       ui.showToast(ui.t('error'), 'error');
