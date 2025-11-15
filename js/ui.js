@@ -553,12 +553,20 @@ class UI {
         ? 'bg-green-500 hover:bg-green-600'
         : 'bg-gray-500 hover:bg-gray-600';
 
+      // Show period number badge if active
+      const periodBadge = isActive && onCallStatus.id
+        ? `<span class="absolute -top-1 -right-1 bg-white text-green-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-green-500">#${onCallStatus.id}</span>`
+        : '';
+
       onCallButtonHTML = `
-        <button id="oncall-btn"
-                class="${buttonClass} text-white rounded-full p-2 transition-colors btn-press"
-                title="${isActive ? this.t('onCallEnd') : this.t('onCallStart')}">
-          ${icon}
-        </button>
+        <div class="relative inline-block">
+          <button id="oncall-btn"
+                  class="${buttonClass} text-white rounded-full p-2 transition-colors btn-press"
+                  title="${isActive ? this.t('onCallEnd') : this.t('onCallStart')}">
+            ${icon}
+          </button>
+          ${periodBadge}
+        </div>
       `;
     }
 

@@ -278,51 +278,64 @@ class ExcelExport {
   }
 
   // Add on-call summary section to worksheet
+  // Handles multiple periods and adjusts dates to month boundaries
   async addOnCallSummary(worksheet, startRow, year, month) {
     try {
-      // Get on-call status
-      const onCallStatus = await storage.getOnCallStatus();
+      // Get all on-call periods
+      const allPeriods = await storage.getAllOnCallPeriods();
 
-      // Check if on-call period exists and overlaps with the requested month
-      if (!onCallStatus || !onCallStatus.startDate || !onCallStatus.endDate) {
+      // Filter periods that are completed (have endDate)
+      const completedPeriods = allPeriods.filter(p => p.endDate);
+
+      if (completedPeriods.length === 0) {
         return;
       }
 
-      // Parse on-call dates
-      const onCallStart = this.parseDate(onCallStatus.startDate);
-      const onCallEnd = this.parseDate(onCallStatus.endDate);
-
       // Get month boundaries
-      const monthStart = new Date(year, month - 1, 1);
-      const monthEnd = new Date(year, month, 0);
+      // Month start: first day at 00:01
+      // Month end: last day at 23:59
+      const monthStart = new Date(year, month - 1, 1, 0, 1);
+      const monthEnd = new Date(year, month, 0, 23, 59);
 
-      // Check if on-call period overlaps with this month
-      if (onCallEnd < monthStart || onCallStart > monthEnd) {
-        return; // No overlap
-      }
+      // Collect periods that overlap with this month
+      const overlappingPeriods = [];
 
-      // Calculate total on-call hours for the entire period
-      const totalHours = (onCallEnd - onCallStart) / 3600000; // milliseconds to hours
+      for (const period of completedPeriods) {
+        // Parse period dates (with times)
+        const periodStart = this.parseDateTime(period.startDate, period.startTime);
+        const periodEnd = this.parseDateTime(period.endDate, period.endTime);
 
-      // Get all worklog entries in the on-call range
-      const entries = await storage.getEntriesByDateRange(
-        onCallStatus.startDate,
-        onCallStatus.endDate
-      );
-
-      // Sum up actual work hours
-      let workHours = 0;
-      for (const entry of entries) {
-        if (entry.surcharge) {
-          const [hours, minutes] = entry.surcharge.split(':').map(Number);
-          workHours += hours + (minutes / 60);
+        // Check if period overlaps with this month
+        if (periodEnd < monthStart || periodStart > monthEnd) {
+          continue; // No overlap, skip this period
         }
+
+        // Adjust period boundaries to fit within the month
+        const adjustedStart = periodStart < monthStart ? monthStart : periodStart;
+        const adjustedEnd = periodEnd > monthEnd ? monthEnd : periodEnd;
+
+        // Calculate on-call hours for this adjusted period
+        const onCallHours = await this.calculateMonthlyOnCallHours(
+          period,
+          adjustedStart,
+          adjustedEnd
+        );
+
+        overlappingPeriods.push({
+          id: period.id,
+          startDate: this.formatDate(adjustedStart),
+          startTime: this.formatTime(adjustedStart),
+          endDate: this.formatDate(adjustedEnd),
+          endTime: this.formatTime(adjustedEnd),
+          hours: onCallHours
+        });
       }
 
-      // Calculate on-call time
-      const onCallHours = Math.max(0, totalHours - workHours);
+      if (overlappingPeriods.length === 0) {
+        return;
+      }
 
-      // Convert hours to Excel time format (HH:MM)
+      // Convert hours to Excel time format
       const timeToExcelTime = (hours) => {
         return hours / 24;
       };
@@ -332,110 +345,120 @@ class ExcelExport {
 
       // Add on-call summary header row
       const headerRow = worksheet.getRow(startRow);
-      headerRow.getCell(1).value = 'Bereitschaft';
-      headerRow.getCell(1).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFD9D9D9' }
-      };
-      headerRow.getCell(1).font = { bold: true, size: 10 };
-      headerRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
-      headerRow.getCell(1).border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      };
-
-      headerRow.getCell(2).value = 'Von';
-      headerRow.getCell(2).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFD9D9D9' }
-      };
-      headerRow.getCell(2).font = { bold: true, size: 10 };
-      headerRow.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
-      headerRow.getCell(2).border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      };
-
-      headerRow.getCell(3).value = 'Bis';
-      headerRow.getCell(3).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFD9D9D9' }
-      };
-      headerRow.getCell(3).font = { bold: true, size: 10 };
-      headerRow.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
-      headerRow.getCell(3).border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      };
-
-      headerRow.getCell(4).value = 'Insgesamt';
-      headerRow.getCell(4).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFD9D9D9' }
-      };
-      headerRow.getCell(4).font = { bold: true, size: 10 };
-      headerRow.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
-      headerRow.getCell(4).border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      };
+      this.formatHeaderCell(headerRow.getCell(1), 'Bereitschaft');
+      this.formatHeaderCell(headerRow.getCell(2), 'Von');
+      this.formatHeaderCell(headerRow.getCell(3), 'Bis');
+      this.formatHeaderCell(headerRow.getCell(4), 'Insgesamt');
 
       startRow++;
 
-      // Add on-call data row
-      const dataRow = worksheet.getRow(startRow);
-      dataRow.getCell(1).value = 'Bereitschaft';
-      dataRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
-      dataRow.getCell(1).border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      };
+      // Add each period as a data row
+      for (const period of overlappingPeriods) {
+        const dataRow = worksheet.getRow(startRow);
 
-      dataRow.getCell(2).value = onCallStatus.startDate;
-      dataRow.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
-      dataRow.getCell(2).border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      };
+        // Column 1: Bereitschaft #X
+        dataRow.getCell(1).value = `Bereitschaft #${period.id}`;
+        this.formatDataCell(dataRow.getCell(1));
 
-      dataRow.getCell(3).value = onCallStatus.endDate;
-      dataRow.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
-      dataRow.getCell(3).border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      };
+        // Column 2: Von (date + time)
+        dataRow.getCell(2).value = `${period.startDate} ${period.startTime}`;
+        this.formatDataCell(dataRow.getCell(2));
 
-      dataRow.getCell(4).value = timeToExcelTime(onCallHours);
-      dataRow.getCell(4).numFmt = '[h]:mm';
-      dataRow.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
-      dataRow.getCell(4).border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      };
+        // Column 3: Bis (date + time)
+        dataRow.getCell(3).value = `${period.endDate} ${period.endTime}`;
+        this.formatDataCell(dataRow.getCell(3));
+
+        // Column 4: Hours
+        dataRow.getCell(4).value = timeToExcelTime(period.hours);
+        dataRow.getCell(4).numFmt = '[h]:mm';
+        this.formatDataCell(dataRow.getCell(4));
+
+        startRow++;
+      }
     } catch (error) {
       console.error('Error adding on-call summary to Excel:', error);
       // Silent fail - don't break export if on-call summary fails
     }
+  }
+
+  // Helper: Format header cell (gray background)
+  formatHeaderCell(cell, value) {
+    cell.value = value;
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD9D9D9' }
+    };
+    cell.font = { bold: true, size: 10 };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+  }
+
+  // Helper: Format data cell
+  formatDataCell(cell) {
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+  }
+
+  // Helper: Parse date and time strings to Date object
+  parseDateTime(dateStr, timeStr) {
+    const [day, month, year] = dateStr.split('.').map(Number);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return new Date(year, month - 1, day, hours, minutes);
+  }
+
+  // Helper: Format Date object to DD.MM.YYYY
+  formatDate(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+  }
+
+  // Helper: Format Date object to HH:MM
+  formatTime(date) {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
+  // Calculate on-call hours for a period within month boundaries
+  // Returns: total_hours_in_range - work_hours_in_range
+  async calculateMonthlyOnCallHours(period, adjustedStart, adjustedEnd) {
+    // Calculate total hours in adjusted range
+    const totalHours = (adjustedEnd - adjustedStart) / 3600000; // milliseconds to hours
+
+    // Get worklog entries in the adjusted range
+    const adjustedStartDate = this.formatDate(adjustedStart);
+    const adjustedEndDate = this.formatDate(adjustedEnd);
+
+    const entries = await storage.getEntriesByDateRange(
+      adjustedStartDate,
+      adjustedEndDate
+    );
+
+    // Sum up actual work hours (surcharge field contains the work hours)
+    let workHours = 0;
+    for (const entry of entries) {
+      if (entry.surcharge) {
+        const [hours, minutes] = entry.surcharge.split(':').map(Number);
+        workHours += hours + (minutes / 60);
+      }
+    }
+
+    // Calculate on-call time (total time minus work time)
+    const onCallHours = Math.max(0, totalHours - workHours);
+    return onCallHours;
   }
 
   // === NEU: EXACT WIE BEIM CSV – MAIL & SHARE ===

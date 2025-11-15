@@ -594,14 +594,31 @@ class App {
 
   /**
    * Get current on-call status from storage
+   * Returns the active period for UI display (or a default inactive period if none)
    */
   async getOnCallStatus() {
     try {
-      return await storage.getOnCallStatus();
+      // Get active period only (for UI display)
+      const activePeriod = await storage.getActiveOnCall();
+
+      // If no active period, return default inactive status
+      if (!activePeriod) {
+        return {
+          id: null,
+          active: false,
+          startDate: null,
+          startTime: null,
+          endDate: null,
+          endTime: null
+        };
+      }
+
+      // Return active period
+      return activePeriod;
     } catch (error) {
       console.error('Error getting on-call status:', error);
       return {
-        id: 'active',
+        id: null,
         active: false,
         startDate: null,
         startTime: null,
@@ -644,12 +661,14 @@ class App {
       const startDate = ui.formatDate(startDateTime);
       const startTime = ui.formatTime(startDateTime);
 
-      // Save to storage
-      await storage.startOnCall(startDate, startTime);
+      // Save to storage (creates new period with auto-incrementing ID)
+      const result = await storage.startOnCall(startDate, startTime);
 
       // Update UI
       await this.renderMainScreen();
-      ui.showToast(ui.t('onCallActive'), 'success');
+
+      // Show success message with period number
+      ui.showToast(`${ui.t('onCallActive')} #${result.periodId}`, 'success');
     } catch (error) {
       console.error('Error starting on-call:', error);
       ui.showToast(ui.t('error'), 'error');
@@ -691,11 +710,12 @@ class App {
         .replace('{start}', `${status.startDate} ${status.startTime}`)
         .replace('{end}', `${endDate} ${endTime}`);
       const total = ui.t('onCallTotal').replace('{hours}', ui.hoursToHHMM(onCallHours));
+      const periodNumber = status.id;
 
-      // Show confirmation dialog
+      // Show confirmation dialog with period number
       const dialogContent = `
         <div style="padding: 20px;">
-          <h3 style="margin-bottom: 15px; font-weight: bold;">${ui.t('onCallEnded')}</h3>
+          <h3 style="margin-bottom: 15px; font-weight: bold;">${ui.t('onCallEnded')} #${periodNumber}</h3>
           <p style="margin-bottom: 10px;">${summary}</p>
           <p style="font-weight: bold;">${total}</p>
           <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
@@ -715,12 +735,12 @@ class App {
       ui.hideModal();
 
       // Now save end time to storage (keeps data for export)
-      await storage.endOnCall(endDate, endTime);
+      const result = await storage.endOnCall(endDate, endTime);
       // Don't clear - we need the data for CSV/Excel export!
 
       // Update UI
       await this.renderMainScreen();
-      ui.showToast(ui.t('onCallEnded'), 'success');
+      ui.showToast(`${ui.t('onCallEnded')} #${result.periodId}`, 'success');
     } catch (error) {
       console.error('Error ending on-call:', error);
       ui.showToast(ui.t('error'), 'error');

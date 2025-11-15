@@ -353,22 +353,89 @@ class Storage {
 
   // ===== On-Call Methods =====
 
+  /**
+   * Get all on-call data including periods array and nextId
+   * Handles migration from old single-period schema to new multi-period schema
+   */
   async getOnCallStatus() {
     const onCall = await this.get('onCall', 'active');
-    return onCall || {
-      id: 'active',
-      active: false,
-      startDate: null,
-      startTime: null,
-      endDate: null,
-      endTime: null
-    };
+
+    // If no data exists, return empty structure
+    if (!onCall) {
+      return {
+        id: 'active',
+        periods: [],
+        nextId: 1
+      };
+    }
+
+    // Migration: Check if old schema (has startDate/endDate at root level)
+    if (onCall.startDate !== undefined || onCall.endDate !== undefined) {
+      console.log('Migrating on-call data from old schema to new multi-period schema');
+
+      // Migrate old schema to new schema
+      const migratedData = {
+        id: 'active',
+        periods: [],
+        nextId: 1
+      };
+
+      // If there was an active or completed period in old schema, migrate it
+      if (onCall.startDate) {
+        migratedData.periods.push({
+          id: 1,
+          active: onCall.active || false,
+          startDate: onCall.startDate,
+          startTime: onCall.startTime,
+          endDate: onCall.endDate || null,
+          endTime: onCall.endTime || null
+        });
+        migratedData.nextId = 2;
+      }
+
+      // Save migrated data
+      await this.put('onCall', migratedData);
+      return migratedData;
+    }
+
+    // New schema - return as is
+    return onCall;
   }
 
+  /**
+   * Get only the active on-call period (where active=true)
+   * Returns null if no active period exists
+   */
+  async getActiveOnCall() {
+    const onCallData = await this.getOnCallStatus();
+    const activePeriod = onCallData.periods.find(p => p.active === true);
+    return activePeriod || null;
+  }
+
+  /**
+   * Get all on-call periods (for export)
+   */
+  async getAllOnCallPeriods() {
+    const onCallData = await this.getOnCallStatus();
+    return onCallData.periods || [];
+  }
+
+  /**
+   * Start a new on-call period
+   * Sets all other periods to inactive and creates new period with nextId
+   */
   async startOnCall(startDate, startTime) {
-    // OFFLINE FIRST: Save to IndexedDB immediately
-    const onCallData = {
-      id: 'active',
+    // OFFLINE FIRST: Get current on-call data
+    const onCallData = await this.getOnCallStatus();
+
+    // Set all existing periods to inactive
+    onCallData.periods.forEach(period => {
+      period.active = false;
+    });
+
+    // Create new period with nextId
+    const newPeriod = {
+      id: onCallData.nextId,
       active: true,
       startDate: startDate,
       startTime: startTime,
@@ -376,31 +443,52 @@ class Storage {
       endTime: null
     };
 
+    // Add new period to array
+    onCallData.periods.push(newPeriod);
+
+    // Increment nextId for next period
+    onCallData.nextId++;
+
+    // Save to IndexedDB immediately
     const result = await this.put('onCall', onCallData);
 
     // OPTIONAL: Sync to Firebase in background (non-blocking)
     this.syncToCloud('onCall', onCallData);
 
-    return result;
+    return { result, periodId: newPeriod.id };
   }
 
+  /**
+   * End the currently active on-call period
+   */
   async endOnCall(endDate, endTime) {
     // OFFLINE FIRST: Get current on-call data
     const onCallData = await this.getOnCallStatus();
 
-    // Update with end time
-    onCallData.active = false;
-    onCallData.endDate = endDate;
-    onCallData.endTime = endTime;
+    // Find active period
+    const activePeriod = onCallData.periods.find(p => p.active === true);
 
+    if (!activePeriod) {
+      throw new Error('No active on-call period found');
+    }
+
+    // Update active period with end time and set inactive
+    activePeriod.active = false;
+    activePeriod.endDate = endDate;
+    activePeriod.endTime = endTime;
+
+    // Save to IndexedDB immediately
     const result = await this.put('onCall', onCallData);
 
     // OPTIONAL: Sync to Firebase in background (non-blocking)
     this.syncToCloud('onCall', onCallData);
 
-    return result;
+    return { result, periodId: activePeriod.id };
   }
 
+  /**
+   * Clear all on-call data (for reset)
+   */
   async clearOnCall() {
     const result = await this.delete('onCall', 'active');
 
