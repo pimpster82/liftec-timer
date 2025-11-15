@@ -1,13 +1,14 @@
 {
-  "version": "1.1.5",
-  "releaseDate": "2025-11-14",
+  "version": "1.2.0",
+  "releaseDate": "2025-11-15",
   "changelog": [
-    "Local backup system for safe offline data storage",
-    "Delete all data with automatic backup creation",
-    "Backup management: restore, share, and delete backups",
-    "IndexedDB 'backups' store for snapshot-based backups",
-    "Web Share API support for iOS file sharing",
-    "Fallback download for desktop backup export"
+    "On-Call (Bereitschaft) tracking feature",
+    "Enable/disable on-call in settings",
+    "Track on-call periods with start and end times",
+    "Automatic calculation: 24h - actual work hours = on-call hours",
+    "On-Call status visible in hero card with phone icon",
+    "On-Call summary in CSV and Excel exports",
+    "Full support for German, English, and Croatian"
   ],
   "critical": false
 }

@@ -98,12 +98,75 @@ class CSVExport {
     }
 
     // Build CSV content
-    const content = this.BOM + this.header + '\n' + rows.join('\n') + '\n';
+    let content = this.BOM + this.header + '\n' + rows.join('\n') + '\n';
+
+    // Add on-call summary if applicable
+    const onCallSummary = await this.getOnCallSummaryForMonth(year, month);
+    if (onCallSummary) {
+      content += '\n'; // Empty line separator
+      content += onCallSummary;
+    }
 
     // Create filename
     const filename = `${username.replace(/\s+/g, '_')}_${year}-${this.pad2(month)}.csv`;
 
     return { content, filename };
+  }
+
+  // Get on-call summary for a specific month
+  async getOnCallSummaryForMonth(year, month) {
+    try {
+      // Get on-call status
+      const onCallStatus = await storage.getOnCallStatus();
+
+      // Check if on-call period exists and overlaps with the requested month
+      if (!onCallStatus || !onCallStatus.startDate || !onCallStatus.endDate) {
+        return null;
+      }
+
+      // Parse on-call dates
+      const onCallStart = this.parseDate(onCallStatus.startDate);
+      const onCallEnd = this.parseDate(onCallStatus.endDate);
+
+      // Get month boundaries
+      const monthStart = new Date(year, month - 1, 1);
+      const monthEnd = new Date(year, month, 0);
+
+      // Check if on-call period overlaps with this month
+      if (onCallEnd < monthStart || onCallStart > monthEnd) {
+        return null; // No overlap
+      }
+
+      // Calculate total on-call hours for the entire period
+      const totalHours = (onCallEnd - onCallStart) / 3600000; // milliseconds to hours
+
+      // Get all worklog entries in the on-call range
+      const entries = await storage.getEntriesByDateRange(
+        onCallStatus.startDate,
+        onCallStatus.endDate
+      );
+
+      // Sum up actual work hours
+      let workHours = 0;
+      for (const entry of entries) {
+        if (entry.surcharge) {
+          const [hours, minutes] = entry.surcharge.split(':').map(Number);
+          workHours += hours + (minutes / 60);
+        }
+      }
+
+      // Calculate on-call time
+      const onCallHours = Math.max(0, totalHours - workHours);
+
+      // Format as HH:MM
+      const onCallHHMM = this.hoursToHHMM(onCallHours);
+
+      // Build on-call summary rows
+      return `Bereitschaft;Von;Bis;Insgesamt\nBereitschaft;${onCallStatus.startDate};${onCallStatus.endDate};${onCallHHMM}\n`;
+    } catch (error) {
+      console.error('Error generating on-call summary:', error);
+      return null;
+    }
   }
 
   // Download CSV file

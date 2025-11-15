@@ -263,6 +263,9 @@ class ExcelExport {
       currentRow++;
     }
 
+    // Add on-call summary if applicable
+    await this.addOnCallSummary(worksheet, currentRow, year, month);
+
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -272,6 +275,167 @@ class ExcelExport {
     const filename = `Arbeitszeit ${userName} ${monthNameForFile} ${year}.xlsx`;
 
     return { buffer, blob, filename };
+  }
+
+  // Add on-call summary section to worksheet
+  async addOnCallSummary(worksheet, startRow, year, month) {
+    try {
+      // Get on-call status
+      const onCallStatus = await storage.getOnCallStatus();
+
+      // Check if on-call period exists and overlaps with the requested month
+      if (!onCallStatus || !onCallStatus.startDate || !onCallStatus.endDate) {
+        return;
+      }
+
+      // Parse on-call dates
+      const onCallStart = this.parseDate(onCallStatus.startDate);
+      const onCallEnd = this.parseDate(onCallStatus.endDate);
+
+      // Get month boundaries
+      const monthStart = new Date(year, month - 1, 1);
+      const monthEnd = new Date(year, month, 0);
+
+      // Check if on-call period overlaps with this month
+      if (onCallEnd < monthStart || onCallStart > monthEnd) {
+        return; // No overlap
+      }
+
+      // Calculate total on-call hours for the entire period
+      const totalHours = (onCallEnd - onCallStart) / 3600000; // milliseconds to hours
+
+      // Get all worklog entries in the on-call range
+      const entries = await storage.getEntriesByDateRange(
+        onCallStatus.startDate,
+        onCallStatus.endDate
+      );
+
+      // Sum up actual work hours
+      let workHours = 0;
+      for (const entry of entries) {
+        if (entry.surcharge) {
+          const [hours, minutes] = entry.surcharge.split(':').map(Number);
+          workHours += hours + (minutes / 60);
+        }
+      }
+
+      // Calculate on-call time
+      const onCallHours = Math.max(0, totalHours - workHours);
+
+      // Convert hours to Excel time format (HH:MM)
+      const timeToExcelTime = (hours) => {
+        return hours / 24;
+      };
+
+      // Add empty row for spacing
+      startRow++;
+
+      // Add on-call summary header row
+      const headerRow = worksheet.getRow(startRow);
+      headerRow.getCell(1).value = 'Bereitschaft';
+      headerRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+      };
+      headerRow.getCell(1).font = { bold: true, size: 10 };
+      headerRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+      headerRow.getCell(1).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      headerRow.getCell(2).value = 'Von';
+      headerRow.getCell(2).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+      };
+      headerRow.getCell(2).font = { bold: true, size: 10 };
+      headerRow.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+      headerRow.getCell(2).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      headerRow.getCell(3).value = 'Bis';
+      headerRow.getCell(3).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+      };
+      headerRow.getCell(3).font = { bold: true, size: 10 };
+      headerRow.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+      headerRow.getCell(3).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      headerRow.getCell(4).value = 'Insgesamt';
+      headerRow.getCell(4).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+      };
+      headerRow.getCell(4).font = { bold: true, size: 10 };
+      headerRow.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+      headerRow.getCell(4).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      startRow++;
+
+      // Add on-call data row
+      const dataRow = worksheet.getRow(startRow);
+      dataRow.getCell(1).value = 'Bereitschaft';
+      dataRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+      dataRow.getCell(1).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      dataRow.getCell(2).value = onCallStatus.startDate;
+      dataRow.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+      dataRow.getCell(2).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      dataRow.getCell(3).value = onCallStatus.endDate;
+      dataRow.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+      dataRow.getCell(3).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      dataRow.getCell(4).value = timeToExcelTime(onCallHours);
+      dataRow.getCell(4).numFmt = '[h]:mm';
+      dataRow.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+      dataRow.getCell(4).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    } catch (error) {
+      console.error('Error adding on-call summary to Excel:', error);
+      // Silent fail - don't break export if on-call summary fails
+    }
   }
 
   // === NEU: EXACT WIE BEIM CSV – MAIL & SHARE ===

@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.1.5';
+const APP_VERSION = '1.2.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -302,9 +302,20 @@ class App {
   async renderMainScreen() {
     ui.showScreen('main');
 
+    // Get on-call status
+    const onCallStatus = await this.getOnCallStatus();
+
     // Render hero card
     const heroCard = document.getElementById('hero-card');
-    heroCard.innerHTML = ui.createHeroCard(this.session);
+    heroCard.innerHTML = ui.createHeroCard(this.session, onCallStatus);
+
+    // Add event listener for on-call button if enabled in settings
+    if (ui.settings?.onCallEnabled) {
+      const onCallBtn = document.getElementById('oncall-btn');
+      if (onCallBtn) {
+        onCallBtn.addEventListener('click', () => this.toggleOnCallButton());
+      }
+    }
 
     // Render session info
     const sessionInfo = document.getElementById('session-info');
@@ -577,6 +588,180 @@ class App {
 
     await this.renderMainScreen();
     ui.showToast('Sitzung gespeichert', 'success');
+  }
+
+  // ===== On-Call Management =====
+
+  /**
+   * Get current on-call status from storage
+   */
+  async getOnCallStatus() {
+    try {
+      return await storage.getOnCallStatus();
+    } catch (error) {
+      console.error('Error getting on-call status:', error);
+      return {
+        id: 'active',
+        active: false,
+        startDate: null,
+        startTime: null,
+        endDate: null,
+        endTime: null
+      };
+    }
+  }
+
+  /**
+   * Toggle on-call button - start if inactive, end if active
+   */
+  async toggleOnCallButton() {
+    try {
+      const status = await this.getOnCallStatus();
+
+      if (status.active) {
+        // On-call is active, show end dialog
+        await this.endOnCall();
+      } else {
+        // On-call is inactive, show start dialog
+        await this.startOnCall();
+      }
+    } catch (error) {
+      console.error('Error toggling on-call:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * Start on-call period
+   */
+  async startOnCall() {
+    try {
+      // Show date-time picker for start
+      const startDateTime = await this.showDateTimePicker(ui.t('onCallStartFrom'), new Date());
+      if (!startDateTime) return;
+
+      // Extract date and time
+      const startDate = ui.formatDate(startDateTime);
+      const startTime = ui.formatTime(startDateTime);
+
+      // Save to storage
+      await storage.startOnCall(startDate, startTime);
+
+      // Update UI
+      await this.renderMainScreen();
+      ui.showToast(ui.t('onCallActive'), 'success');
+    } catch (error) {
+      console.error('Error starting on-call:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * End on-call period and calculate total on-call time
+   */
+  async endOnCall() {
+    try {
+      // Get current on-call status
+      const status = await this.getOnCallStatus();
+      if (!status.active) {
+        ui.showToast('Keine aktive Bereitschaft', 'error');
+        return;
+      }
+
+      // Show date-time picker for end
+      const endDateTime = await this.showDateTimePicker(ui.t('onCallEndAt'), new Date());
+      if (!endDateTime) return;
+
+      // Extract date and time
+      const endDate = ui.formatDate(endDateTime);
+      const endTime = ui.formatTime(endDateTime);
+
+      // Validate end time is after start time
+      const startDateTime = this.parseDateTime(status.startDate, status.startTime);
+      if (endDateTime <= startDateTime) {
+        ui.showToast('Endzeit muss nach Startzeit liegen', 'error');
+        return;
+      }
+
+      // Calculate on-call time
+      const onCallHours = await this.calculateOnCallTime(status.startDate, status.startTime, endDate, endTime);
+
+      // Save end time to storage
+      await storage.endOnCall(endDate, endTime);
+
+      // Show summary
+      const summary = ui.t('onCallSummary')
+        .replace('{start}', `${status.startDate} ${status.startTime}`)
+        .replace('{end}', `${endDate} ${endTime}`);
+      const total = ui.t('onCallTotal').replace('{hours}', ui.hoursToHHMM(onCallHours));
+
+      const confirmed = await this.showConfirmDialog(
+        ui.t('onCallEnded'),
+        `${summary}\n${total}`
+      );
+
+      // Clear on-call status
+      await storage.clearOnCall();
+
+      // Update UI
+      await this.renderMainScreen();
+      ui.showToast(ui.t('onCallEnded'), 'success');
+    } catch (error) {
+      console.error('Error ending on-call:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * Calculate on-call time (24h - actual work hours during period)
+   * @param {string} startDate - Start date in DD.MM.YYYY format
+   * @param {string} startTime - Start time in HH:MM format
+   * @param {string} endDate - End date in DD.MM.YYYY format
+   * @param {string} endTime - End time in HH:MM format
+   * @returns {number} On-call hours
+   */
+  async calculateOnCallTime(startDate, startTime, endDate, endTime) {
+    try {
+      // Parse start and end date-time
+      const start = this.parseDateTime(startDate, startTime);
+      const end = this.parseDateTime(endDate, endTime);
+
+      // Calculate total hours in the period
+      const totalHours = (end - start) / 3600000; // milliseconds to hours
+
+      // Get all worklog entries in the date range
+      const entries = await storage.getEntriesByDateRange(startDate, endDate);
+
+      // Sum up actual work hours (surcharge field contains the total billable hours)
+      let workHours = 0;
+      for (const entry of entries) {
+        if (entry.surcharge) {
+          // Convert HH:MM to hours
+          const [hours, minutes] = entry.surcharge.split(':').map(Number);
+          workHours += hours + (minutes / 60);
+        }
+      }
+
+      // On-call time = Total time - Work time
+      const onCallHours = Math.max(0, totalHours - workHours);
+
+      return onCallHours;
+    } catch (error) {
+      console.error('Error calculating on-call time:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Parse date and time strings to Date object
+   * @param {string} dateStr - Date in DD.MM.YYYY format
+   * @param {string} timeStr - Time in HH:MM format
+   * @returns {Date} Date object
+   */
+  parseDateTime(dateStr, timeStr) {
+    const [day, month, year] = dateStr.split('.').map(Number);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return new Date(year, month - 1, day, hours, minutes);
   }
 
   // ===== Absence Entry =====
@@ -1612,6 +1797,18 @@ class App {
               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
           </div>
 
+          <!-- On-Call Feature Toggle -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" id="setting-oncall-enabled" ${settings.onCallEnabled ? 'checked' : ''}
+                class="w-4 h-4 text-primary focus:ring-primary rounded">
+              <div>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${ui.t('onCallEnabled')}</span>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Bereitschaftszeiten erfassen und verwalten</p>
+              </div>
+            </label>
+          </div>
+
           <!-- Email Export Settings -->
           <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
             <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="email-content">
@@ -1852,7 +2049,8 @@ class App {
         emailBody: document.getElementById('setting-email-body').value,
         cloudSync: document.getElementById('setting-cloud-sync') ?
                    document.getElementById('setting-cloud-sync').checked :
-                   settings.cloudSync
+                   settings.cloudSync,
+        onCallEnabled: document.getElementById('setting-oncall-enabled').checked
       };
 
       await storage.saveSettings(newSettings);

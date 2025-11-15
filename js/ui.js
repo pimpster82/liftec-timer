@@ -132,7 +132,19 @@ class UI {
         dataDeleted: '✓ Alle Daten gelöscht. Neuer Start!',
         restoreSuccess: '✓ Backup wiederhergestellt: {count} Einträge',
         backupShareSubject: 'Backup - Arbeitszeiten {name}',
-        backupShareBody: 'Mein Arbeitszeiten-Backup vom {date}'
+        backupShareBody: 'Mein Arbeitszeiten-Backup vom {date}',
+        // On-Call (Bereitschaft)
+        onCall: 'Bereitschaft',
+        onCallEnabled: 'Bereitschaft aktiviert',
+        onCallStart: 'Bereitschaft starten',
+        onCallEnd: 'Bereitschaft beenden',
+        onCallStartFrom: 'Bereitschaft ab wann?',
+        onCallEndAt: 'Bereitschaft endet wann?',
+        onCallActive: 'Bereitschaft aktiv',
+        onCallEnded: 'Bereitschaft beendet',
+        onCallTime: 'Bereitschaftszeit',
+        onCallSummary: 'Bereitschaft: {start} bis {end}',
+        onCallTotal: 'Insgesamt: {hours}'
       },
       en: {
         appName: 'Time Tracking',
@@ -255,7 +267,19 @@ class UI {
         dataDeleted: '✓ All data deleted. Fresh start!',
         restoreSuccess: '✓ Backup restored: {count} entries',
         backupShareSubject: 'Backup - Work Hours {name}',
-        backupShareBody: 'My work hours backup from {date}'
+        backupShareBody: 'My work hours backup from {date}',
+        // On-Call (Bereitschaft)
+        onCall: 'On-Call',
+        onCallEnabled: 'On-Call Enabled',
+        onCallStart: 'Start On-Call',
+        onCallEnd: 'End On-Call',
+        onCallStartFrom: 'On-Call from when?',
+        onCallEndAt: 'On-Call ends when?',
+        onCallActive: 'On-Call active',
+        onCallEnded: 'On-Call ended',
+        onCallTime: 'On-Call Time',
+        onCallSummary: 'On-Call: {start} to {end}',
+        onCallTotal: 'Total: {hours}'
       },
       hr: {
         appName: 'Evidencija vremena',
@@ -378,7 +402,19 @@ class UI {
         dataDeleted: '✓ Svi podaci obrisani. Novi početak!',
         restoreSuccess: '✓ Sigurnosna kopija vraćena: {count} unosa',
         backupShareSubject: 'Sigurnosna kopija - Radni sati {name}',
-        backupShareBody: 'Moja sigurnosna kopija radnih sati od {date}'
+        backupShareBody: 'Moja sigurnosna kopija radnih sati od {date}',
+        // On-Call (Dežurstvo)
+        onCall: 'Dežurstvo',
+        onCallEnabled: 'Dežurstvo aktivirano',
+        onCallStart: 'Počni dežurstvo',
+        onCallEnd: 'Završi dežurstvo',
+        onCallStartFrom: 'Dežurstvo od kada?',
+        onCallEndAt: 'Dežurstvo završava kada?',
+        onCallActive: 'Dežurstvo aktivno',
+        onCallEnded: 'Dežurstvo završeno',
+        onCallTime: 'Vrijeme dežurstva',
+        onCallSummary: 'Dežurstvo: {start} do {end}',
+        onCallTotal: 'Ukupno: {hours}'
       }
     };
   }
@@ -408,7 +444,9 @@ class UI {
       file: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
       check: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>',
       x: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
-      warning: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>'
+      warning: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+      onCallOff: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>',
+      onCallOn: '<svg class="' + className + '" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/><circle cx="19" cy="8" r="3" fill="currentColor"/></svg>'
     };
     return icons[name] || '';
   }
@@ -491,7 +529,7 @@ class UI {
 
   // ===== Hero Card =====
 
-  createHeroCard(session) {
+  createHeroCard(session, onCallStatus = null) {
     const greeting = this.getGreeting();
     const username = this.settings?.username || 'Benutzer';
 
@@ -506,24 +544,45 @@ class UI {
       `;
     }
 
+    // On-call button HTML (only if enabled in settings)
+    let onCallButtonHTML = '';
+    if (this.settings?.onCallEnabled && onCallStatus) {
+      const isActive = onCallStatus.active;
+      const icon = isActive ? this.icon('onCallOn', 'w-5 h-5') : this.icon('onCallOff', 'w-5 h-5');
+      const buttonClass = isActive
+        ? 'bg-green-500 hover:bg-green-600'
+        : 'bg-gray-500 hover:bg-gray-600';
+
+      onCallButtonHTML = `
+        <button id="oncall-btn"
+                class="${buttonClass} text-white rounded-full p-2 transition-colors btn-press"
+                title="${isActive ? this.t('onCallEnd') : this.t('onCallStart')}">
+          ${icon}
+        </button>
+      `;
+    }
+
     return `
       <div class="hero-card rounded-xl p-5 ${session ? 'h-44' : 'h-36'} text-gray-900">
-        <div class="flex items-center space-x-3 mb-4">
-          <div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center p-1.5">
-            <svg viewBox="0 0 100 100" class="w-full h-full">
-              <!-- Top bar -->
-              <rect x="0" y="0" width="100" height="20" fill="white"/>
-              <!-- Bottom bars -->
-              <rect x="0" y="24" width="18" height="76" fill="white"/>
-              <rect x="21" y="24" width="24" height="76" fill="white"/>
-              <rect x="48" y="24" width="30" height="76" fill="white"/>
-              <rect x="81" y="24" width="19" height="76" fill="white"/>
-            </svg>
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center p-1.5">
+              <svg viewBox="0 0 100 100" class="w-full h-full">
+                <!-- Top bar -->
+                <rect x="0" y="0" width="100" height="20" fill="white"/>
+                <!-- Bottom bars -->
+                <rect x="0" y="24" width="18" height="76" fill="white"/>
+                <rect x="21" y="24" width="24" height="76" fill="white"/>
+                <rect x="48" y="24" width="30" height="76" fill="white"/>
+                <rect x="81" y="24" width="19" height="76" fill="white"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm opacity-70">${greeting}</p>
+              <h2 class="text-xl font-bold">${username}</h2>
+            </div>
           </div>
-          <div>
-            <p class="text-sm opacity-70">${greeting}</p>
-            <h2 class="text-xl font-bold">${username}</h2>
-          </div>
+          ${onCallButtonHTML}
         </div>
         ${durationHTML}
       </div>

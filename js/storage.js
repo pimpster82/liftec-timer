@@ -54,6 +54,10 @@ class Storage {
           backupStore.createIndex('username', 'username', { unique: false });
         }
 
+        if (!db.objectStoreNames.contains('onCall')) {
+          db.createObjectStore('onCall', { keyPath: 'id' });
+        }
+
         console.log('Database setup complete');
       };
     });
@@ -236,7 +240,8 @@ class Storage {
       emailSubject: 'Arbeitszeit {month} - {name}',
       emailBody: 'Hi Stefan. Anbei meine Arbeitszeit für {month}.',
       cloudSync: false,  // Cloud sync disabled by default
-      onboardingCompleted: false  // Show onboarding on first launch
+      onboardingCompleted: false,  // Show onboarding on first launch
+      onCallEnabled: false  // On-call feature disabled by default
     };
   }
 
@@ -346,6 +351,65 @@ class Storage {
     return result;
   }
 
+  // ===== On-Call Methods =====
+
+  async getOnCallStatus() {
+    const onCall = await this.get('onCall', 'active');
+    return onCall || {
+      id: 'active',
+      active: false,
+      startDate: null,
+      startTime: null,
+      endDate: null,
+      endTime: null
+    };
+  }
+
+  async startOnCall(startDate, startTime) {
+    // OFFLINE FIRST: Save to IndexedDB immediately
+    const onCallData = {
+      id: 'active',
+      active: true,
+      startDate: startDate,
+      startTime: startTime,
+      endDate: null,
+      endTime: null
+    };
+
+    const result = await this.put('onCall', onCallData);
+
+    // OPTIONAL: Sync to Firebase in background (non-blocking)
+    this.syncToCloud('onCall', onCallData);
+
+    return result;
+  }
+
+  async endOnCall(endDate, endTime) {
+    // OFFLINE FIRST: Get current on-call data
+    const onCallData = await this.getOnCallStatus();
+
+    // Update with end time
+    onCallData.active = false;
+    onCallData.endDate = endDate;
+    onCallData.endTime = endTime;
+
+    const result = await this.put('onCall', onCallData);
+
+    // OPTIONAL: Sync to Firebase in background (non-blocking)
+    this.syncToCloud('onCall', onCallData);
+
+    return result;
+  }
+
+  async clearOnCall() {
+    const result = await this.delete('onCall', 'active');
+
+    // OPTIONAL: Sync deletion to Firebase in background (non-blocking)
+    this.syncToCloud('onCall-delete', 'active');
+
+    return result;
+  }
+
   // ===== Export/Import Methods =====
 
   async exportAllData() {
@@ -353,6 +417,7 @@ class Storage {
     const currentSession = await this.getCurrentSession();
     const settings = await this.getSettings();
     const worklog = await this.getAllWorklogEntries();
+    const onCall = await this.getOnCallStatus();
 
     return {
       version: this.version,
@@ -361,7 +426,8 @@ class Storage {
         sessions,
         currentSession,
         settings,
-        worklog
+        worklog,
+        onCall
       }
     };
   }
@@ -371,12 +437,13 @@ class Storage {
       throw new Error('Invalid import data');
     }
 
-    const { sessions, currentSession, settings, worklog } = importData.data;
+    const { sessions, currentSession, settings, worklog, onCall } = importData.data;
 
     // Clear existing data
     await this.clear('sessions');
     await this.clear('currentSession');
     await this.clear('worklog');
+    await this.clear('onCall');
 
     // Import sessions
     if (sessions && sessions.length > 0) {
@@ -400,6 +467,11 @@ class Storage {
       for (const entry of worklog) {
         await this.addWorklogEntry(entry);
       }
+    }
+
+    // Import on-call
+    if (onCall && onCall.id) {
+      await this.put('onCall', onCall);
     }
 
     return true;
