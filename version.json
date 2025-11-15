@@ -1,14 +1,15 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "releaseDate": "2025-11-15",
   "changelog": [
-    "On-Call (Bereitschaft) tracking feature",
-    "Enable/disable on-call in settings",
-    "Track on-call periods with start and end times",
-    "Automatic calculation: 24h - actual work hours = on-call hours",
-    "On-Call status visible in hero card with phone icon",
-    "On-Call summary in CSV and Excel exports",
-    "Full support for German, English, and Croatian"
+    "Multi-period on-call system: Support unlimited on-call periods",
+    "Period numbering: Each period gets a unique ID (#1, #2, #3...)",
+    "Month-end handling: Periods crossing months split at boundaries (23:59/00:01)",
+    "Only one period active at a time with visual badge on button",
+    "Export improvements: Multiple periods shown in CSV and Excel",
+    "Automatic schema migration from v1.2.0 (no data loss)",
+    "Correct monthly calculations: hours adjusted per month",
+    "All completed periods preserved for historical export"
   ],
   "critical": false
 }
