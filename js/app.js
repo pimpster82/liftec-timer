@@ -686,10 +686,7 @@ class App {
       // Calculate on-call time
       const onCallHours = await this.calculateOnCallTime(status.startDate, status.startTime, endDate, endTime);
 
-      // Save end time to storage
-      await storage.endOnCall(endDate, endTime);
-
-      // Show summary
+      // Show summary for confirmation (BEFORE saving)
       const summary = ui.t('onCallSummary')
         .replace('{start}', `${status.startDate} ${status.startTime}`)
         .replace('{end}', `${endDate} ${endTime}`);
@@ -700,9 +697,11 @@ class App {
         `${summary}\n${total}`
       );
 
-      // Only clear on-call if user confirmed
+      // Only save on-call if user confirmed
       if (confirmed) {
         ui.hideModal();  // Close dialog first
+        // Now save end time to storage
+        await storage.endOnCall(endDate, endTime);
         await storage.clearOnCall();
         // Update UI
         await this.renderMainScreen();
