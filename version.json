@@ -1,15 +1,15 @@
 {
-  "version": "1.3.0",
+  "version": "1.3.1",
   "releaseDate": "2025-11-15",
   "changelog": [
+    "Fix: On-call calculation now uses actual work hours (endTime - startTime)",
+    "Previously used Schmutzzulage (surcharge), now uses clock times",
+    "Pause and travel time not subtracted from on-call (only work duration matters)",
     "Multi-period on-call system: Support unlimited on-call periods",
     "Period numbering: Each period gets a unique ID (#1, #2, #3...)",
-    "Month-end handling: Periods crossing months split at boundaries (23:59/00:01)",
+    "Month-end handling: Periods crossing months split at boundaries",
     "Only one period active at a time with visual badge on button",
-    "Export improvements: Multiple periods shown in CSV and Excel",
-    "Automatic schema migration from v1.2.0 (no data loss)",
-    "Correct monthly calculations: hours adjusted per month",
-    "All completed periods preserved for historical export"
+    "Export improvements: Multiple periods shown in CSV and Excel"
   ],
   "critical": false
 }
