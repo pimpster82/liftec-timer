@@ -232,12 +232,19 @@ class CSVExport {
       adjustedEndDate
     );
 
-    // Sum up actual work hours (surcharge field contains the work hours)
+    // Sum up actual work hours (endTime - startTime, not including pause/travel)
     let workHours = 0;
     for (const entry of entries) {
-      if (entry.surcharge) {
-        const [hours, minutes] = entry.surcharge.split(':').map(Number);
-        workHours += hours + (minutes / 60);
+      if (entry.startTime && entry.endTime) {
+        // Parse HH:MM format to decimal hours
+        const [startH, startM] = entry.startTime.split(':').map(Number);
+        const [endH, endM] = entry.endTime.split(':').map(Number);
+        const startHours = startH + (startM / 60);
+        const endHours = endH + (endM / 60);
+
+        // Calculate work hours for this day
+        const dayWork = endHours - startHours;
+        workHours += dayWork;
       }
     }
 
