@@ -702,6 +702,7 @@ class App {
 
       // Only clear on-call if user confirmed
       if (confirmed) {
+        ui.hideModal();  // Close dialog first
         await storage.clearOnCall();
         // Update UI
         await this.renderMainScreen();
