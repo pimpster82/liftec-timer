@@ -349,3 +349,16 @@ body {
     color: #9ca3af;
   }
 }
+
+/* Fix keyboard overlap on mobile - ensure focused inputs are visible */
+input:focus,
+textarea:focus {
+  scroll-margin-bottom: 300px;
+  scroll-margin-top: 20px;
+}
+
+/* Ensure modal content scrolls to show focused elements */
+#modal-content {
+  scroll-padding-bottom: 300px;
+  scroll-padding-top: 20px;
+}
