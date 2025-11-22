@@ -1,11 +1,12 @@
 {
-  "version": "1.1.2",
-  "releaseDate": "2025-01-14",
+  "version": "1.4.0",
+  "releaseDate": "2025-11-22",
   "changelog": [
-    "Onboarding-Walkthrough für neue Benutzer",
-    "Mehrsprachige Erklärungen zu allen Einstellungen",
-    "Cloud Sync: Nur nach Anmeldung aktivierbar",
-    "Pflichtfelder beim ersten Start"
+    "UX: Combined pause and travel time picker with +/- buttons (0.5h steps)",
+    "UX: Better default values - pause and travel time now default to 0.5h",
+    "Fix: Timezone - datetime picker now uses local time instead of UTC",
+    "Fix: Keyboard overlap on mobile - improved scroll behavior for inputs",
+    "Fix: Onboarding walkthrough loop - now checks both flag and username"
   ],
   "critical": false
 }
