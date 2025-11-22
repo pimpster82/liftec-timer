@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.4.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -511,15 +511,12 @@ class App {
       return;
     }
 
-    // Get pause and travel time
-    const pause = await this.showInputDialog('Pause (in Stunden, z.B. 0.5)', '0');
-    if (pause === null) return;
+    // Get pause and travel time with new picker
+    const times = await this.showPauseTravelPicker(0.5, 0.5);
+    if (!times) return;
 
-    const travel = await this.showInputDialog('Fahrtzeit (in Stunden)', '0');
-    if (travel === null) return;
-
-    const pauseHours = parseFloat(pause.replace(',', '.')) || 0;
-    const travelHours = parseFloat(travel.replace(',', '.')) || 0;
+    const pauseHours = times.pause;
+    const travelHours = times.travel;
 
     const totalHours = (endTime - startTime) / 3600000;
     const netHours = totalHours - pauseHours - travelHours;
@@ -1313,7 +1310,13 @@ class App {
 
   showDateTimePicker(title, initialDate) {
     return new Promise((resolve) => {
-      const dateStr = initialDate.toISOString().slice(0, 16);
+      // Fix: Use local time instead of UTC
+      const year = initialDate.getFullYear();
+      const month = String(initialDate.getMonth() + 1).padStart(2, '0');
+      const day = String(initialDate.getDate()).padStart(2, '0');
+      const hours = String(initialDate.getHours()).padStart(2, '0');
+      const minutes = String(initialDate.getMinutes()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}T${hours}:${minutes}`;
 
       const content = `
         <div class="p-6">
@@ -1387,6 +1390,98 @@ class App {
           ui.hideModal();
           resolve(value);
         }
+      });
+    });
+  }
+
+  // Combined picker for pause and travel time with increment/decrement
+  showPauseTravelPicker(defaultPause = 0.5, defaultTravel = 0) {
+    return new Promise((resolve) => {
+      let pauseValue = defaultPause;
+      let travelValue = defaultTravel;
+
+      const content = `
+        <div class="p-6 pb-8">
+          <h3 class="text-lg font-semibold mb-6 text-gray-900 dark:text-white">Pause und Fahrtzeit</h3>
+
+          <!-- Pause Picker -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pause (Stunden)</label>
+            <div class="flex items-center space-x-4">
+              <button id="pause-minus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">−</button>
+              <div class="flex-1 text-center">
+                <span id="pause-display" class="text-3xl font-bold text-gray-900 dark:text-white">${pauseValue.toFixed(1)}</span>
+                <span class="text-lg text-gray-600 dark:text-gray-400 ml-1">h</span>
+              </div>
+              <button id="pause-plus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">+</button>
+            </div>
+          </div>
+
+          <!-- Travel Picker -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fahrtzeit (Stunden)</label>
+            <div class="flex items-center space-x-4">
+              <button id="travel-minus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">−</button>
+              <div class="flex-1 text-center">
+                <span id="travel-display" class="text-3xl font-bold text-gray-900 dark:text-white">${travelValue.toFixed(1)}</span>
+                <span class="text-lg text-gray-600 dark:text-gray-400 ml-1">h</span>
+              </div>
+              <button id="travel-plus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">+</button>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <div class="flex space-x-3 mt-6">
+            <button id="dialog-cancel" class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+            <button id="dialog-ok" class="flex-1 px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+              OK
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      // Update display
+      const updateDisplay = () => {
+        document.getElementById('pause-display').textContent = pauseValue.toFixed(1);
+        document.getElementById('travel-display').textContent = travelValue.toFixed(1);
+      };
+
+      // Pause increment/decrement
+      document.getElementById('pause-plus').addEventListener('click', () => {
+        pauseValue = Math.min(24, pauseValue + 0.5);
+        updateDisplay();
+      });
+
+      document.getElementById('pause-minus').addEventListener('click', () => {
+        pauseValue = Math.max(0, pauseValue - 0.5);
+        updateDisplay();
+      });
+
+      // Travel increment/decrement
+      document.getElementById('travel-plus').addEventListener('click', () => {
+        travelValue = Math.min(24, travelValue + 0.5);
+        updateDisplay();
+      });
+
+      document.getElementById('travel-minus').addEventListener('click', () => {
+        travelValue = Math.max(0, travelValue - 0.5);
+        updateDisplay();
+      });
+
+      // OK button
+      document.getElementById('dialog-ok').addEventListener('click', () => {
+        ui.hideModal();
+        resolve({ pause: pauseValue, travel: travelValue });
+      });
+
+      // Cancel button
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(null);
       });
     });
   }
