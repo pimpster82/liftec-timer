@@ -2101,22 +2101,31 @@ class App {
             buttonSpinner.classList.remove('hidden');
             hardRefreshBtn.disabled = true;
 
-            // Step 1: Clear all caches
+            // Step 1: Unregister service worker
+            if ('serviceWorker' in navigator) {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (const registration of registrations) {
+                await registration.unregister();
+              }
+              console.log('✅ Service Worker unregistered');
+            }
+
+            // Step 2: Clear all caches
             if ('caches' in window) {
               const cacheNames = await caches.keys();
               await Promise.all(cacheNames.map(name => caches.delete(name)));
               console.log('✅ All caches cleared');
             }
 
-            // Step 2: Perform full sync from cloud
+            // Step 3: Perform full sync from cloud
             const success = await firebaseService.fullSync();
 
             if (success) {
               ui.showToast('Daten erfolgreich neu geladen. App wird neu gestartet...', 'success');
 
-              // Step 3: Reload the page after a short delay
+              // Step 4: Force reload from server (not cache)
               setTimeout(() => {
-                window.location.reload(true);
+                window.location.href = window.location.href;
               }, 1500);
             } else {
               ui.showToast('Neu laden fehlgeschlagen', 'error');
