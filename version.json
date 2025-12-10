@@ -1,9 +1,9 @@
 {
-  "version": "1.5.2",
+  "version": "1.5.3",
   "releaseDate": "2025-12-10",
   "changelog": [
-    "Fix: Console Errors behoben (showConfirmDialog Referenz)",
-    "Fix: Null-Check für fehlende Icons in Einstellungen"
+    "Neu: Pull-to-Refresh Geste am Handy (ziehen zum Aktualisieren)",
+    "Neu: Doppelklick auf Titel am PC zum Aktualisieren"
   ],
   "critical": false
 }
