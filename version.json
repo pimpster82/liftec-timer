@@ -1,9 +1,9 @@
 {
-  "version": "1.5.1",
+  "version": "1.5.2",
   "releaseDate": "2025-12-10",
   "changelog": [
-    "Fix: Hard Refresh deregistriert jetzt Service Worker korrekt",
-    "Fix: Sauberer App-Reload ohne Cache-Konflikte"
+    "Fix: Console Errors behoben (showConfirmDialog Referenz)",
+    "Fix: Null-Check für fehlende Icons in Einstellungen"
   ],
   "critical": false
 }
