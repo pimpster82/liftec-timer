@@ -98,12 +98,159 @@ class CSVExport {
     }
 
     // Build CSV content
-    const content = this.BOM + this.header + '\n' + rows.join('\n') + '\n';
+    let content = this.BOM + this.header + '\n' + rows.join('\n') + '\n';
+
+    // Add on-call summary if applicable
+    const onCallSummary = await this.getOnCallSummaryForMonth(year, month);
+    if (onCallSummary) {
+      content += '\n'; // Empty line separator
+      content += onCallSummary;
+    }
 
     // Create filename
     const filename = `${username.replace(/\s+/g, '_')}_${year}-${this.pad2(month)}.csv`;
 
     return { content, filename };
+  }
+
+  // Get on-call summary for a specific month
+  // Handles multiple periods and adjusts dates to month boundaries
+  async getOnCallSummaryForMonth(year, month) {
+    try {
+      // Get all on-call periods
+      const allPeriods = await storage.getAllOnCallPeriods();
+
+      // Filter periods that are completed (have endDate) and overlap with this month
+      const completedPeriods = allPeriods.filter(p => p.endDate);
+
+      if (completedPeriods.length === 0) {
+        return null;
+      }
+
+      // Get month boundaries (midnight to midnight)
+      // Month start: first day at 00:01
+      // Month end: last day at 23:59
+      const monthStart = new Date(year, month - 1, 1, 0, 1);
+      const monthEnd = new Date(year, month, 0, 23, 59);
+
+      // Collect periods that overlap with this month
+      const overlappingPeriods = [];
+
+      for (const period of completedPeriods) {
+        // Parse period dates (with times)
+        const periodStart = this.parseDateTime(period.startDate, period.startTime);
+        const periodEnd = this.parseDateTime(period.endDate, period.endTime);
+
+        // Check if period overlaps with this month
+        if (periodEnd < monthStart || periodStart > monthEnd) {
+          continue; // No overlap, skip this period
+        }
+
+        // Adjust period boundaries to fit within the month
+        const adjustedStart = periodStart < monthStart ? monthStart : periodStart;
+        const adjustedEnd = periodEnd > monthEnd ? monthEnd : periodEnd;
+
+        // Format adjusted dates for display
+        const adjustedStartDate = this.formatDate(adjustedStart);
+        const adjustedStartTime = this.formatTime(adjustedStart);
+        const adjustedEndDate = this.formatDate(adjustedEnd);
+        const adjustedEndTime = this.formatTime(adjustedEnd);
+
+        // Calculate on-call hours for this adjusted period
+        const onCallHours = await this.calculateMonthlyOnCallHours(
+          period,
+          adjustedStart,
+          adjustedEnd
+        );
+
+        // Format as HH:MM
+        const onCallHHMM = this.hoursToHHMM(onCallHours);
+
+        overlappingPeriods.push({
+          id: period.id,
+          startDate: adjustedStartDate,
+          startTime: adjustedStartTime,
+          endDate: adjustedEndDate,
+          endTime: adjustedEndTime,
+          hours: onCallHHMM
+        });
+      }
+
+      if (overlappingPeriods.length === 0) {
+        return null;
+      }
+
+      // Build CSV summary with header
+      let summary = 'Bereitschaft;Von;Bis;Insgesamt\n';
+
+      // Add each period as a row
+      for (const period of overlappingPeriods) {
+        summary += `Bereitschaft #${period.id};${period.startDate} ${period.startTime};${period.endDate} ${period.endTime};${period.hours}\n`;
+      }
+
+      return summary;
+    } catch (error) {
+      console.error('Error generating on-call summary:', error);
+      return null;
+    }
+  }
+
+  // Helper: Parse date and time strings to Date object
+  parseDateTime(dateStr, timeStr) {
+    const [day, month, year] = dateStr.split('.').map(Number);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return new Date(year, month - 1, day, hours, minutes);
+  }
+
+  // Helper: Format Date object to DD.MM.YYYY
+  formatDate(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+  }
+
+  // Helper: Format Date object to HH:MM
+  formatTime(date) {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
+  // Calculate on-call hours for a period within month boundaries
+  // Returns: total_hours_in_range - work_hours_in_range
+  async calculateMonthlyOnCallHours(period, adjustedStart, adjustedEnd) {
+    // Calculate total hours in adjusted range
+    const totalHours = (adjustedEnd - adjustedStart) / 3600000; // milliseconds to hours
+
+    // Get worklog entries in the adjusted range
+    const adjustedStartDate = this.formatDate(adjustedStart);
+    const adjustedEndDate = this.formatDate(adjustedEnd);
+
+    const entries = await storage.getEntriesByDateRange(
+      adjustedStartDate,
+      adjustedEndDate
+    );
+
+    // Sum up actual work hours (endTime - startTime, not including pause/travel)
+    let workHours = 0;
+    for (const entry of entries) {
+      if (entry.startTime && entry.endTime) {
+        // Parse HH:MM format to decimal hours
+        const [startH, startM] = entry.startTime.split(':').map(Number);
+        const [endH, endM] = entry.endTime.split(':').map(Number);
+        const startHours = startH + (startM / 60);
+        const endHours = endH + (endM / 60);
+
+        // Calculate work hours for this day
+        const dayWork = endHours - startHours;
+        workHours += dayWork;
+      }
+    }
+
+    // Calculate on-call time (total time minus work time)
+    const onCallHours = Math.max(0, totalHours - workHours);
+    return onCallHours;
   }
 
   // Download CSV file

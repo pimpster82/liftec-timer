@@ -45,8 +45,8 @@ class App {
       // Setup install prompt
       this.setupInstallPrompt();
 
-      // Check onboarding
-      if (!ui.settings.onboardingCompleted && ui.settings.username === 'Benutzer') {
+      // Check onboarding (only for new users)
+      if (ui.settings.username === 'Benutzer' && !ui.settings.onboardingCompleted) {
         await this.showOnboarding();
       }
 
@@ -303,9 +303,20 @@ class App {
   async renderMainScreen() {
     ui.showScreen('main');
 
+    // Get on-call status
+    const onCallStatus = await this.getOnCallStatus();
+
     // Render hero card
     const heroCard = document.getElementById('hero-card');
-    heroCard.innerHTML = ui.createHeroCard(this.session);
+    heroCard.innerHTML = ui.createHeroCard(this.session, onCallStatus);
+
+    // Add event listener for on-call button if enabled in settings
+    if (ui.settings?.onCallEnabled) {
+      const onCallBtn = document.getElementById('oncall-btn');
+      if (onCallBtn) {
+        onCallBtn.addEventListener('click', () => this.toggleOnCallButton());
+      }
+    }
 
     // Render session info
     const sessionInfo = document.getElementById('session-info');
@@ -575,6 +586,221 @@ class App {
 
     await this.renderMainScreen();
     ui.showToast('Sitzung gespeichert', 'success');
+  }
+
+  // ===== On-Call Management =====
+
+  /**
+   * Get current on-call status from storage
+   * Returns the active period for UI display (or a default inactive period if none)
+   */
+  async getOnCallStatus() {
+    try {
+      // Get active period only (for UI display)
+      const activePeriod = await storage.getActiveOnCall();
+
+      // If no active period, return default inactive status
+      if (!activePeriod) {
+        return {
+          id: null,
+          active: false,
+          startDate: null,
+          startTime: null,
+          endDate: null,
+          endTime: null
+        };
+      }
+
+      // Return active period
+      return activePeriod;
+    } catch (error) {
+      console.error('Error getting on-call status:', error);
+      return {
+        id: null,
+        active: false,
+        startDate: null,
+        startTime: null,
+        endDate: null,
+        endTime: null
+      };
+    }
+  }
+
+  /**
+   * Toggle on-call button - start if inactive, end if active
+   */
+  async toggleOnCallButton() {
+    try {
+      const status = await this.getOnCallStatus();
+
+      if (status.active) {
+        // On-call is active, show end dialog
+        await this.endOnCall();
+      } else {
+        // On-call is inactive, show start dialog
+        await this.startOnCall();
+      }
+    } catch (error) {
+      console.error('Error toggling on-call:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * Start on-call period
+   */
+  async startOnCall() {
+    try {
+      // Show date-time picker for start
+      const startDateTime = await this.showDateTimePicker(ui.t('onCallStartFrom'), new Date());
+      if (!startDateTime) return;
+
+      // Extract date and time
+      const startDate = ui.formatDate(startDateTime);
+      const startTime = ui.formatTime(startDateTime);
+
+      // Save to storage (creates new period with auto-incrementing ID)
+      const result = await storage.startOnCall(startDate, startTime);
+
+      // Update UI
+      await this.renderMainScreen();
+
+      // Show success message with period number
+      ui.showToast(`${ui.t('onCallActive')} #${result.periodId}`, 'success');
+    } catch (error) {
+      console.error('Error starting on-call:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * End on-call period and calculate total on-call time
+   */
+  async endOnCall() {
+    try {
+      // Get current on-call status
+      const status = await this.getOnCallStatus();
+      if (!status.active) {
+        ui.showToast('Keine aktive Bereitschaft', 'error');
+        return;
+      }
+
+      // Show date-time picker for end
+      const endDateTime = await this.showDateTimePicker(ui.t('onCallEndAt'), new Date());
+      if (!endDateTime) return;
+
+      // Extract date and time
+      const endDate = ui.formatDate(endDateTime);
+      const endTime = ui.formatTime(endDateTime);
+
+      // Validate end time is after start time
+      const startDateTime = this.parseDateTime(status.startDate, status.startTime);
+      if (endDateTime <= startDateTime) {
+        ui.showToast('Endzeit muss nach Startzeit liegen', 'error');
+        return;
+      }
+
+      // Calculate on-call time
+      const onCallHours = await this.calculateOnCallTime(status.startDate, status.startTime, endDate, endTime);
+
+      // Show summary for confirmation (BEFORE saving)
+      const summary = ui.t('onCallSummary')
+        .replace('{start}', `${status.startDate} ${status.startTime}`)
+        .replace('{end}', `${endDate} ${endTime}`);
+      const total = ui.t('onCallTotal').replace('{hours}', ui.hoursToHHMM(onCallHours));
+      const periodNumber = status.id;
+
+      // Show confirmation dialog with period number
+      const dialogContent = `
+        <div style="padding: 20px;">
+          <h3 style="margin-bottom: 15px; font-weight: bold;">${ui.t('onCallEnded')} #${periodNumber}</h3>
+          <p style="margin-bottom: 10px;">${summary}</p>
+          <p style="font-weight: bold;">${total}</p>
+          <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="confirm-ok-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">OK</button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(dialogContent);
+
+      // Wait for user to click OK
+      await new Promise((resolve) => {
+        document.getElementById('confirm-ok-btn').addEventListener('click', resolve);
+      });
+
+      // Close dialog
+      ui.hideModal();
+
+      // Now save end time to storage (keeps data for export)
+      const result = await storage.endOnCall(endDate, endTime);
+      // Don't clear - we need the data for CSV/Excel export!
+
+      // Update UI
+      await this.renderMainScreen();
+      ui.showToast(`${ui.t('onCallEnded')} #${result.periodId}`, 'success');
+    } catch (error) {
+      console.error('Error ending on-call:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * Calculate on-call time (24h - actual work hours during period)
+   * @param {string} startDate - Start date in DD.MM.YYYY format
+   * @param {string} startTime - Start time in HH:MM format
+   * @param {string} endDate - End date in DD.MM.YYYY format
+   * @param {string} endTime - End time in HH:MM format
+   * @returns {number} On-call hours
+   */
+  async calculateOnCallTime(startDate, startTime, endDate, endTime) {
+    try {
+      // Parse start and end date-time
+      const start = this.parseDateTime(startDate, startTime);
+      const end = this.parseDateTime(endDate, endTime);
+
+      // Calculate total hours in the period
+      const totalHours = (end - start) / 3600000; // milliseconds to hours
+
+      // Get all worklog entries in the date range
+      const entries = await storage.getEntriesByDateRange(startDate, endDate);
+
+      // Sum up actual work hours (endTime - startTime, not including pause/travel)
+      let workHours = 0;
+      for (const entry of entries) {
+        if (entry.startTime && entry.endTime) {
+          // Parse HH:MM format to decimal hours
+          const [startH, startM] = entry.startTime.split(':').map(Number);
+          const [endH, endM] = entry.endTime.split(':').map(Number);
+          const startHours = startH + (startM / 60);
+          const endHours = endH + (endM / 60);
+
+          // Calculate work hours for this day
+          const dayWork = endHours - startHours;
+          workHours += dayWork;
+        }
+      }
+
+      // On-call time = Total time - Work time
+      const onCallHours = Math.max(0, totalHours - workHours);
+
+      return onCallHours;
+    } catch (error) {
+      console.error('Error calculating on-call time:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Parse date and time strings to Date object
+   * @param {string} dateStr - Date in DD.MM.YYYY format
+   * @param {string} timeStr - Time in HH:MM format
+   * @returns {Date} Date object
+   */
+  parseDateTime(dateStr, timeStr) {
+    const [day, month, year] = dateStr.split('.').map(Number);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return new Date(year, month - 1, day, hours, minutes);
   }
 
   // ===== Absence Entry =====
@@ -907,21 +1133,7 @@ class App {
     ui.settings.language = langResult;
     ui.i18n = ui.getI18N();
 
-    // Step 3: Surcharge
-    const surchargeResult = await this.showOnboardingStep({
-      step: currentStep++,
-      total: totalSteps,
-      title: ui.t('onboardingSurchargeTitle'),
-      description: ui.t('onboardingSurchargeDesc'),
-      type: 'number',
-      placeholder: ui.t('onboardingSurchargePlaceholder'),
-      required: true,
-      value: onboardingData.surchargePercent
-    });
-    if (!surchargeResult) return;
-    onboardingData.surchargePercent = parseInt(surchargeResult);
-
-    // Step 4: Email
+    // Step 3: Email
     const emailResult = await this.showOnboardingStep({
       step: currentStep++,
       total: totalSteps,
@@ -930,23 +1142,111 @@ class App {
       type: 'email',
       placeholder: ui.t('onboardingEmailPlaceholder'),
       required: false,
-      value: onboardingData.email,
-      isLast: true
+      value: onboardingData.email
     });
     if (emailResult !== null) {
       onboardingData.email = emailResult || ui.settings.email;
     }
 
-    // Save settings
-    const newSettings = {
-      ...ui.settings,
-      ...onboardingData,
-      onboardingCompleted: true
-    };
+    // Step 4: Surcharge
+    const surchargeResult = await this.showOnboardingStep({
+      step: currentStep++,
+      total: totalSteps,
+      title: ui.t('onboardingSurchargeTitle'),
+      description: ui.t('onboardingSurchargeDesc'),
+      type: 'number',
+      placeholder: ui.t('onboardingSurchargePlaceholder'),
+      required: true,
+      value: onboardingData.surchargePercent,
+      isLast: true
+    });
+    if (!surchargeResult) return;
+    onboardingData.surchargePercent = parseInt(surchargeResult);
 
-    await storage.saveSettings(newSettings);
-    ui.settings = newSettings;
-    ui.showToast('Willkommen! 👋', 'success');
+    // Show summary before completion
+    const languageName = {
+      de: 'Deutsch',
+      en: 'English',
+      hr: 'Hrvatski'
+    }[onboardingData.language];
+
+    const summaryHTML = `
+      <div class="text-center mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          ${ui.t('onboardingWelcome')}
+        </h2>
+        <p class="text-gray-600 dark:text-gray-300">${ui.t('onboardingSummaryTitle')}</p>
+      </div>
+
+      <div class="space-y-4 mb-8 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+        <div class="flex items-center justify-between">
+          <span class="text-gray-700 dark:text-gray-300">${ui.t('onboardingSummaryName')}</span>
+          <span class="font-semibold text-gray-900 dark:text-white">${onboardingData.username}</span>
+        </div>
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-700 dark:text-gray-300">${ui.t('onboardingSummaryLanguage')}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${languageName}</span>
+          </div>
+        </div>
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-700 dark:text-gray-300">${ui.t('onboardingSummarySurcharge')}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${onboardingData.surchargePercent}%</span>
+          </div>
+        </div>
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-700 dark:text-gray-300">${ui.t('onboardingSummaryEmail')}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${onboardingData.email || ui.t('onboardingSummaryNotSet')}</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-sm text-gray-600 dark:text-gray-300 mb-6 text-center">
+        ${ui.t('onboardingSummaryNote')}
+      </p>
+
+      <div class="flex gap-3">
+        <button id="summary-back-btn" class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium">
+          ${ui.t('onboardingSummaryBack')}
+        </button>
+        <button id="summary-confirm-btn" class="flex-1 px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors font-medium">
+          ${ui.t('onboardingSummaryConfirm')}
+        </button>
+      </div>
+    `;
+
+    return new Promise((resolve) => {
+      ui.showModal(summaryHTML);
+
+      document.getElementById('summary-back-btn').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(false); // Go back
+      });
+
+      document.getElementById('summary-confirm-btn').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(true); // Proceed to save
+      });
+    }).then(async (confirmed) => {
+      if (!confirmed) {
+        // User went back - show surcharge step again
+        await this.showOnboarding();
+        return;
+      }
+
+      // Save settings
+      const newSettings = {
+        ...ui.settings,
+        ...onboardingData,
+        onboardingCompleted: true
+      };
+
+      await storage.saveSettings(newSettings);
+      ui.settings = newSettings;
+      ui.showToast('Willkommen! 👋', 'success');
+    });
   }
 
   async showOnboardingStep(config) {
@@ -1645,6 +1945,18 @@ class App {
               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
           </div>
 
+          <!-- On-Call Feature Toggle -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" id="setting-oncall-enabled" ${settings.onCallEnabled ? 'checked' : ''}
+                class="w-4 h-4 text-primary focus:ring-primary rounded">
+              <div>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${ui.t('onCallEnabled')}</span>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Bereitschaftszeiten erfassen und verwalten</p>
+              </div>
+            </label>
+          </div>
+
           <!-- Email Export Settings -->
           <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
             <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="email-content">
@@ -1681,7 +1993,10 @@ class App {
             </div>
           </div>
         </div>
-        <div class="flex gap-2 mt-6">
+        <button id="settings-backups" class="w-full px-4 py-3 mt-6 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700">
+          ${ui.t('backupTitle')}
+        </button>
+        <div class="flex gap-2 mt-4">
           <button id="settings-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
             ${ui.t('save')}
           </button>
@@ -1945,7 +2260,8 @@ class App {
         emailBody: document.getElementById('setting-email-body').value,
         cloudSync: document.getElementById('setting-cloud-sync') ?
                    document.getElementById('setting-cloud-sync').checked :
-                   settings.cloudSync
+                   settings.cloudSync,
+        onCallEnabled: document.getElementById('setting-oncall-enabled').checked
       };
 
       await storage.saveSettings(newSettings);
@@ -1955,6 +2271,11 @@ class App {
       ui.hideModal();
       ui.showToast('Einstellungen gespeichert', 'success');
       await this.renderMainScreen();
+    });
+
+    document.getElementById('settings-backups').addEventListener('click', () => {
+      ui.hideModal();
+      this.showBackupManager();
     });
 
     document.getElementById('settings-cancel').addEventListener('click', () => {
@@ -2835,6 +3156,279 @@ class App {
     document.getElementById('dialog-ok').addEventListener('click', () => {
       ui.hideModal();
     });
+  }
+
+  // ===== Backup & Data Management =====
+
+  async showBackupManager() {
+    const backups = await storage.getBackups();
+
+    // Build backups list HTML
+    let backupsListHTML = '';
+    if (backups.length === 0) {
+      backupsListHTML = `
+        <div class="text-center py-6 text-gray-500 dark:text-gray-400">
+          <p>${ui.t('noBackups')}</p>
+        </div>
+      `;
+    } else {
+      backupsListHTML = `
+        <div class="space-y-3">
+          ${backups.map(backup => {
+            const date = new Date(backup.timestamp);
+            const dateStr = date.toLocaleDateString(ui.settings.language === 'de' ? 'de-DE' : 'en-US');
+            const timeStr = date.toLocaleTimeString(ui.settings.language === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+
+            return `
+              <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg flex items-center justify-between">
+                <div>
+                  <p class="font-medium text-gray-900 dark:text-white">
+                    ${ui.t('backupDate')} ${dateStr} ${timeStr}
+                  </p>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">
+                    ${backup.entryCount} ${ui.t('backupSize')}
+                  </p>
+                </div>
+                <div class="flex gap-2">
+                  <button class="restore-btn px-3 py-2 text-sm bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors" data-id="${backup.id}">
+                    ${ui.t('restoreBackup')}
+                  </button>
+                  <button class="share-btn px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors" data-id="${backup.id}">
+                    ${ui.t('shareBackup')}
+                  </button>
+                  <button class="delete-btn px-3 py-2 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors" data-id="${backup.id}">
+                    ${ui.t('deleteBackup')}
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    const content = `
+      <div class="space-y-6">
+        <div class="text-center">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            ${ui.t('backupTitle')}
+          </h2>
+          <p class="text-gray-600 dark:text-gray-300 text-sm">
+            ${ui.t('backupDescription')}
+          </p>
+        </div>
+
+        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <h3 class="font-semibold text-red-900 dark:text-red-200 mb-2">
+            ${ui.t('deleteAllData')}
+          </h3>
+          <p class="text-sm text-red-800 dark:text-red-300 mb-4">
+            ${ui.t('deleteAllDataDescription')}
+          </p>
+          <button id="delete-all-data-btn" class="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium">
+            ${ui.t('deleteAllData')}
+          </button>
+        </div>
+
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            ${ui.t('backupsList')}
+          </h3>
+          ${backupsListHTML}
+        </div>
+
+        <button id="close-backup-btn" class="w-full px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium">
+          ${ui.t('close')}
+        </button>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    // Delete all data
+    document.getElementById('delete-all-data-btn').addEventListener('click', async () => {
+      await this.showDeleteAllDataDialog();
+    });
+
+    // Restore backup
+    document.querySelectorAll('.restore-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const backupId = parseInt(e.target.dataset.id);
+        await this.restoreBackupDialog(backupId);
+      });
+    });
+
+    // Share backup
+    document.querySelectorAll('.share-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const backupId = parseInt(e.target.dataset.id);
+        await this.shareBackup(backupId);
+      });
+    });
+
+    // Delete backup
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const backupId = parseInt(e.target.dataset.id);
+        const confirmed = await this.showConfirmDialog(ui.t('confirmDelete'), ui.t('confirmDeleteMessage'));
+        if (confirmed) {
+          try {
+            await storage.deleteBackup(backupId);
+            ui.showToast(ui.t('deleted'), 'success');
+            await this.showBackupManager();
+          } catch (error) {
+            ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+          }
+        }
+      });
+    });
+
+    // Close button
+    document.getElementById('close-backup-btn').addEventListener('click', () => {
+      ui.hideModal();
+      this.showSettings();
+    });
+  }
+
+  async showDeleteAllDataDialog() {
+    // First warning
+    const confirmed1 = await this.showConfirmDialog(
+      ui.t('deleteAllDataWarning'),
+      ui.t('deleteAllDataInfo')
+    );
+
+    if (!confirmed1) return;
+
+    try {
+      ui.showLoading();
+
+      // Create backup automatically
+      const backup = await storage.createBackup(ui.settings.username);
+      ui.hideLoading();
+
+      // Show backup created message
+      const message = ui.t('backupCreated').replace('{count}', backup.entryCount);
+      ui.showToast(message, 'success');
+
+      // Second confirmation
+      const confirmed2 = await this.showConfirmDialog(
+        ui.t('deleteAllDataConfirm'),
+        ui.t('deleteAllDataFinal').replace('{count}', backup.entryCount)
+      );
+
+      if (!confirmed2) return;
+
+      // Delete all data
+      await storage.clear('worklog');
+      await storage.clear('currentSession');
+
+      ui.showToast(ui.t('dataDeleted'), 'success');
+
+      // Refresh UI
+      await this.renderMainScreen();
+      ui.hideModal();
+    } catch (error) {
+      ui.hideLoading();
+      ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+    }
+  }
+
+  async restoreBackupDialog(backupId) {
+    const backup = await storage.getBackup(backupId);
+    if (!backup) {
+      ui.showToast(ui.t('notFound'), 'error');
+      return;
+    }
+
+    const confirmed = await this.showConfirmDialog(
+      ui.t('restoreBackup'),
+      ui.t('restoreSuccess').replace('{count}', backup.entryCount) + '\n\n' + ui.t('confirmDelete')
+    );
+
+    if (!confirmed) return;
+
+    try {
+      ui.showLoading();
+      await storage.restoreBackup(backupId);
+      ui.hideLoading();
+
+      const message = ui.t('restoreSuccess').replace('{count}', backup.entryCount);
+      ui.showToast(message, 'success');
+
+      await this.renderMainScreen();
+      ui.hideModal();
+    } catch (error) {
+      ui.hideLoading();
+      ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+    }
+  }
+
+  async shareBackup(backupId) {
+    try {
+      const backup = await storage.getBackup(backupId);
+      if (!backup) {
+        ui.showToast(ui.t('notFound'), 'error');
+        return;
+      }
+
+      // Generate CSV from backup
+      const csv = await storage.backupToCSV(backup);
+
+      // Create filename
+      const date = new Date(backup.timestamp);
+      const dateStr = date.toISOString().split('T')[0];
+      const filename = `backup_${ui.settings.username}_${dateStr}_${backup.entryCount}.csv`;
+
+      // Use Web Share API if available
+      if (navigator.share) {
+        try {
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const file = new File([blob], filename, { type: 'text/csv' });
+
+          await navigator.share({
+            files: [file],
+            title: ui.t('backupShareSubject').replace('{name}', ui.settings.username),
+            text: ui.t('backupShareBody').replace('{date}', dateStr)
+          });
+        } catch (error) {
+          if (error.name !== 'AbortError') {
+            console.error('Share failed:', error);
+            // Fallback to download
+            await this.downloadBackupCSV(csv, filename);
+          }
+        }
+      } else {
+        // Fallback: download
+        await this.downloadBackupCSV(csv, filename);
+      }
+    } catch (error) {
+      ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+    }
+  }
+
+  async downloadBackupCSV(csv, filename) {
+    try {
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+
+      const link = document.createElement('a');
+      if (navigator.msSaveBlob) {
+        // IE 10+
+        navigator.msSaveBlob(blob, filename);
+      } else {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      ui.showToast(ui.t('downloaded'), 'success');
+    } catch (error) {
+      ui.showToast(ui.t('error') + ': ' + error.message, 'error');
+    }
   }
 }
 

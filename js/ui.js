@@ -75,6 +75,7 @@ class UI {
         tasksCount: 'Aufgaben ({count})',
         andMore: '... und {count} weitere',
         download: 'Herunterladen',
+        downloaded: 'Heruntergeladen',
         importCSV: 'CSV importieren',
         selectFile: 'Datei auswählen',
         importSuccess: 'Import erfolgreich',
@@ -90,14 +91,60 @@ class UI {
         onboardingLanguageTitle: 'Sprache wählen',
         onboardingLanguageDesc: 'Wähle deine bevorzugte App-Sprache.',
         onboardingSurchargeTitle: 'Schmutzzulage',
-        onboardingSurchargeDesc: 'Anteil der Arbeitszeit, für die Schmutzzulage gilt.',
+        onboardingSurchargeDesc: 'Unser Vorschlag: 80% der Arbeitszeit. Du kannst dies jederzeit in den Einstellungen ändern.',
         onboardingSurchargePlaceholder: 'z.B. 80%',
         onboardingEmailTitle: 'Email für Export',
-        onboardingEmailDesc: 'Empfänger-Email für CSV/Excel Export (optional).',
+        onboardingEmailDesc: 'Wohin sollen deine Arbeitszeiten geschickt werden? (Firmen - E-Mail, oder wohin du sonst möchtest)',
         onboardingEmailPlaceholder: 'email@beispiel.de',
         onboardingNext: 'Weiter',
         onboardingFinish: 'App nutzen',
-        onboardingRequired: 'Dieses Feld ist erforderlich'
+        onboardingRequired: 'Dieses Feld ist erforderlich',
+        onboardingSummaryTitle: 'Deine Einstellungen:',
+        onboardingSummaryName: 'Name:',
+        onboardingSummaryLanguage: 'Sprache:',
+        onboardingSummarySurcharge: 'Schmutzzulage:',
+        onboardingSummaryEmail: 'Export Email:',
+        onboardingSummaryNotSet: 'Nicht gesetzt',
+        onboardingSummaryNote: 'Du kannst alle Einstellungen jederzeit im Menü ändern.',
+        onboardingSummaryBack: 'Zurück',
+        onboardingSummaryConfirm: 'App starten',
+        // Backup & Data Management
+        backupTitle: 'Backups & Datenverwaltung',
+        backupDescription: 'Sichere deine Arbeitszeiten lokal oder lösche alle Daten',
+        deleteAllData: 'Alle Daten löschen',
+        deleteAllDataDescription: 'Alle Arbeitszeiteinträge löschen und ein automatisches Backup erstellen',
+        backupsList: 'Deine Backups',
+        noBackups: 'Noch keine Backups erstellt',
+        backupDate: 'Datum:',
+        backupEntries: 'Einträge:',
+        backupSize: 'Einträge gespeichert',
+        restoreBackup: 'Wiederherstellen',
+        deleteBackup: 'Löschen',
+        shareBackup: 'Teilen',
+        confirmDelete: 'Wirklich löschen?',
+        confirmDeleteMessage: 'Dies kann nicht rückgängig gemacht werden!',
+        deleteAllDataWarning: '⚠️ Alle Arbeitszeitdaten werden gelöscht!',
+        deleteAllDataInfo: 'Zuerst wird automatisch ein Backup erstellt und lokal gespeichert.',
+        deleteAllDataConfirm: 'Sind Sie sicher?',
+        deleteAllDataFinal: 'Alle {count} Einträge wirklich löschen? Dies kann nicht rückgängig gemacht werden!',
+        backupCreated: '✓ Backup erstellt: {count} Einträge',
+        backupCreatedLocal: 'Backup wurde lokal gespeichert',
+        dataDeleted: '✓ Alle Daten gelöscht. Neuer Start!',
+        restoreSuccess: '✓ Backup wiederhergestellt: {count} Einträge',
+        backupShareSubject: 'Backup - Arbeitszeiten {name}',
+        backupShareBody: 'Mein Arbeitszeiten-Backup vom {date}',
+        // On-Call (Bereitschaft)
+        onCall: 'Bereitschaft',
+        onCallEnabled: 'Bereitschaft aktiviert',
+        onCallStart: 'Bereitschaft starten',
+        onCallEnd: 'Bereitschaft beenden',
+        onCallStartFrom: 'Bereitschaft ab wann?',
+        onCallEndAt: 'Bereitschaft endet wann?',
+        onCallActive: 'Bereitschaft aktiv',
+        onCallEnded: 'Bereitschaft beendet',
+        onCallTime: 'Bereitschaftszeit',
+        onCallSummary: 'Bereitschaft: {start} bis {end}',
+        onCallTotal: 'Insgesamt: {hours}'
       },
       en: {
         appName: 'Time Tracking',
@@ -163,6 +210,7 @@ class UI {
         tasksCount: 'Tasks ({count})',
         andMore: '... and {count} more',
         download: 'Download',
+        downloaded: 'Downloaded',
         importCSV: 'Import CSV',
         selectFile: 'Select file',
         importSuccess: 'Import successful',
@@ -178,14 +226,60 @@ class UI {
         onboardingLanguageTitle: 'Choose your language',
         onboardingLanguageDesc: 'Select your preferred app language.',
         onboardingSurchargeTitle: 'Dirt Allowance',
-        onboardingSurchargeDesc: 'Percentage of work time eligible for dirt allowance.',
+        onboardingSurchargeDesc: 'Our suggestion: 80% of your work time. You can change this anytime in Settings.',
         onboardingSurchargePlaceholder: 'e.g. 80%',
         onboardingEmailTitle: 'Email for export',
-        onboardingEmailDesc: 'Recipient email for CSV/Excel exports (optional).',
+        onboardingEmailDesc: 'Where should your work hours be sent? (Company, email, or wherever you prefer)',
         onboardingEmailPlaceholder: 'email@example.com',
         onboardingNext: 'Next',
         onboardingFinish: 'Start using app',
-        onboardingRequired: 'This field is required'
+        onboardingRequired: 'This field is required',
+        onboardingSummaryTitle: 'Your settings:',
+        onboardingSummaryName: 'Name:',
+        onboardingSummaryLanguage: 'Language:',
+        onboardingSummarySurcharge: 'Dirt Allowance:',
+        onboardingSummaryEmail: 'Export Email:',
+        onboardingSummaryNotSet: 'Not set',
+        onboardingSummaryNote: 'You can change all settings anytime in the menu.',
+        onboardingSummaryBack: 'Back',
+        onboardingSummaryConfirm: 'Start app',
+        // Backup & Data Management
+        backupTitle: 'Backups & Data Management',
+        backupDescription: 'Backup your work hours locally or delete all data',
+        deleteAllData: 'Delete All Data',
+        deleteAllDataDescription: 'Delete all work hour entries and create an automatic backup',
+        backupsList: 'Your Backups',
+        noBackups: 'No backups created yet',
+        backupDate: 'Date:',
+        backupEntries: 'Entries:',
+        backupSize: 'entries saved',
+        restoreBackup: 'Restore',
+        deleteBackup: 'Delete',
+        shareBackup: 'Share',
+        confirmDelete: 'Really delete?',
+        confirmDeleteMessage: 'This cannot be undone!',
+        deleteAllDataWarning: '⚠️ All work hour data will be deleted!',
+        deleteAllDataInfo: 'An automatic backup will be created and stored locally first.',
+        deleteAllDataConfirm: 'Are you sure?',
+        deleteAllDataFinal: 'Really delete all {count} entries? This cannot be undone!',
+        backupCreated: '✓ Backup created: {count} entries',
+        backupCreatedLocal: 'Backup was saved locally',
+        dataDeleted: '✓ All data deleted. Fresh start!',
+        restoreSuccess: '✓ Backup restored: {count} entries',
+        backupShareSubject: 'Backup - Work Hours {name}',
+        backupShareBody: 'My work hours backup from {date}',
+        // On-Call (Bereitschaft)
+        onCall: 'On-Call',
+        onCallEnabled: 'On-Call Enabled',
+        onCallStart: 'Start On-Call',
+        onCallEnd: 'End On-Call',
+        onCallStartFrom: 'On-Call from when?',
+        onCallEndAt: 'On-Call ends when?',
+        onCallActive: 'On-Call active',
+        onCallEnded: 'On-Call ended',
+        onCallTime: 'On-Call Time',
+        onCallSummary: 'On-Call: {start} to {end}',
+        onCallTotal: 'Total: {hours}'
       },
       hr: {
         appName: 'Evidencija vremena',
@@ -251,6 +345,7 @@ class UI {
         tasksCount: 'Zadaci ({count})',
         andMore: '... i još {count}',
         download: 'Preuzmi',
+        downloaded: 'Preuzeto',
         importCSV: 'Uvezi CSV',
         selectFile: 'Odaberi datoteku',
         importSuccess: 'Uvoz uspješan',
@@ -266,14 +361,60 @@ class UI {
         onboardingLanguageTitle: 'Odaberite jezik',
         onboardingLanguageDesc: 'Odaberite željeni jezik aplikacije.',
         onboardingSurchargeTitle: 'Prirez za prljavštinu',
-        onboardingSurchargeDesc: 'Postotak radnog vremena za prirez za prljavštinu.',
+        onboardingSurchargeDesc: 'Naš prijedlog: 80% vašeg radnog vremena. Možete to promijeniti bilo kada u Postavkama.',
         onboardingSurchargePlaceholder: 'npr. 80%',
         onboardingEmailTitle: 'Email za izvoz',
-        onboardingEmailDesc: 'Email primatelja za CSV/Excel izvoz (nije obavezno).',
+        onboardingEmailDesc: 'Gdje trebaju biti poslani vaši radni sati? (Tvrtka, email, ili gdje vam više odgovara)',
         onboardingEmailPlaceholder: 'email@primjer.hr',
         onboardingNext: 'Sljedeće',
         onboardingFinish: 'Počni koristiti aplikaciju',
-        onboardingRequired: 'Ovo polje je obavezno'
+        onboardingRequired: 'Ovo polje je obavezno',
+        onboardingSummaryTitle: 'Vaše postavke:',
+        onboardingSummaryName: 'Ime:',
+        onboardingSummaryLanguage: 'Jezik:',
+        onboardingSummarySurcharge: 'Prirez za prljavštinu:',
+        onboardingSummaryEmail: 'Email za izvoz:',
+        onboardingSummaryNotSet: 'Nije postavljeno',
+        onboardingSummaryNote: 'Sve postavke možete promijeniti bilo kada u izborniku.',
+        onboardingSummaryBack: 'Natrag',
+        onboardingSummaryConfirm: 'Počni aplikaciju',
+        // Backup & Data Management
+        backupTitle: 'Sigurnosne kopije i upravljanje podacima',
+        backupDescription: 'Sigurnosna kopija radnih sati ili brisanje svih podataka',
+        deleteAllData: 'Obriši sve podatke',
+        deleteAllDataDescription: 'Obriši sve unose radnih sati i kreiraj automatsku sigurnosnu kopiju',
+        backupsList: 'Vaše sigurnosne kopije',
+        noBackups: 'Nema kreiranih sigurnosnih kopija',
+        backupDate: 'Datum:',
+        backupEntries: 'Unosi:',
+        backupSize: 'unosi spremljeni',
+        restoreBackup: 'Vrati',
+        deleteBackup: 'Obriši',
+        shareBackup: 'Dijeli',
+        confirmDelete: 'Sigurno obrisati?',
+        confirmDeleteMessage: 'Ovo se ne može poništiti!',
+        deleteAllDataWarning: '⚠️ Svi podaci radnih sati će biti obrisani!',
+        deleteAllDataInfo: 'Prvo će se kreirati automatska sigurnosna kopija i lokalno spremiti.',
+        deleteAllDataConfirm: 'Sigurni ste?',
+        deleteAllDataFinal: 'Sigurno obrisati svih {count} unosa? Ovo se ne može poništiti!',
+        backupCreated: '✓ Sigurnosna kopija kreirana: {count} unosa',
+        backupCreatedLocal: 'Sigurnosna kopija je lokalno spremljena',
+        dataDeleted: '✓ Svi podaci obrisani. Novi početak!',
+        restoreSuccess: '✓ Sigurnosna kopija vraćena: {count} unosa',
+        backupShareSubject: 'Sigurnosna kopija - Radni sati {name}',
+        backupShareBody: 'Moja sigurnosna kopija radnih sati od {date}',
+        // On-Call (Dežurstvo)
+        onCall: 'Dežurstvo',
+        onCallEnabled: 'Dežurstvo aktivirano',
+        onCallStart: 'Počni dežurstvo',
+        onCallEnd: 'Završi dežurstvo',
+        onCallStartFrom: 'Dežurstvo od kada?',
+        onCallEndAt: 'Dežurstvo završava kada?',
+        onCallActive: 'Dežurstvo aktivno',
+        onCallEnded: 'Dežurstvo završeno',
+        onCallTime: 'Vrijeme dežurstva',
+        onCallSummary: 'Dežurstvo: {start} do {end}',
+        onCallTotal: 'Ukupno: {hours}'
       }
     };
   }
@@ -303,7 +444,9 @@ class UI {
       file: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
       check: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>',
       x: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
-      warning: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>'
+      warning: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+      onCallOff: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>',
+      onCallOn: '<svg class="' + className + '" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/><circle cx="19" cy="8" r="3" fill="currentColor"/></svg>'
     };
     return icons[name] || '';
   }
@@ -386,7 +529,7 @@ class UI {
 
   // ===== Hero Card =====
 
-  createHeroCard(session) {
+  createHeroCard(session, onCallStatus = null) {
     const greeting = this.getGreeting();
     const username = this.settings?.username || 'Benutzer';
 
@@ -401,24 +544,53 @@ class UI {
       `;
     }
 
+    // On-call button HTML (only if enabled in settings)
+    let onCallButtonHTML = '';
+    if (this.settings?.onCallEnabled && onCallStatus) {
+      const isActive = onCallStatus.active;
+      const icon = isActive ? this.icon('onCallOn', 'w-5 h-5') : this.icon('onCallOff', 'w-5 h-5');
+      const buttonClass = isActive
+        ? 'bg-green-500 hover:bg-green-600'
+        : 'bg-gray-500 hover:bg-gray-600';
+
+      // Show period number badge if active
+      const periodBadge = isActive && onCallStatus.id
+        ? `<span class="absolute -top-1 -right-1 bg-white text-green-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-green-500">#${onCallStatus.id}</span>`
+        : '';
+
+      onCallButtonHTML = `
+        <div class="relative inline-block">
+          <button id="oncall-btn"
+                  class="${buttonClass} text-white rounded-full p-2 transition-colors btn-press"
+                  title="${isActive ? this.t('onCallEnd') : this.t('onCallStart')}">
+            ${icon}
+          </button>
+          ${periodBadge}
+        </div>
+      `;
+    }
+
     return `
       <div class="hero-card rounded-xl p-5 ${session ? 'h-44' : 'h-36'} text-gray-900">
-        <div class="flex items-center space-x-3 mb-4">
-          <div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center p-1.5">
-            <svg viewBox="0 0 100 100" class="w-full h-full">
-              <!-- Top bar -->
-              <rect x="0" y="0" width="100" height="20" fill="white"/>
-              <!-- Bottom bars -->
-              <rect x="0" y="24" width="18" height="76" fill="white"/>
-              <rect x="21" y="24" width="24" height="76" fill="white"/>
-              <rect x="48" y="24" width="30" height="76" fill="white"/>
-              <rect x="81" y="24" width="19" height="76" fill="white"/>
-            </svg>
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center p-1.5">
+              <svg viewBox="0 0 100 100" class="w-full h-full">
+                <!-- Top bar -->
+                <rect x="0" y="0" width="100" height="20" fill="white"/>
+                <!-- Bottom bars -->
+                <rect x="0" y="24" width="18" height="76" fill="white"/>
+                <rect x="21" y="24" width="24" height="76" fill="white"/>
+                <rect x="48" y="24" width="30" height="76" fill="white"/>
+                <rect x="81" y="24" width="19" height="76" fill="white"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm opacity-70">${greeting}</p>
+              <h2 class="text-xl font-bold">${username}</h2>
+            </div>
           </div>
-          <div>
-            <p class="text-sm opacity-70">${greeting}</p>
-            <h2 class="text-xl font-bold">${username}</h2>
-          </div>
+          ${onCallButtonHTML}
         </div>
         ${durationHTML}
       </div>
