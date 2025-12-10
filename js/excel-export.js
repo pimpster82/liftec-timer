@@ -475,31 +475,50 @@ class ExcelExport {
   }
 
   // Send Excel via email (using Web Share API or mailto)
-  sendEmail(blob, filename, settings) {
-  const monthStr = filename.match(/(\w+) \d{4}/)[1];
-  const subject = settings.emailSubject
-    .replace('{month}', monthStr)
-    .replace('{name}', settings.username);
-  const body = settings.emailBody
-    .replace('{month}', monthStr)
-    .replace('{name}', settings.username);
+  async sendEmail(blob, filename, settings) {
+    const monthStr = filename.match(/(\w+) \d{4}/)[1];
+    const subject = settings.emailSubject
+      .replace('{month}', monthStr)
+      .replace('{name}', settings.username);
+    const body = settings.emailBody
+      .replace('{month}', monthStr)
+      .replace('{name}', settings.username);
 
-  const file = new File([blob], filename, {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  });
+    const file = new File([blob], filename, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
 
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({
-      title: subject,
-      text: body,
-      files: [file]
-    })
-    .then(() => console.log('Excel geteilt'))
-    .catch(() => this.sendMailto(settings.email, subject, body));
-  } else {
+    // Try Web Share API first (works on mobile with file attachment)
+    if (navigator.share && navigator.canShare) {
+      try {
+        const canShareFiles = await navigator.canShare({ files: [file] });
+
+        if (canShareFiles) {
+          // Share with file - NOTE: title/text are often ignored by email apps
+          await navigator.share({
+            files: [file],
+            title: subject,
+            text: `${body}\n\nEmpfänger: ${settings.email}`
+          });
+          console.log('✅ Excel via Share API geteilt');
+          return true;
+        }
+      } catch (error) {
+        // User cancelled or error occurred
+        if (error.name === 'AbortError') {
+          console.log('❌ Share cancelled by user');
+          // Open mailto as fallback
+          this.sendMailto(settings.email, subject, body);
+          return false;
+        }
+        console.error('Share API error:', error);
+      }
+    }
+
+    // Fallback: Open mailto (without attachment, but with recipient/subject/body)
     this.sendMailto(settings.email, subject, body);
+    return false;
   }
-}
 
   // Send email using mailto (without attachment)
   sendMailto(email, subject, body) {
