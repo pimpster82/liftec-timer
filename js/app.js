@@ -2717,7 +2717,7 @@ class App {
 
       // E-Mail / Share Button
       document.getElementById('xlsx-email').addEventListener('click', async () => {
-        const success = await excelExport.sendEmail(blob, filename, ui.settings);
+        const success = await ExcelExport.sendEmail(blob, filename, ui.settings);
         if (success) {
           ui.hideModal();
         } else {
