@@ -491,56 +491,30 @@ class ExcelExport {
        // Try to copy BOTH file AND text to clipboard (like iOS Share Sheet does)
 
     try {
-
       if (navigator.clipboard && navigator.clipboard.write) {
-
         // Create clipboard item with BOTH the file and text
-
         const clipboardItem = new ClipboardItem({
-
           [file.type]: blob,
-
           'text/plain': new Blob([body], { type: 'text/plain' })
-
         });
 
- 
-
         await navigator.clipboard.write([clipboardItem]);
-
         console.log('✅ File and text copied to clipboard');
 
- 
-
         // Open mailto with pre-filled fields
-
-        this.sendMailto(settings.email, subject, body);
-
- 
+        this.sendMailto(settings.email, subject);
 
         // Show helpful toast
-
         setTimeout(() => {
-
           if (window.ui) {
-
             ui.showToast('📎 Datei + Text kopiert! Im Email: Anhang-Feld einfügen', 'success');
-
           }
-
         }, 500);
 
- 
-
         return true;
-
       }
-
     } catch (clipboardError) {
-
       console.log('Clipboard API failed, trying text-only fallback:', clipboardError);
-
- 
 
       // Fallback: Try copying just the text if file copy fails
 
