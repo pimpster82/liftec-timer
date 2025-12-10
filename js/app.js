@@ -1543,13 +1543,11 @@ class App {
                       </svg>
                     </span>
                   </button>
-                  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
-                    ${ui.icon('clock', 'flex-shrink-0 mt-0.5')}
-                    <span>Automatischer Sync: alle 60 Minuten</span>
+                  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Automatischer Sync: alle 60 Minuten
                   </p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
-                    ${ui.icon('info', 'flex-shrink-0 mt-0.5')}
-                    <span>"Daten neu laden" holt alle Daten vom Cloud, löscht den lokalen Cache und lädt die App neu. Nutze dies wenn du zwischen Geräten wechselst.</span>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 italic">
+                    "Daten neu laden" löscht den Cache und holt aktuelle Daten vom Cloud. Nutze dies beim Gerätewechsel.
                   </p>
                 </div>
               ` : ''}
@@ -2225,49 +2223,8 @@ class App {
 
     const { year, month } = selectedMonth;
 
-    // Step 2: Choose export format
-    const formatDialogContent = `
-      <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-          ${ui.icon('download')}
-          <span>Export-Format wählen</span>
-        </h3>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Monat: <strong>${year}-${pad2(month)}</strong>
-        </p>
-        <div class="space-y-3">
-          <button id="export-xlsx" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
-            ${ui.icon('document')}
-            <span>Excel (.xlsx) - Formatiert</span>
-          </button>
-          <button id="export-csv" class="w-full px-4 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 flex items-center justify-center gap-2">
-            ${ui.icon('document')}
-            <span>CSV - Einfach</span>
-          </button>
-        </div>
-        <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-          Abbrechen
-        </button>
-      </div>
-    `;
-
-    ui.showModal(formatDialogContent);
-
-    // Excel export
-    document.getElementById('export-xlsx').addEventListener('click', async () => {
-      ui.hideModal();
-      await this.showExcelExport(year, month);
-    });
-
-    // CSV export
-    document.getElementById('export-csv').addEventListener('click', async () => {
-      ui.hideModal();
-      await this.showCSVExport(year, month);
-    });
-
-    document.getElementById('dialog-cancel').addEventListener('click', () => {
-      ui.hideModal();
-    });
+    // Step 2: Generate Excel directly (no format selection)
+    await this.showExcelExport(year, month);
   }
 
   // Excel export dialog
@@ -2289,21 +2246,21 @@ class App {
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
             ${ui.icon('check')}
-            <span>${ui.t('exportSuccess')}</span>
+            <span>Excel erstellt</span>
           </h3>
           <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${filename}</p>
-          <div class="space-y-2">
+          <div class="space-y-3">
             <button id="xlsx-download" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
               ${ui.icon('download')}
-              <span>${ui.t('download')}</span>
+              <span>Herunterladen</span>
             </button>
             <button id="xlsx-email" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
               ${ui.icon('mail')}
-              <span>${ui.t('sendEmail')}</span>
+              <span>Per Mail senden</span>
             </button>
           </div>
           <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-            ${ui.t('close')}
+            Schließen
           </button>
         </div>
       `;
@@ -2318,9 +2275,13 @@ class App {
       });
 
       // E-Mail / Share Button
-      document.getElementById('xlsx-email').addEventListener('click', () => {
-        excelExport.sendEmail(blob, filename, ui.settings);
-        ui.hideModal();
+      document.getElementById('xlsx-email').addEventListener('click', async () => {
+        const success = await excelExport.sendEmail(blob, filename, ui.settings);
+        if (success) {
+          ui.hideModal();
+        } else {
+          ui.showToast('Bitte lade die Datei herunter und hänge sie manuell an', 'info');
+        }
       });
 
       // Cancel
