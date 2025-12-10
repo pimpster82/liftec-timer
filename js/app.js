@@ -1773,7 +1773,7 @@ class App {
           const buttonSpinner = document.getElementById('refresh-button-spinner');
 
           // Confirm action
-          const confirmed = await ui.showConfirmDialog(
+          const confirmed = await this.showConfirmDialog(
             'Daten neu laden?',
             'Dies löscht den lokalen Cache und lädt alle Daten vom Cloud neu. Die App wird danach neu geladen. Fortfahren?'
           );
@@ -1874,7 +1874,7 @@ class App {
         if (content.classList.contains('hidden')) {
           // Opening
           content.classList.remove('hidden');
-          icon.style.transform = 'rotate(180deg)';
+          if (icon) icon.style.transform = 'rotate(180deg)';
 
           // Restore scroll position to prevent jumping up
           if (scrollableParent) {
@@ -1883,7 +1883,7 @@ class App {
         } else {
           // Closing
           content.classList.add('hidden');
-          icon.style.transform = 'rotate(0deg)';
+          if (icon) icon.style.transform = 'rotate(0deg)';
         }
       });
     });
