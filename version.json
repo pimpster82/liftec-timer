@@ -1,11 +1,8 @@
 {
-  "version": "1.5.0",
+  "version": "1.5.1",
   "releaseDate": "2025-12-10",
   "changelog": [
-    "Neu: Hard Refresh Button - Daten vom Cloud neu laden (bei Gerätewechsel)",
-    "UX: Export-Flow vereinfacht - weniger Klicks, direkt Excel",
-    "Fix: Email-Export - bessere Funktionalität mit Empfänger und Anhang",
-    "UX: Einstellungen-Layout optimiert für mobile Geräte"
+    "Neu: Hard Refresh Button - Daten vom Cloud neu laden (bei Gerätewechsel)"
   ],
   "critical": false
 }
