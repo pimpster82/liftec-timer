@@ -280,7 +280,7 @@ class ExcelExport {
     this.sendEmail(blob, filename, settings);
   }
 
-  // Send Excel via email (using Web Share API or mailto)
+  // Send Excel via email (using Clipboard API + mailto)
   async sendEmail(blob, filename, settings) {
     const monthStr = filename.match(/(\w+) \d{4}/)[1];
     const subject = settings.emailSubject
@@ -294,7 +294,33 @@ class ExcelExport {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
 
-    // Try Web Share API first (works on mobile with file attachment)
+    // Try to copy file to clipboard first
+    try {
+      if (navigator.clipboard && navigator.clipboard.write) {
+        const clipboardItem = new ClipboardItem({
+          [file.type]: blob
+        });
+
+        await navigator.clipboard.write([clipboardItem]);
+        console.log('✅ File copied to clipboard');
+
+        // Open mailto with pre-filled fields
+        this.sendMailto(settings.email, subject, body);
+
+        // Show helpful toast
+        setTimeout(() => {
+          if (window.ui) {
+            ui.showToast('📎 Datei kopiert! Einfügen im Anhang-Feld (Strg+V oder Paste)', 'success');
+          }
+        }, 500);
+
+        return true;
+      }
+    } catch (clipboardError) {
+      console.log('Clipboard API failed, falling back to Share API:', clipboardError);
+    }
+
+    // Fallback: Try Web Share API
     if (navigator.share && navigator.canShare) {
       try {
         const canShareFiles = await navigator.canShare({ files: [file] });
@@ -321,7 +347,7 @@ class ExcelExport {
       }
     }
 
-    // Fallback: Open mailto (without attachment, but with recipient/subject/body)
+    // Final fallback: Open mailto (without attachment, but with recipient/subject/body)
     this.sendMailto(settings.email, subject, body);
     return false;
   }
