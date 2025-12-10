@@ -1,9 +1,9 @@
 {
-  "version": "1.5.3",
+  "version": "1.5.4",
   "releaseDate": "2025-12-10",
   "changelog": [
-    "Neu: Pull-to-Refresh Geste am Handy (ziehen zum Aktualisieren)",
-    "Neu: Doppelklick auf Titel am PC zum Aktualisieren"
+    "Neu: Email-Export mit Datei-Kopie in Zwischenablage",
+    "Email öffnet mit Empfänger + Betreff + Body vorausgefüllt"
   ],
   "critical": false
 }
