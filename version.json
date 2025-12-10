@@ -1,12 +1,11 @@
 {
-  "version": "1.4.0",
-  "releaseDate": "2025-11-22",
+  "version": "1.5.0",
+  "releaseDate": "2025-12-10",
   "changelog": [
-    "UX: Combined pause and travel time picker with +/- buttons (0.5h steps)",
-    "UX: Better default values - pause and travel time now default to 0.5h",
-    "Fix: Timezone - datetime picker now uses local time instead of UTC",
-    "Fix: Keyboard overlap on mobile - improved scroll behavior for inputs",
-    "Fix: Onboarding walkthrough loop - now checks both flag and username"
+    "Neu: Hard Refresh Button - Daten vom Cloud neu laden (bei Gerätewechsel)",
+    "UX: Export-Flow vereinfacht - weniger Klicks, direkt Excel",
+    "Fix: Email-Export - bessere Funktionalität mit Empfänger und Anhang",
+    "UX: Einstellungen-Layout optimiert für mobile Geräte"
   ],
   "critical": false
 }

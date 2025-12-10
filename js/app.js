@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -149,38 +149,39 @@ class App {
   showUpdateBanner(updateInfo) {
     const banner = document.createElement('div');
     banner.id = 'update-banner';
-    banner.className = 'fixed top-0 left-0 right-0 bg-blue-600 text-white p-4 shadow-lg z-50 animate-slide-down';
+    banner.className = 'fixed top-0 left-0 right-0 bg-blue-600 text-white p-3 shadow-lg z-50 animate-slide-down';
 
-    const changelogHtml = updateInfo.changelog
-      ? `<ul class="text-sm mt-2 space-y-1 list-disc list-inside">${updateInfo.changelog.map(item => `<li>${item}</li>`).join('')}</ul>`
+    // Only show first 2 changelog items to save space
+    const changelogItems = updateInfo.changelog ? updateInfo.changelog.slice(0, 2) : [];
+    const hasMore = updateInfo.changelog && updateInfo.changelog.length > 2;
+    const changelogHtml = changelogItems.length > 0
+      ? `<ul class="text-xs mt-1.5 space-y-0.5 opacity-90">${changelogItems.map(item => `<li>• ${item}</li>`).join('')}</ul>${hasMore ? '<p class="text-xs mt-1 opacity-75">+ weitere Verbesserungen</p>' : ''}`
       : '';
 
     banner.innerHTML = `
       <div class="max-w-4xl mx-auto">
-        <div class="flex items-start justify-between">
-          <div class="flex-1">
-            <div class="flex items-center gap-2 mb-1">
-              ${ui.icon('arrow-down-circle')}
-              <strong class="text-lg">Update verfügbar: v${updateInfo.version}</strong>
-              ${updateInfo.critical ? '<span class="bg-red-500 px-2 py-0.5 rounded text-xs ml-2">Wichtig</span>' : ''}
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <strong class="text-base">Update v${updateInfo.version}</strong>
+              ${updateInfo.critical ? '<span class="bg-red-500 px-1.5 py-0.5 rounded text-xs ml-1">Wichtig</span>' : ''}
             </div>
-            <p class="text-sm opacity-90">Veröffentlicht am ${updateInfo.releaseDate}</p>
             ${changelogHtml}
           </div>
-          <button id="update-banner-close" class="ml-4 text-white hover:text-gray-200" ${updateInfo.critical ? 'disabled style="display:none"' : ''}>
+          <button id="update-banner-close" class="flex-shrink-0 text-white hover:text-gray-200" ${updateInfo.critical ? 'disabled style="display:none"' : ''}>
             ${ui.icon('x')}
           </button>
         </div>
-        <div class="flex gap-2 mt-4">
-          <button id="update-now-btn" class="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100">
-            Jetzt aktualisieren
+        <div class="flex gap-2 mt-3">
+          <button id="update-now-btn" class="px-3 py-1.5 bg-white text-blue-600 rounded text-sm font-semibold hover:bg-gray-100">
+            Aktualisieren
           </button>
           ${!updateInfo.critical ? `
-            <button id="update-later-btn" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-400">
-              Später erinnern
+            <button id="update-later-btn" class="px-3 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-400">
+              Später
             </button>
-            <button id="update-dismiss-btn" class="px-4 py-2 text-white hover:bg-blue-500 rounded-lg">
-              Nicht mehr anzeigen
+            <button id="update-dismiss-btn" class="px-3 py-1.5 text-white hover:bg-blue-500 rounded text-sm">
+              Ignorieren
             </button>
           ` : ''}
         </div>
