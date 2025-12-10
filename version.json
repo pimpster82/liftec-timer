@@ -1,8 +1,9 @@
 {
-  "version": "1.5.1",
+  "version": "1.5.2",
   "releaseDate": "2025-12-10",
   "changelog": [
-    "Neu: Hard Refresh Button - Daten vom Cloud neu laden (bei Gerätewechsel)"
+    "Fix: Console Errors behoben (showConfirmDialog Referenz)",
+    "Fix: Null-Check für fehlende Icons in Einstellungen"
   ],
   "critical": false
 }
