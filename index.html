@@ -41,6 +41,17 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="bg-gray-50 dark:bg-black min-h-screen">
+    <!-- Pull to Refresh Indicator -->
+    <div id="pull-to-refresh" class="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-50" style="transform: translateY(-100%); transition: transform 0.3s ease;">
+        <div class="bg-blue-600 text-white px-4 py-2 rounded-b-lg shadow-lg flex items-center gap-2">
+            <svg id="refresh-spinner" class="animate-spin h-5 w-5 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span id="refresh-text">Zum Aktualisieren ziehen...</span>
+        </div>
+    </div>
+
     <!-- App Container -->
     <div id="app" class="max-w-md mx-auto min-h-screen bg-white dark:bg-gray-900 shadow-xl">
 
@@ -56,7 +67,7 @@
         <div id="main-screen" class="hidden">
             <!-- Header -->
             <div class="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex justify-between items-center">
-                <h1 class="text-lg font-semibold text-gray-900 dark:text-white">LIFTEC Timer</h1>
+                <h1 id="app-title" class="text-lg font-semibold text-gray-900 dark:text-white select-none">LIFTEC Timer</h1>
                 <button id="menu-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1"></button>
             </div>
 

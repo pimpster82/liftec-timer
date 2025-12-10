@@ -296,6 +296,146 @@ class App {
     if (action === 'start') {
       this.startSession();
     }
+
+    // Setup Pull-to-Refresh
+    this.setupPullToRefresh();
+
+    // Setup Double-click on title for desktop hard refresh
+    const appTitle = document.getElementById('app-title');
+    if (appTitle) {
+      appTitle.addEventListener('dblclick', async () => {
+        // Only enable if cloud sync is active
+        if (firebaseService && firebaseService.currentUser && ui.settings && ui.settings.cloudSync) {
+          const confirmed = await this.showConfirmDialog(
+            'Daten neu laden?',
+            'Dies löscht den lokalen Cache und lädt alle Daten vom Cloud neu. Die App wird danach neu geladen. Fortfahren?'
+          );
+
+          if (!confirmed) return;
+
+          try {
+            ui.showToast('Aktualisiere...', 'info');
+            await this.performHardRefresh();
+          } catch (error) {
+            console.error('Hard refresh error:', error);
+            ui.showToast('Fehler beim Aktualisieren', 'error');
+          }
+        }
+      });
+    }
+  }
+
+  setupPullToRefresh() {
+    // Only enable pull-to-refresh if user is signed in and cloud sync is enabled
+    const checkCloudSync = () => {
+      return firebaseService &&
+             firebaseService.currentUser &&
+             ui.settings &&
+             ui.settings.cloudSync;
+    };
+
+    let startY = 0;
+    let currentY = 0;
+    let pulling = false;
+    const threshold = 80; // Pull distance needed to trigger refresh
+
+    const pullIndicator = document.getElementById('pull-to-refresh');
+    const refreshText = document.getElementById('refresh-text');
+    const refreshSpinner = document.getElementById('refresh-spinner');
+    const appContainer = document.getElementById('app');
+
+    appContainer.addEventListener('touchstart', (e) => {
+      // Only start if at top of scroll AND cloud sync enabled
+      if (appContainer.scrollTop === 0 && checkCloudSync()) {
+        startY = e.touches[0].pageY;
+        pulling = true;
+      }
+    }, { passive: true });
+
+    appContainer.addEventListener('touchmove', (e) => {
+      if (!pulling || !checkCloudSync()) return;
+
+      currentY = e.touches[0].pageY;
+      const pullDistance = currentY - startY;
+
+      // Only show indicator if pulling down
+      if (pullDistance > 0) {
+        const translateY = Math.min(pullDistance, threshold + 20);
+        pullIndicator.style.transform = `translateY(${translateY - 100}%)`;
+
+        if (pullDistance >= threshold) {
+          refreshText.textContent = 'Loslassen zum Aktualisieren...';
+        } else {
+          refreshText.textContent = 'Zum Aktualisieren ziehen...';
+        }
+      }
+    }, { passive: true });
+
+    appContainer.addEventListener('touchend', async () => {
+      if (!pulling || !checkCloudSync()) return;
+
+      const pullDistance = currentY - startY;
+
+      if (pullDistance >= threshold) {
+        // Trigger refresh
+        refreshText.textContent = 'Aktualisiere...';
+        refreshSpinner.classList.remove('hidden');
+        pullIndicator.style.transform = 'translateY(0)';
+
+        try {
+          await this.performHardRefresh();
+        } catch (error) {
+          console.error('Pull-to-refresh error:', error);
+          ui.showToast('Fehler beim Aktualisieren', 'error');
+        }
+
+        // Reset indicator
+        setTimeout(() => {
+          pullIndicator.style.transform = 'translateY(-100%)';
+          refreshSpinner.classList.add('hidden');
+          refreshText.textContent = 'Zum Aktualisieren ziehen...';
+        }, 500);
+      } else {
+        // Reset indicator
+        pullIndicator.style.transform = 'translateY(-100%)';
+      }
+
+      pulling = false;
+      startY = 0;
+      currentY = 0;
+    });
+  }
+
+  async performHardRefresh() {
+    // Step 1: Unregister service worker
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const registration of registrations) {
+        await registration.unregister();
+      }
+      console.log('✅ Service Worker unregistered');
+    }
+
+    // Step 2: Clear all caches
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+      console.log('✅ All caches cleared');
+    }
+
+    // Step 3: Perform full sync from cloud
+    const success = await firebaseService.fullSync();
+
+    if (success) {
+      ui.showToast('Daten erfolgreich neu geladen', 'success');
+
+      // Step 4: Force reload from server (not cache)
+      setTimeout(() => {
+        window.location.href = window.location.href;
+      }, 1000);
+    } else {
+      throw new Error('Sync failed');
+    }
   }
 
   // ===== Main Screen =====
@@ -1786,38 +1926,8 @@ class App {
             buttonSpinner.classList.remove('hidden');
             hardRefreshBtn.disabled = true;
 
-            // Step 1: Unregister service worker
-            if ('serviceWorker' in navigator) {
-              const registrations = await navigator.serviceWorker.getRegistrations();
-              for (const registration of registrations) {
-                await registration.unregister();
-              }
-              console.log('✅ Service Worker unregistered');
-            }
-
-            // Step 2: Clear all caches
-            if ('caches' in window) {
-              const cacheNames = await caches.keys();
-              await Promise.all(cacheNames.map(name => caches.delete(name)));
-              console.log('✅ All caches cleared');
-            }
-
-            // Step 3: Perform full sync from cloud
-            const success = await firebaseService.fullSync();
-
-            if (success) {
-              ui.showToast('Daten erfolgreich neu geladen. App wird neu gestartet...', 'success');
-
-              // Step 4: Force reload from server (not cache)
-              setTimeout(() => {
-                window.location.href = window.location.href;
-              }, 1500);
-            } else {
-              ui.showToast('Neu laden fehlgeschlagen', 'error');
-              buttonText.textContent = 'Daten neu laden (Cache leeren)';
-              buttonSpinner.classList.add('hidden');
-              hardRefreshBtn.disabled = false;
-            }
+            // Use shared performHardRefresh method
+            await this.performHardRefresh();
           } catch (error) {
             console.error('Hard refresh error:', error);
             ui.showToast('Fehler beim Neu laden: ' + error.message, 'error');
