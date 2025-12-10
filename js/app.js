@@ -1824,7 +1824,7 @@ class App {
               </div>
 
               ${isSignedIn && settings.cloudSync ? `
-                <div class="mt-3">
+                <div class="mt-3 space-y-2">
                   <button id="firebase-manual-sync" class="w-full px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
                     <span id="sync-button-text">Jetzt syncen</span>
                     <span id="sync-button-spinner" class="hidden">
@@ -1834,9 +1834,22 @@ class App {
                       </svg>
                     </span>
                   </button>
+                  <button id="firebase-hard-refresh" class="w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center justify-center gap-2">
+                    <span id="refresh-button-text">Daten neu laden (Cache leeren)</span>
+                    <span id="refresh-button-spinner" class="hidden">
+                      <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </span>
+                  </button>
                   <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
                     ${ui.icon('clock', 'flex-shrink-0 mt-0.5')}
                     <span>Automatischer Sync: alle 60 Minuten</span>
+                  </p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
+                    ${ui.icon('info', 'flex-shrink-0 mt-0.5')}
+                    <span>"Daten neu laden" holt alle Daten vom Cloud, löscht den lokalen Cache und lädt die App neu. Nutze dies wenn du zwischen Geräten wechselst.</span>
                   </p>
                 </div>
               ` : ''}
@@ -2064,6 +2077,60 @@ class App {
             buttonText.textContent = 'Jetzt syncen';
             buttonSpinner.classList.add('hidden');
             manualSyncBtn.disabled = false;
+          }
+        });
+      }
+
+      // Hard Refresh Button (Clear cache + sync from cloud)
+      const hardRefreshBtn = document.getElementById('firebase-hard-refresh');
+      if (hardRefreshBtn) {
+        hardRefreshBtn.addEventListener('click', async () => {
+          const buttonText = document.getElementById('refresh-button-text');
+          const buttonSpinner = document.getElementById('refresh-button-spinner');
+
+          // Confirm action
+          const confirmed = await ui.showConfirmDialog(
+            'Daten neu laden?',
+            'Dies löscht den lokalen Cache und lädt alle Daten vom Cloud neu. Die App wird danach neu geladen. Fortfahren?'
+          );
+
+          if (!confirmed) return;
+
+          try {
+            // Show spinner
+            buttonText.textContent = 'Lade neu...';
+            buttonSpinner.classList.remove('hidden');
+            hardRefreshBtn.disabled = true;
+
+            // Step 1: Clear all caches
+            if ('caches' in window) {
+              const cacheNames = await caches.keys();
+              await Promise.all(cacheNames.map(name => caches.delete(name)));
+              console.log('✅ All caches cleared');
+            }
+
+            // Step 2: Perform full sync from cloud
+            const success = await firebaseService.fullSync();
+
+            if (success) {
+              ui.showToast('Daten erfolgreich neu geladen. App wird neu gestartet...', 'success');
+
+              // Step 3: Reload the page after a short delay
+              setTimeout(() => {
+                window.location.reload(true);
+              }, 1500);
+            } else {
+              ui.showToast('Neu laden fehlgeschlagen', 'error');
+              buttonText.textContent = 'Daten neu laden (Cache leeren)';
+              buttonSpinner.classList.add('hidden');
+              hardRefreshBtn.disabled = false;
+            }
+          } catch (error) {
+            console.error('Hard refresh error:', error);
+            ui.showToast('Fehler beim Neu laden: ' + error.message, 'error');
+            buttonText.textContent = 'Daten neu laden (Cache leeren)';
+            buttonSpinner.classList.add('hidden');
+            hardRefreshBtn.disabled = false;
           }
         });
       }
