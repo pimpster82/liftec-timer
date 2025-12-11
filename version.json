@@ -1,9 +1,9 @@
 {
-  "version": "1.5.7",
-  "releaseDate": "2025-12-10",
+  "version": "1.5.8",
+  "releaseDate": "2025-12-11",
   "changelog": [
-    "Fix: Email-Export - Text in Zwischenablage + Datei via Share Sheet",
-    "Share Sheet öffnet mit Datei, Text kann eingefügt werden",
+    "Fix: Email-Body direkt ausgefüllt, Betreff in Zwischenablage",
+    "Empfänger-Feld leer (manuell eingeben)",
     "Pull-to-Refresh Geste für mobile Geräte"
   ],
   "critical": false
