@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.6.2';
+const APP_VERSION = '1.7.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -474,6 +474,20 @@ class App {
       }
     }
 
+    // Add event listener for calendar button
+    const calendarBtn = document.getElementById('hero-calendar-btn');
+    if (calendarBtn) {
+      calendarBtn.addEventListener('click', () => this.showCalendarView('hero'));
+    }
+
+    // Add event listener for time display toggle (if session is active)
+    if (this.session) {
+      const timeDisplay = document.getElementById('hero-time-display');
+      if (timeDisplay) {
+        timeDisplay.addEventListener('click', () => this.toggleHeroTimeDisplay());
+      }
+    }
+
     // Render session info
     const sessionInfo = document.getElementById('session-info');
     if (this.session && this.session.tasks && this.session.tasks.length > 0) {
@@ -567,7 +581,15 @@ class App {
       if (this.session) {
         const durationElement = document.querySelector('.duration');
         if (durationElement) {
-          durationElement.textContent = ui.formatDuration(this.session.start);
+          // Check if we should show duration or start time
+          const showStartTime = ui.settings?.heroTimeDisplay === 'startTime';
+          if (showStartTime) {
+            // For start time, we don't need to update every second (it's static)
+            durationElement.textContent = ui.formatStartTime(this.session.start);
+          } else {
+            // For duration, update every second
+            durationElement.textContent = ui.formatDuration(this.session.start);
+          }
         }
       }
     }, 1000);
@@ -780,6 +802,241 @@ class App {
         endTime: null
       };
     }
+  }
+
+  /**
+   * Toggle hero card time display between duration and start time
+   */
+  async toggleHeroTimeDisplay() {
+    try {
+      // Toggle between 'duration' and 'startTime'
+      const currentDisplay = ui.settings.heroTimeDisplay || 'duration';
+      const newDisplay = currentDisplay === 'duration' ? 'startTime' : 'duration';
+
+      // Update settings
+      ui.settings.heroTimeDisplay = newDisplay;
+      await storage.updateSettings(ui.settings);
+
+      // Re-render main screen to update display
+      await this.renderMainScreen();
+
+      // Restart duration updater if session is active
+      if (this.session) {
+        this.startDurationUpdater();
+      }
+    } catch (error) {
+      console.error('Error toggling time display:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * Show calendar view
+   * @param {string} source - 'hero' or 'history' to track where the view was opened from
+   */
+  async showCalendarView(source = 'hero') {
+    try {
+      // Get all worklog entries
+      const entries = await storage.getAllWorklogEntries();
+
+      // Determine which view preference to use
+      const viewPrefKey = source === 'hero' ? 'heroCalendarView' : 'historyView';
+      const currentView = ui.settings[viewPrefKey] || 'calendar';
+
+      // Show calendar view
+      await this.renderCalendarView(entries, source);
+    } catch (error) {
+      console.error('Error showing calendar view:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * Render calendar view for a given month
+   * @param {Array} entries - All worklog entries
+   * @param {string} source - 'hero' or 'history'
+   * @param {Date} monthDate - The month to display (defaults to current month)
+   */
+  async renderCalendarView(entries, source = 'hero', monthDate = new Date()) {
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+
+    // Get first and last day of month
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    // Get day of week for first day (0 = Sunday, 1 = Monday, etc.)
+    // Adjust so Monday = 0, Sunday = 6
+    let firstDayOfWeek = firstDay.getDay() - 1;
+    if (firstDayOfWeek === -1) firstDayOfWeek = 6;
+
+    // Build calendar grid
+    const daysInMonth = lastDay.getDate();
+    const calendarDays = [];
+
+    // Add empty cells for days before first day of month
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      calendarDays.push({ empty: true });
+    }
+
+    // Add all days of month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const dateStr = ui.formatDate(date);
+
+      // Check if there's an entry for this day
+      const hasEntry = entries.some(e => e.date === dateStr);
+
+      // Check if it's a weekend
+      const dayOfWeek = date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+      // Check if it's today
+      const today = new Date();
+      const isToday = date.getDate() === today.getDate() &&
+                      date.getMonth() === today.getMonth() &&
+                      date.getFullYear() === today.getFullYear();
+
+      calendarDays.push({
+        day,
+        date: dateStr,
+        hasEntry,
+        isWeekend,
+        isToday,
+        dateObj: date
+      });
+    }
+
+    // Create calendar HTML
+    const monthNames = ui.t('monthNames');
+    const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+    const calendarHTML = `
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <button id="calendar-prev-month" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
+            ${ui.icon('chevron-left')}
+          </button>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+            ${monthNames[month]} ${year}
+          </h3>
+          <button id="calendar-next-month" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
+            ${ui.icon('chevron-right')}
+          </button>
+        </div>
+
+        <!-- Weekday headers -->
+        <div class="grid grid-cols-7 gap-1 mb-2">
+          ${weekdayNames.map(day => `
+            <div class="text-center text-xs font-semibold text-gray-600 dark:text-gray-400 py-1">
+              ${day}
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Calendar days -->
+        <div class="grid grid-cols-7 gap-1 mb-4">
+          ${calendarDays.map(dayInfo => {
+            if (dayInfo.empty) {
+              return '<div class="aspect-square"></div>';
+            }
+
+            let bgClass = 'bg-gray-100 dark:bg-gray-800';
+            let textClass = 'text-gray-900 dark:text-white';
+
+            if (dayInfo.hasEntry) {
+              bgClass = 'bg-green-100 dark:bg-green-900';
+              textClass = 'text-green-900 dark:text-green-100';
+            } else if (dayInfo.isWeekend) {
+              bgClass = 'bg-gray-200 dark:bg-gray-700';
+              textClass = 'text-gray-600 dark:text-gray-400';
+            }
+
+            if (dayInfo.isToday) {
+              bgClass += ' ring-2 ring-primary';
+            }
+
+            return `
+              <button class="calendar-day aspect-square ${bgClass} ${textClass} rounded-lg flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity btn-press"
+                      data-date="${dayInfo.date}"
+                      ${!dayInfo.hasEntry ? 'disabled' : ''}>
+                ${dayInfo.day}
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Legend -->
+        <div class="flex gap-4 text-xs text-gray-600 dark:text-gray-400 mb-4">
+          <div class="flex items-center gap-1">
+            <div class="w-4 h-4 bg-green-100 dark:bg-green-900 rounded"></div>
+            <span>${ui.t('hasEntry')}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <div class="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <span>${ui.t('weekend')}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <div class="w-4 h-4 bg-gray-100 dark:bg-gray-800 ring-2 ring-primary rounded"></div>
+            <span>${ui.t('today')}</span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-2">
+          ${source === 'history' ? `
+            <button id="calendar-toggle-view" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.icon('list')} ${ui.t('showList')}
+            </button>
+          ` : ''}
+          <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${ui.t('close')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(calendarHTML);
+
+    // Add event listeners
+    document.getElementById('calendar-prev-month').addEventListener('click', () => {
+      const prevMonth = new Date(year, month - 1, 1);
+      this.renderCalendarView(entries, source, prevMonth);
+    });
+
+    document.getElementById('calendar-next-month').addEventListener('click', () => {
+      const nextMonth = new Date(year, month + 1, 1);
+      this.renderCalendarView(entries, source, nextMonth);
+    });
+
+    // Click on day to show entry details
+    document.querySelectorAll('.calendar-day').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const date = e.currentTarget.dataset.date;
+        const entry = entries.find(e => e.date === date);
+        if (entry) {
+          ui.hideModal();
+          await this.editWorklogEntry(entry);
+          // Refresh calendar after editing
+          await this.showCalendarView(source);
+        }
+      });
+    });
+
+    // Toggle view button (only in history)
+    if (source === 'history') {
+      document.getElementById('calendar-toggle-view').addEventListener('click', async () => {
+        // Switch to list view
+        ui.settings.historyView = 'list';
+        await storage.updateSettings(ui.settings);
+        ui.hideModal();
+        await this.showHistory();
+      });
+    }
+
+    document.getElementById('dialog-ok').addEventListener('click', () => {
+      ui.hideModal();
+    });
   }
 
   /**
@@ -3044,6 +3301,13 @@ class App {
       return;
     }
 
+    // Check if user prefers calendar view
+    const preferCalendar = ui.settings.historyView === 'calendar';
+    if (preferCalendar) {
+      await this.showCalendarView('history');
+      return;
+    }
+
     // Sort entries by date (newest first)
     entries.sort((a, b) => {
       const dateA = a.date.split('.').reverse().join('-');
@@ -3151,9 +3415,15 @@ class App {
           ${entriesHtml}
         </div>
 
-        <button id="dialog-ok" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-          ${ui.t('close')}
-        </button>
+        <!-- Actions -->
+        <div class="flex gap-2 mt-4">
+          <button id="history-toggle-view" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.icon('calendar')} ${ui.t('showCalendar')}
+          </button>
+          <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${ui.t('close')}
+          </button>
+        </div>
       </div>
     `;
 
@@ -3183,6 +3453,15 @@ class App {
           await this.showHistory(); // Refresh history
         }
       });
+    });
+
+    // Add event listener for view toggle
+    document.getElementById('history-toggle-view').addEventListener('click', async () => {
+      // Switch to calendar view
+      ui.settings.historyView = 'calendar';
+      await storage.updateSettings(ui.settings);
+      ui.hideModal();
+      await this.showHistory();
     });
 
     document.getElementById('dialog-ok').addEventListener('click', () => {
