@@ -1,0 +1,25 @@
+{
+  "stableVersions": [
+    {
+      "version": "1.6.0",
+      "tag": "v1.6.0-stable",
+      "releaseDate": "2025-12-11",
+      "description": "Versionsverwaltung mit Rollback-Feature",
+      "isCurrent": true
+    },
+    {
+      "version": "1.5.9",
+      "tag": "v1.5.9-stable",
+      "releaseDate": "2025-12-11",
+      "description": "Quick-Export FAB auf Homepage",
+      "isCurrent": false
+    },
+    {
+      "version": "1.5.8",
+      "tag": "v1.5.8-stable",
+      "releaseDate": "2025-12-10",
+      "description": "Stabile Version vor Quick-Export",
+      "isCurrent": false
+    }
+  ]
+}
