@@ -1,14 +1,11 @@
 {
-  "version": "1.7.0",
+  "version": "1.7.2",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Feature: Kalender-Monatsansicht für Aufzeichnungen",
-    "Feature: Zeit-Toggle in Hero Card (Dauer ↔ Startzeit)",
-    "Feature: Calendar-Button in Hero Card",
-    "Feature: Umschalten zwischen Listen- und Kalenderansicht",
-    "Farbliche Markierung von Tagen mit Einträgen",
-    "Getrennte View-Präferenzen für Hero und Aufzeichnungen",
-    "Übersetzungen für alle neuen Features (de/en/hr)"
+    "Bugfix: Zeit-Toggle Label wechselt jetzt korrekt (DAUER ↔ STARTZEIT)",
+    "Bugfix: Einstellungen schließen sich nicht mehr abrupt bei Updates",
+    "Verbesserung: Calendar-Button größer und prominenter",
+    "Verbesserung: Sanfter Übergang bei App-Updates"
   ],
   "critical": false
 }

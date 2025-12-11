@@ -622,9 +622,9 @@ class UI {
     // Calendar button (always visible)
     buttons.push(`
       <button id="hero-calendar-btn"
-              class="bg-white bg-opacity-30 hover:bg-opacity-40 text-gray-900 rounded-full p-2 transition-colors btn-press"
+              class="bg-white bg-opacity-30 hover:bg-opacity-50 text-gray-900 rounded-full p-3 transition-colors btn-press shadow-sm"
               title="${this.t('showCalendar')}">
-        ${this.icon('calendar', 'w-5 h-5')}
+        ${this.icon('calendar', 'w-6 h-6')}
       </button>
     `);
 

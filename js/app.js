@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.7.2';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -216,6 +216,9 @@ class App {
   }
 
   async performUpdate() {
+    // Close any open modals before updating
+    ui.hideModal();
+
     ui.showToast('Aktualisierung wird durchgeführt...', 'info');
 
     // Clear localStorage flags
@@ -580,15 +583,19 @@ class App {
     this.durationInterval = setInterval(() => {
       if (this.session) {
         const durationElement = document.querySelector('.duration');
+        const labelElement = document.querySelector('#hero-time-display .text-xs');
+
         if (durationElement) {
           // Check if we should show duration or start time
           const showStartTime = ui.settings?.heroTimeDisplay === 'startTime';
           if (showStartTime) {
             // For start time, we don't need to update every second (it's static)
             durationElement.textContent = ui.formatStartTime(this.session.start);
+            if (labelElement) labelElement.textContent = ui.t('startTime').toUpperCase();
           } else {
             // For duration, update every second
             durationElement.textContent = ui.formatDuration(this.session.start);
+            if (labelElement) labelElement.textContent = ui.t('duration').toUpperCase();
           }
         }
       }
