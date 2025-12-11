@@ -101,6 +101,18 @@ class Storage {
     });
   }
 
+  // Generic add method (for auto-increment stores)
+  async add(storeName, data) {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([storeName], 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.add(data);
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   // Generic delete method
   async delete(storeName, key) {
     return new Promise((resolve, reject) => {
@@ -130,6 +142,11 @@ class Storage {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
+  }
+
+  // Get all records by index (alias for convenience)
+  async getAllByIndex(storeName, indexName, query) {
+    return this.getAll(storeName, indexName, query);
   }
 
   // Clear entire store
