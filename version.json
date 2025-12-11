@@ -1,9 +1,9 @@
 {
-  "version": "1.7.5",
+  "version": "1.7.6",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Bugfix: Feiertag-Farbe auf Grün geändert (passt jetzt zum Button)",
-    "Verbesserung: Legende aus Kalenderansicht entfernt (Farben sind selbsterklärend)"
+    "Bugfix: Feiertag auf Gelb (Button + Kalender) - Konflikt mit Arbeitszeit behoben",
+    "Konsistenz: Alle Abwesenheitstypen haben jetzt gleiche Farben in Button und Kalender"
   ],
   "critical": false
 }

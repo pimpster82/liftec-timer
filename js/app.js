@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.7.5';
+const APP_VERSION = '1.7.6';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -985,8 +985,8 @@ class App {
                   textClass = 'text-purple-900 dark:text-purple-100';
                   break;
                 case 'Feiertag':
-                  bgClass = 'bg-green-100 dark:bg-green-900';
-                  textClass = 'text-green-900 dark:text-green-100';
+                  bgClass = 'bg-yellow-100 dark:bg-yellow-900';
+                  textClass = 'text-yellow-900 dark:text-yellow-100';
                   break;
                 default:
                   bgClass = 'bg-green-100 dark:bg-green-900';
@@ -1340,7 +1340,7 @@ class App {
               ${ui.icon('heart-pulse')}
               <span>Krankenstand</span>
             </button>
-            <button class="absence-type-btn w-full px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2" data-type="Feiertag">
+            <button class="absence-type-btn w-full px-4 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 flex items-center justify-center gap-2" data-type="Feiertag">
               ${ui.icon('star')}
               <span>Feiertag</span>
             </button>
