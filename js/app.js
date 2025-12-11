@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.7.7';
+const APP_VERSION = '1.8.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -936,13 +936,13 @@ class App {
       <div class="p-6">
         <div class="flex items-center justify-between mb-4">
           <button id="calendar-prev-month" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
-            ${ui.icon('chevron-left')}
+            ${ui.icon('chevron-left', 'w-6 h-6')}
           </button>
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
             ${monthNames[month]} ${year}
           </h3>
           <button id="calendar-next-month" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
-            ${ui.icon('chevron-right')}
+            ${ui.icon('chevron-right', 'w-6 h-6')}
           </button>
         </div>
 
@@ -2291,7 +2291,7 @@ class App {
                   ${ui.icon('cloud')}
                   <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Cloud Synchronisation</h4>
                 </div>
-                ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+                ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
               </button>
               <div id="cloud-sync-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
 
@@ -2379,7 +2379,7 @@ class App {
                 ${ui.icon('arrow-down-circle')}
                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">App-Updates</h4>
               </div>
-              ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+              ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
             </button>
             <div id="update-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
 
@@ -2413,7 +2413,7 @@ class App {
                 ${ui.icon('clock')}
                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Versionsverwaltung</h4>
               </div>
-              ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+              ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
             </button>
             <div id="version-rollback-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
 
@@ -2468,7 +2468,7 @@ class App {
                 ${ui.icon('mail')}
                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Email-Export</h4>
               </div>
-              ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+              ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
             </button>
             <div id="email-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary space-y-4">
               <div>
@@ -3408,6 +3408,9 @@ class App {
             <span class="font-medium text-gray-900 dark:text-white">${dateStr}</span>
             <div class="flex items-center gap-2">
               <span class="font-semibold text-primary">${workHours.toFixed(1)}h</span>
+              <button class="history-share-btn text-green-500 hover:text-green-700 dark:hover:text-green-400 p-1" data-id="${entry.id}" title="${ui.t('shareEntry')}">
+                ${ui.icon('share')}
+              </button>
               <button class="history-edit-btn text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 p-1" data-id="${entry.id}" title="Bearbeiten">
                 ${ui.icon('edit')}
               </button>
@@ -3446,7 +3449,10 @@ class App {
 
         <!-- Actions -->
         <div class="flex gap-2 mt-4">
-          <button id="dialog-ok" class="w-full px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+          <button id="import-entry-open" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600">
+            ${ui.icon('download')} ${ui.t('importEntry')}
+          </button>
+          <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
             ${ui.t('close')}
           </button>
         </div>
@@ -3454,6 +3460,17 @@ class App {
     `;
 
     ui.showModal(content);
+
+    // Add event listeners for share buttons
+    document.querySelectorAll('.history-share-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const entryId = parseInt(e.currentTarget.dataset.id);
+        const entry = entries.find(e => e.id === entryId);
+        if (entry) {
+          await this.shareWorklogEntry(entry);
+        }
+      });
+    });
 
     // Add event listeners for edit buttons
     document.querySelectorAll('.history-edit-btn').forEach(btn => {
@@ -3479,6 +3496,12 @@ class App {
           await this.showHistory(); // Refresh history
         }
       });
+    });
+
+    // Add event listener for import button
+    document.getElementById('import-entry-open').addEventListener('click', () => {
+      ui.hideModal();
+      this.showImportEntryDialog();
     });
 
     document.getElementById('dialog-ok').addEventListener('click', () => {
@@ -3662,6 +3685,244 @@ class App {
 
     await storage.deleteWorklogEntry(entry.id);
     ui.showToast('Eintrag gelöscht', 'success');
+  }
+
+  // ===== Share & Import Entry =====
+
+  async shareWorklogEntry(entry) {
+    try {
+      // Create shareable data (exclude internal id)
+      const shareData = {
+        version: '1.0',
+        type: 'liftec-timer-entry',
+        date: entry.date,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        pause: entry.pause,
+        travelTime: entry.travelTime,
+        surcharge: entry.surcharge,
+        tasks: entry.tasks || [],
+        exportedBy: ui.settings.username || 'Benutzer',
+        exportedAt: new Date().toISOString()
+      };
+
+      const jsonString = JSON.stringify(shareData, null, 2);
+      const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.json`;
+
+      // Try Web Share API first (mobile devices with native share)
+      if (navigator.share && navigator.canShare) {
+        // Create a file blob
+        const file = new File([jsonString], fileName, { type: 'application/json' });
+
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: ui.t('shareEntryTitle'),
+            text: `${ui.t('entryFrom')} ${entry.date} - ${ui.settings.username || 'Benutzer'}`,
+            files: [file]
+          });
+          ui.showToast(ui.t('shareSuccess'), 'success');
+          return;
+        }
+      }
+
+      // Fallback 1: Copy to clipboard (works well on mobile)
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(jsonString);
+        ui.showToast(ui.t('copiedToClipboard'), 'success');
+
+        // Also offer download as additional option
+        this.downloadWorklogEntry(jsonString, fileName);
+        return;
+      }
+
+      // Fallback 2: Download file
+      this.downloadWorklogEntry(jsonString, fileName);
+      ui.showToast(ui.t('downloaded'), 'success');
+
+    } catch (error) {
+      console.error('Share failed:', error);
+
+      // Final fallback: download
+      try {
+        const shareData = {
+          version: '1.0',
+          type: 'liftec-timer-entry',
+          date: entry.date,
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          pause: entry.pause,
+          travelTime: entry.travelTime,
+          surcharge: entry.surcharge,
+          tasks: entry.tasks || [],
+          exportedBy: ui.settings.username || 'Benutzer',
+          exportedAt: new Date().toISOString()
+        };
+        const jsonString = JSON.stringify(shareData, null, 2);
+        const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.json`;
+        this.downloadWorklogEntry(jsonString, fileName);
+        ui.showToast(ui.t('downloaded'), 'success');
+      } catch (downloadError) {
+        ui.showToast(ui.t('shareFailed'), 'error');
+      }
+    }
+  }
+
+  downloadWorklogEntry(jsonString, fileName) {
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async showImportEntryDialog() {
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+          ${ui.icon('download')}
+          <span>${ui.t('importEntry')}</span>
+        </h3>
+
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          ${ui.t('importEntryDesc')}
+        </p>
+
+        <input type="file" id="import-entry-file" accept=".json,application/json"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white mb-4">
+
+        <div class="flex gap-2">
+          <button id="import-entry-btn" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${ui.t('importEntry')}
+          </button>
+          <button id="import-cancel-btn" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('cancel')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('import-entry-btn').addEventListener('click', async () => {
+      const fileInput = document.getElementById('import-entry-file');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        ui.showToast(ui.t('noFileSelected'), 'error');
+        return;
+      }
+
+      try {
+        const file = fileInput.files[0];
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        // Validate data
+        if (data.type !== 'liftec-timer-entry' || !data.date) {
+          ui.showToast(ui.t('invalidFormat'), 'error');
+          return;
+        }
+
+        ui.hideModal();
+        await this.importWorklogEntry(data);
+      } catch (error) {
+        console.error('Import failed:', error);
+        ui.showToast(ui.t('importError'), 'error');
+      }
+    });
+
+    document.getElementById('import-cancel-btn').addEventListener('click', () => {
+      ui.hideModal();
+    });
+  }
+
+  async importWorklogEntry(data) {
+    try {
+      // Check if entry for this date already exists
+      const allEntries = await storage.getAllWorklogEntries();
+      const existingEntry = allEntries.find(e => e.date === data.date);
+
+      if (existingEntry) {
+        // Show duplicate warning
+        const action = await this.showDuplicateEntryDialog(data.date);
+
+        if (action === 'cancel') {
+          return;
+        } else if (action === 'overwrite') {
+          // Delete existing entry
+          await storage.deleteWorklogEntry(existingEntry.id);
+        }
+        // If 'keepBoth', we just continue and add the new entry
+      }
+
+      // Create new entry (without id, will be auto-generated)
+      const newEntry = {
+        date: data.date,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        pause: data.pause || '00:00',
+        travelTime: data.travelTime || '00:00',
+        surcharge: data.surcharge || '00:00',
+        tasks: data.tasks || []
+      };
+
+      await storage.addWorklogEntry(newEntry);
+      ui.showToast(ui.t('entryImported'), 'success');
+
+      // Refresh history if it's open
+      await this.showHistory();
+    } catch (error) {
+      console.error('Import failed:', error);
+      ui.showToast(ui.t('importError'), 'error');
+    }
+  }
+
+  async showDuplicateEntryDialog(date) {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('warning')}
+            <span>${ui.t('duplicateWarning')}</span>
+          </h3>
+
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            ${ui.t('entryFrom')} ${date}
+          </p>
+
+          <div class="flex flex-col gap-2">
+            <button id="duplicate-overwrite" class="w-full px-4 py-2 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600">
+              ${ui.t('overwrite')}
+            </button>
+            <button id="duplicate-keep-both" class="w-full px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+              ${ui.t('keepBoth')}
+            </button>
+            <button id="duplicate-cancel" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.getElementById('duplicate-overwrite').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('overwrite');
+      });
+
+      document.getElementById('duplicate-keep-both').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('keepBoth');
+      });
+
+      document.getElementById('duplicate-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('cancel');
+      });
+    });
   }
 
   // ===== About =====

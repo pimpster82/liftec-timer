@@ -1,7 +1,9 @@
 {
-  "version": "1.7.7",
+  "version": "1.8.0",
   "releaseDate": "2025-12-11",
   "changelog": [
+    "Neu: Zeiteinträge mit anderen teilen (WhatsApp, AirDrop, etc.)",
+    "Neu: Geteilte Zeiteinträge importieren",
     "Feature: Laufende Session wird in Woche/Monat-Statistik mitgerechnet",
     "Verbesserung: Pulsierender grüner Punkt zeigt an, dass Zeit noch läuft"
   ],
