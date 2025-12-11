@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.5.8';
+const APP_VERSION = '1.5.9';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -321,6 +321,14 @@ class App {
             ui.showToast('Fehler beim Aktualisieren', 'error');
           }
         }
+      });
+    }
+
+    // Quick Export FAB (Floating Action Button)
+    const quickExportFab = document.getElementById('quick-export-fab');
+    if (quickExportFab) {
+      quickExportFab.addEventListener('click', () => {
+        this.quickExport();
       });
     }
   }
@@ -2594,6 +2602,33 @@ class App {
 
     if (isNaN(month) || isNaN(year) || month < 1 || month > 12) return null;
     return { year, month };
+  }
+
+  // Quick Export - direkt per Email senden mit automatischem Monat
+  async quickExport() {
+    try {
+      // Automatischen Monat verwenden
+      const { year, month } = this.getAutoMonth();
+
+      ui.showToast('Generiere Excel-Datei...', 'info');
+
+      const entries = await storage.getMonthEntries(year, month);
+
+      if (!entries || entries.length === 0) {
+        ui.showToast('Keine Einträge für diesen Monat', 'error');
+        return;
+      }
+
+      // Excel generieren
+      const { blob, filename } = await excelExport.generateXLSX(entries, year, month, ui.settings.username);
+
+      // Direkt per Email senden (kein Dialog)
+      await excelExport.sendEmail(blob, filename, ui.settings);
+
+    } catch (error) {
+      ui.showToast('Export fehlgeschlagen: ' + error.message, 'error');
+      console.error('Quick export error:', error);
+    }
   }
 
   async showExportMenu() {
