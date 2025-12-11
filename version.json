@@ -1,9 +1,9 @@
 {
-  "version": "1.7.6",
+  "version": "1.7.7",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Bugfix: Feiertag auf Gelb (Button + Kalender) - Konflikt mit Arbeitszeit behoben",
-    "Konsistenz: Alle Abwesenheitstypen haben jetzt gleiche Farben in Button und Kalender"
+    "Feature: Laufende Session wird in Woche/Monat-Statistik mitgerechnet",
+    "Verbesserung: Pulsierender grüner Punkt zeigt an, dass Zeit noch läuft"
   ],
   "critical": false
 }
