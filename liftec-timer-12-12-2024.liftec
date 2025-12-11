@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "type": "liftec-timer-entry",
+  "date": "12.12.2024",
+  "startTime": "07:30",
+  "endTime": "16:45",
+  "pause": "00:45",
+  "travelTime": "01:30",
+  "surcharge": "07:12",
+  "tasks": [
+    {
+      "type": "N",
+      "description": "Aufzug Testgebäude Stockwerk 1-5 installiert"
+    },
+    {
+      "type": "R",
+      "description": "Notruf-System repariert"
+    },
+    {
+      "type": "W",
+      "description": "Monatliche Wartung Hauptbahnhof"
+    }
+  ],
+  "exportedBy": "Daniel (Test)",
+  "exportedAt": "2024-12-11T14:30:00.000Z"
+}
