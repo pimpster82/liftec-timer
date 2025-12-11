@@ -474,7 +474,7 @@ class ExcelExport {
     this.sendEmail(blob, filename, settings);
   }
 
-  // Send Excel via email (using Web Share API + Clipboard for text)
+  // Send Excel via email (using Web Share API + Clipboard for subject)
   async sendEmail(blob, filename, settings) {
     const monthStr = filename.match(/(\w+) \d{4}/)[1];
     const subject = settings.emailSubject
@@ -488,40 +488,39 @@ class ExcelExport {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
 
-    // Strategy: Copy text to clipboard, then share file via Share API
-    // User can paste the text into the email body after selecting email app
+    // Strategy: Copy SUBJECT to clipboard, share file with BODY as text
+    // User pastes subject into email subject field
 
-    // Step 1: Try to copy text to clipboard
-    let textCopied = false;
+    // Step 1: Try to copy subject to clipboard
+    let subjectCopied = false;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(body);
-        textCopied = true;
-        console.log('✅ Text in Zwischenablage kopiert');
+        await navigator.clipboard.writeText(subject);
+        subjectCopied = true;
+        console.log('✅ Betreff in Zwischenablage kopiert');
       }
     } catch (clipboardError) {
       console.log('⚠️ Clipboard API failed:', clipboardError);
     }
 
-    // Step 2: Try Web Share API for the file
+    // Step 2: Try Web Share API with file and body text
     if (navigator.share && navigator.canShare) {
       try {
         const canShareFiles = await navigator.canShare({ files: [file] });
 
         if (canShareFiles) {
-          // Share with file and subject
+          // Share with file and body text
           await navigator.share({
             files: [file],
-            title: subject,
-            text: `Empfänger: ${settings.email}`
+            text: body
           });
           console.log('✅ Excel via Share API geteilt');
 
           // Show toast about clipboard
-          if (textCopied) {
+          if (subjectCopied) {
             setTimeout(() => {
               if (window.ui) {
-                ui.showToast('📋 Email-Text in Zwischenablage - im Email einfügen!', 'success');
+                ui.showToast('📋 Betreff in Zwischenablage - im Email einfügen!', 'success');
               }
             }, 500);
           }
@@ -538,13 +537,13 @@ class ExcelExport {
       }
     }
 
-    // Fallback: Open mailto (without attachment, but with recipient/subject/body)
-    this.sendMailto(settings.email, subject, body);
+    // Fallback: Open mailto with subject and body (no recipient)
+    this.sendMailto(subject, body);
 
-    if (textCopied) {
+    if (subjectCopied) {
       setTimeout(() => {
         if (window.ui) {
-          ui.showToast('Email geöffnet - Text aus Zwischenablage einfügen', 'info');
+          ui.showToast('Email geöffnet - Betreff aus Zwischenablage einfügen', 'info');
         }
       }, 500);
     }
@@ -552,9 +551,9 @@ class ExcelExport {
     return false;
   }
 
-  // Send email using mailto (without attachment)
-  sendMailto(email, subject, body) {
-    const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  // Send email using mailto (without attachment, without recipient)
+  sendMailto(subject, body) {
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoLink;
   }
 
