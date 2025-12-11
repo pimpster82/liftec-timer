@@ -3350,17 +3350,40 @@ class App {
       }
     });
 
+    // Add current session if active
+    let isSessionActive = false;
+    if (this.session) {
+      const sessionStart = new Date(this.session.start);
+      const sessionDate = new Date(sessionStart.getFullYear(), sessionStart.getMonth(), sessionStart.getDate());
+
+      // Calculate current session duration (in hours)
+      const currentDuration = (Date.now() - sessionStart.getTime()) / (1000 * 60 * 60);
+
+      // Check if session is in current week
+      if (sessionDate >= currentWeekStart) {
+        weekHours += currentDuration;
+        isSessionActive = true;
+      }
+
+      // Check if session is in current month
+      if (sessionDate >= currentMonthStart) {
+        monthHours += currentDuration;
+        isSessionActive = true;
+      }
+    }
+
     // Statistics HTML
+    const liveIndicator = isSessionActive ? `<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse ml-1"></span>` : '';
     const statsHtml = `
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="bg-primary bg-opacity-20 rounded-lg p-4">
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Diese Woche</div>
-          <div class="text-2xl font-bold text-gray-900 dark:text-white">${weekHours.toFixed(1)}h</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${weekHours.toFixed(1)}h${liveIndicator}</div>
           <div class="text-xs text-gray-500 mt-1">${weekDays} ${weekDays === 1 ? 'Tag' : 'Tage'}</div>
         </div>
         <div class="bg-blue-100 dark:bg-blue-900 rounded-lg p-4">
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Dieser Monat</div>
-          <div class="text-2xl font-bold text-gray-900 dark:text-white">${monthHours.toFixed(1)}h</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${monthHours.toFixed(1)}h${liveIndicator}</div>
           <div class="text-xs text-gray-500 mt-1">${monthDays} ${monthDays === 1 ? 'Tag' : 'Tage'}</div>
         </div>
       </div>

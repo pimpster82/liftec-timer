@@ -4,7 +4,8 @@
   "changelog": [
     "Neu: Zeiteinträge mit anderen teilen (WhatsApp, AirDrop, etc.)",
     "Neu: Geteilte Zeiteinträge importieren",
-    "Praktisch für Teams: Ein Eintrag erstellen, an Kollegen senden"
+    "Feature: Laufende Session wird in Woche/Monat-Statistik mitgerechnet",
+    "Verbesserung: Pulsierender grüner Punkt zeigt an, dass Zeit noch läuft"
   ],
   "critical": false
 }
