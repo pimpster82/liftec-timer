@@ -936,13 +936,13 @@ class App {
       <div class="p-6">
         <div class="flex items-center justify-between mb-4">
           <button id="calendar-prev-month" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
-            ${ui.icon('chevron-left')}
+            ${ui.icon('chevron-left', 'w-6 h-6')}
           </button>
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
             ${monthNames[month]} ${year}
           </h3>
           <button id="calendar-next-month" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
-            ${ui.icon('chevron-right')}
+            ${ui.icon('chevron-right', 'w-6 h-6')}
           </button>
         </div>
 
@@ -2291,7 +2291,7 @@ class App {
                   ${ui.icon('cloud')}
                   <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Cloud Synchronisation</h4>
                 </div>
-                ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+                ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
               </button>
               <div id="cloud-sync-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
 
@@ -2379,7 +2379,7 @@ class App {
                 ${ui.icon('arrow-down-circle')}
                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">App-Updates</h4>
               </div>
-              ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+              ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
             </button>
             <div id="update-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
 
@@ -2413,7 +2413,7 @@ class App {
                 ${ui.icon('clock')}
                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Versionsverwaltung</h4>
               </div>
-              ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+              ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
             </button>
             <div id="version-rollback-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
 
@@ -2468,7 +2468,7 @@ class App {
                 ${ui.icon('mail')}
                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Email-Export</h4>
               </div>
-              ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+              ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
             </button>
             <div id="email-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary space-y-4">
               <div>
