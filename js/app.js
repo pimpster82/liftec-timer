@@ -64,6 +64,9 @@ class App {
       // Setup event listeners
       this.setupEventListeners();
 
+      // Setup File Handling API (for opening .liftec files)
+      this.setupFileHandling();
+
       console.log(`LIFTEC Timer v${APP_VERSION} initialized`);
     } catch (error) {
       console.error('Failed to initialize app:', error);
@@ -3687,6 +3690,39 @@ class App {
     ui.showToast('Eintrag gelöscht', 'success');
   }
 
+  // ===== File Handling API =====
+
+  setupFileHandling() {
+    // File Handling API - handles .liftec files opened with the app
+    if ('launchQueue' in window) {
+      window.launchQueue.setConsumer(async (launchParams) => {
+        if (!launchParams.files || launchParams.files.length === 0) {
+          return;
+        }
+
+        // Handle the first file (usually only one file is opened)
+        const fileHandle = launchParams.files[0];
+        try {
+          const file = await fileHandle.getFile();
+          const text = await file.text();
+          const data = JSON.parse(text);
+
+          // Validate data
+          if (data.type !== 'liftec-timer-entry' || !data.date) {
+            ui.showToast(ui.t('invalidFormat'), 'error');
+            return;
+          }
+
+          // Auto-import the file
+          await this.importWorklogEntry(data);
+        } catch (error) {
+          console.error('File handling failed:', error);
+          ui.showToast(ui.t('importError'), 'error');
+        }
+      });
+    }
+  }
+
   // ===== Share & Import Entry =====
 
   async shareWorklogEntry(entry) {
@@ -3707,12 +3743,12 @@ class App {
       };
 
       const jsonString = JSON.stringify(shareData, null, 2);
-      const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.json`;
+      const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.liftec`;
 
       // Try Web Share API first (mobile devices with native share)
       if (navigator.share && navigator.canShare) {
         // Create a file blob
-        const file = new File([jsonString], fileName, { type: 'application/json' });
+        const file = new File([jsonString], fileName, { type: 'application/vnd.liftec.timer+json' });
 
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -3758,7 +3794,7 @@ class App {
           exportedAt: new Date().toISOString()
         };
         const jsonString = JSON.stringify(shareData, null, 2);
-        const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.json`;
+        const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.liftec`;
         this.downloadWorklogEntry(jsonString, fileName);
         ui.showToast(ui.t('downloaded'), 'success');
       } catch (downloadError) {
@@ -3768,7 +3804,7 @@ class App {
   }
 
   downloadWorklogEntry(jsonString, fileName) {
-    const blob = new Blob([jsonString], { type: 'application/json' });
+    const blob = new Blob([jsonString], { type: 'application/vnd.liftec.timer+json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -3791,7 +3827,7 @@ class App {
           ${ui.t('importEntryDesc')}
         </p>
 
-        <input type="file" id="import-entry-file" accept=".json,application/json"
+        <input type="file" id="import-entry-file" accept=".liftec,.json,application/json,application/vnd.liftec.timer+json"
           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white mb-4">
 
         <div class="flex gap-2">
