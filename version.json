@@ -1,11 +1,10 @@
 {
-  "version": "1.7.2",
+  "version": "1.7.3",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Bugfix: Zeit-Toggle Label wechselt jetzt korrekt (DAUER ↔ STARTZEIT)",
-    "Bugfix: Einstellungen schließen sich nicht mehr abrupt bei Updates",
-    "Verbesserung: Calendar-Button größer und prominenter",
-    "Verbesserung: Sanfter Übergang bei App-Updates"
+    "Bugfix: Calendar-Icon wird jetzt angezeigt",
+    "Bugfix: History View-Toggle (Kalender/Liste) wechselt jetzt sofort",
+    "Icons für Kalenderansicht hinzugefügt (chevron-left, chevron-right, chevron-down, cloud)"
   ],
   "critical": false
 }

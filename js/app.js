@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.7.2';
+const APP_VERSION = '1.7.3';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1036,7 +1036,7 @@ class App {
         // Switch to list view
         ui.settings.historyView = 'list';
         await storage.updateSettings(ui.settings);
-        ui.hideModal();
+        // Directly show list view without waiting for modal to close
         await this.showHistory();
       });
     }
@@ -3467,8 +3467,8 @@ class App {
       // Switch to calendar view
       ui.settings.historyView = 'calendar';
       await storage.updateSettings(ui.settings);
-      ui.hideModal();
-      await this.showHistory();
+      // Directly switch to calendar view
+      await this.showCalendarView('history');
     });
 
     document.getElementById('dialog-ok').addEventListener('click', () => {
