@@ -64,6 +64,9 @@ class App {
       // Setup event listeners
       this.setupEventListeners();
 
+      // Setup File Handling API (for opening .liftec files)
+      this.setupFileHandling();
+
       console.log(`LIFTEC Timer v${APP_VERSION} initialized`);
     } catch (error) {
       console.error('Failed to initialize app:', error);
@@ -3687,6 +3690,39 @@ class App {
     ui.showToast('Eintrag gelöscht', 'success');
   }
 
+  // ===== File Handling API =====
+
+  setupFileHandling() {
+    // File Handling API - handles .liftec files opened with the app
+    if ('launchQueue' in window) {
+      window.launchQueue.setConsumer(async (launchParams) => {
+        if (!launchParams.files || launchParams.files.length === 0) {
+          return;
+        }
+
+        // Handle the first file (usually only one file is opened)
+        const fileHandle = launchParams.files[0];
+        try {
+          const file = await fileHandle.getFile();
+          const text = await file.text();
+          const data = JSON.parse(text);
+
+          // Validate data
+          if (data.type !== 'liftec-timer-entry' || !data.date) {
+            ui.showToast(ui.t('invalidFormat'), 'error');
+            return;
+          }
+
+          // Auto-import the file
+          await this.importWorklogEntry(data);
+        } catch (error) {
+          console.error('File handling failed:', error);
+          ui.showToast(ui.t('importError'), 'error');
+        }
+      });
+    }
+  }
+
   // ===== Share & Import Entry =====
 
   async shareWorklogEntry(entry) {
@@ -3707,12 +3743,12 @@ class App {
       };
 
       const jsonString = JSON.stringify(shareData, null, 2);
-      const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.json`;
+      const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.liftec`;
 
       // Try Web Share API first (mobile devices with native share)
       if (navigator.share && navigator.canShare) {
         // Create a file blob
-        const file = new File([jsonString], fileName, { type: 'application/json' });
+        const file = new File([jsonString], fileName, { type: 'application/vnd.liftec.timer+json' });
 
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -3758,7 +3794,7 @@ class App {
           exportedAt: new Date().toISOString()
         };
         const jsonString = JSON.stringify(shareData, null, 2);
-        const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.json`;
+        const fileName = `liftec-timer-${entry.date.replace(/\./g, '-')}.liftec`;
         this.downloadWorklogEntry(jsonString, fileName);
         ui.showToast(ui.t('downloaded'), 'success');
       } catch (downloadError) {
@@ -3768,7 +3804,7 @@ class App {
   }
 
   downloadWorklogEntry(jsonString, fileName) {
-    const blob = new Blob([jsonString], { type: 'application/json' });
+    const blob = new Blob([jsonString], { type: 'application/vnd.liftec.timer+json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -3791,7 +3827,7 @@ class App {
           ${ui.t('importEntryDesc')}
         </p>
 
-        <input type="file" id="import-entry-file" accept=".json,application/json"
+        <input type="file" id="import-entry-file" accept=".liftec,.json,application/json,application/vnd.liftec.timer+json"
           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white mb-4">
 
         <div class="flex gap-2">
@@ -3845,8 +3881,8 @@ class App {
       const existingEntry = allEntries.find(e => e.date === data.date);
 
       if (existingEntry) {
-        // Show duplicate warning
-        const action = await this.showDuplicateEntryDialog(data.date);
+        // Show duplicate warning with details
+        const action = await this.showDuplicateEntryDialog(data, existingEntry);
 
         if (action === 'cancel') {
           return;
@@ -3879,8 +3915,18 @@ class App {
     }
   }
 
-  async showDuplicateEntryDialog(date) {
+  async showDuplicateEntryDialog(newData, existingEntry) {
     return new Promise((resolve) => {
+      // Format existing entry details
+      const existingTasks = existingEntry.tasks && existingEntry.tasks.length > 0
+        ? existingEntry.tasks.map(t => `${t.type}: ${t.description}`).join(', ')
+        : 'Keine Aufgaben';
+
+      // Format new entry details
+      const newTasks = newData.tasks && newData.tasks.length > 0
+        ? newData.tasks.map(t => `${t.type}: ${t.description}`).join(', ')
+        : 'Keine Aufgaben';
+
       const content = `
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
@@ -3888,19 +3934,43 @@ class App {
             <span>${ui.t('duplicateWarning')}</span>
           </h3>
 
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            ${ui.t('entryFrom')} ${date}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+            ${ui.t('entryFrom')} ${newData.date}
           </p>
+
+          <!-- Existing Entry -->
+          <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded">
+            <p class="text-xs font-semibold text-red-700 dark:text-red-400 mb-2">📋 Vorhandener Eintrag:</p>
+            <div class="text-xs text-gray-700 dark:text-gray-300 space-y-1">
+              <p>⏰ ${existingEntry.startTime} - ${existingEntry.endTime}</p>
+              <p>⏸️ Pause: ${existingEntry.pause || '00:00'}</p>
+              <p>🚗 Fahrt: ${existingEntry.travelTime || '00:00'}</p>
+              <p>💰 Zuschlag: ${existingEntry.surcharge || '00:00'}</p>
+              <p class="truncate" title="${existingTasks}">📝 ${existingTasks}</p>
+            </div>
+          </div>
+
+          <!-- New Entry -->
+          <div class="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded">
+            <p class="text-xs font-semibold text-green-700 dark:text-green-400 mb-2">📥 Neuer Eintrag (von ${newData.exportedBy}):</p>
+            <div class="text-xs text-gray-700 dark:text-gray-300 space-y-1">
+              <p>⏰ ${newData.startTime} - ${newData.endTime}</p>
+              <p>⏸️ Pause: ${newData.pause || '00:00'}</p>
+              <p>🚗 Fahrt: ${newData.travelTime || '00:00'}</p>
+              <p>💰 Zuschlag: ${newData.surcharge || '00:00'}</p>
+              <p class="truncate" title="${newTasks}">📝 ${newTasks}</p>
+            </div>
+          </div>
 
           <div class="flex flex-col gap-2">
             <button id="duplicate-overwrite" class="w-full px-4 py-2 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600">
-              ${ui.t('overwrite')}
+              🔄 ${ui.t('overwrite')}
             </button>
             <button id="duplicate-keep-both" class="w-full px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
-              ${ui.t('keepBoth')}
+              ➕ ${ui.t('keepBoth')}
             </button>
             <button id="duplicate-cancel" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-              ${ui.t('cancel')}
+              ❌ ${ui.t('cancel')}
             </button>
           </div>
         </div>
