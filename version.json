@@ -1,9 +1,9 @@
 {
-  "version": "1.5.8",
+  "version": "1.5.9",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Fix: Email-Body direkt ausgefüllt, Betreff in Zwischenablage",
-    "Empfänger-Feld leer (manuell eingeben)",
+    "Neu: Quick-Export Button (FAB) auf Homepage - sofort Email senden",
+    "Email-Body direkt ausgefüllt, Betreff in Zwischenablage",
     "Pull-to-Refresh Geste für mobile Geräte"
   ],
   "critical": false
