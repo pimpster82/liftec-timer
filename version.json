@@ -1,10 +1,12 @@
 {
-  "version": "1.6.0",
+  "version": "1.6.1",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Neu: Versionsverwaltung mit Rollback-Feature - Zurückkehren zu stabilen Versionen",
-    "Git Tags für stabile Versionen (v1.5.9-stable)",
-    "Automatisches Backup vor Rollback"
+    "Neu: Notizfunktion mit Kategorien-System",
+    "Text-Notizen und Checklisten (Items mit ✓/○ Status)",
+    "FAB-Button unten links für schnellen Zugriff",
+    "Kategorien erstellen, bearbeiten und löschen",
+    "Offline-first mit IndexedDB"
   ],
   "critical": false
 }

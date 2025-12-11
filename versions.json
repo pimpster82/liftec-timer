@@ -1,11 +1,18 @@
 {
   "stableVersions": [
     {
+      "version": "1.6.1",
+      "tag": "v1.6.1-stable",
+      "releaseDate": "2025-12-11",
+      "description": "Notizfunktion mit Kategorien und Checklisten",
+      "isCurrent": true
+    },
+    {
       "version": "1.6.0",
       "tag": "v1.6.0-stable",
       "releaseDate": "2025-12-11",
       "description": "Versionsverwaltung mit Rollback-Feature",
-      "isCurrent": true
+      "isCurrent": false
     },
     {
       "version": "1.5.9",

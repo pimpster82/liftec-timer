@@ -4,7 +4,7 @@
 class Storage {
   constructor() {
     this.dbName = 'LiftecTimerDB';
-    this.version = 2;  // Incremented for onCall store
+    this.version = 3;  // Incremented for notes stores
     this.db = null;
   }
 
@@ -56,6 +56,20 @@ class Storage {
 
         if (!db.objectStoreNames.contains('onCall')) {
           db.createObjectStore('onCall', { keyPath: 'id' });
+        }
+
+        // Notes feature (v1.6.1)
+        if (!db.objectStoreNames.contains('notes_categories')) {
+          const categoryStore = db.createObjectStore('notes_categories', { keyPath: 'id', autoIncrement: true });
+          categoryStore.createIndex('name', 'name', { unique: false });
+          categoryStore.createIndex('createdAt', 'createdAt', { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains('notes')) {
+          const notesStore = db.createObjectStore('notes', { keyPath: 'id', autoIncrement: true });
+          notesStore.createIndex('categoryId', 'categoryId', { unique: false });
+          notesStore.createIndex('type', 'type', { unique: false });
+          notesStore.createIndex('createdAt', 'createdAt', { unique: false });
         }
 
         console.log('Database setup complete');
@@ -702,6 +716,101 @@ class Storage {
   _parseDate(dateStr) {
     const [day, month, year] = dateStr.split('.');
     return new Date(year, month - 1, day);
+  }
+
+  // ===== Notes Methods (v1.6.1) =====
+
+  // Categories
+  async getAllCategories() {
+    return this.getAll('notes_categories');
+  }
+
+  async getCategory(id) {
+    return this.get('notes_categories', id);
+  }
+
+  async addCategory(category) {
+    const data = {
+      name: category.name,
+      color: category.color || '#3B82F6',
+      createdAt: new Date().toISOString()
+    };
+    return this.add('notes_categories', data);
+  }
+
+  async updateCategory(id, updates) {
+    const category = await this.get('notes_categories', id);
+    if (!category) throw new Error('Category not found');
+
+    const updated = {
+      ...category,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    await this.put('notes_categories', updated);
+    return updated;
+  }
+
+  async deleteCategory(id) {
+    // Delete all notes in this category first
+    const notes = await this.getNotesByCategory(id);
+    for (const note of notes) {
+      await this.delete('notes', note.id);
+    }
+    // Delete category
+    return this.delete('notes_categories', id);
+  }
+
+  // Notes
+  async getAllNotes() {
+    return this.getAll('notes');
+  }
+
+  async getNotesByCategory(categoryId) {
+    return this.getAllByIndex('notes', 'categoryId', categoryId);
+  }
+
+  async getNote(id) {
+    return this.get('notes', id);
+  }
+
+  async addNote(note) {
+    const data = {
+      categoryId: note.categoryId,
+      type: note.type, // 'text' or 'checklist'
+      content: note.content || '',
+      items: note.items || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    return this.add('notes', data);
+  }
+
+  async updateNote(id, updates) {
+    const note = await this.get('notes', id);
+    if (!note) throw new Error('Note not found');
+
+    const updated = {
+      ...note,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    await this.put('notes', updated);
+    return updated;
+  }
+
+  async deleteNote(id) {
+    return this.delete('notes', id);
+  }
+
+  // Initialize default categories
+  async initializeDefaultCategories() {
+    const categories = await this.getAllCategories();
+    if (categories.length === 0) {
+      await this.addCategory({ name: 'Nicht vergessen', color: '#EF4444' });
+      await this.addCategory({ name: 'Material im Auto ersetzen', color: '#F59E0B' });
+      await this.addCategory({ name: 'Allgemein', color: '#3B82F6' });
+    }
   }
 
   // ===== Utility Methods =====
