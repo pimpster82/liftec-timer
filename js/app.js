@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.7.4';
+const APP_VERSION = '1.7.5';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -985,8 +985,8 @@ class App {
                   textClass = 'text-purple-900 dark:text-purple-100';
                   break;
                 case 'Feiertag':
-                  bgClass = 'bg-yellow-100 dark:bg-yellow-900';
-                  textClass = 'text-yellow-900 dark:text-yellow-100';
+                  bgClass = 'bg-green-100 dark:bg-green-900';
+                  textClass = 'text-green-900 dark:text-green-100';
                   break;
                 default:
                   bgClass = 'bg-green-100 dark:bg-green-900';
@@ -1009,34 +1009,6 @@ class App {
               </button>
             `;
           }).join('')}
-        </div>
-
-        <!-- Legend -->
-        <div class="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400 mb-4">
-          <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-green-100 dark:bg-green-900 rounded"></div>
-            <span>Arbeitszeit</span>
-          </div>
-          <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-blue-100 dark:bg-blue-900 rounded"></div>
-            <span>Urlaub</span>
-          </div>
-          <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-red-100 dark:bg-red-900 rounded"></div>
-            <span>Krankenstand</span>
-          </div>
-          <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-purple-100 dark:bg-purple-900 rounded"></div>
-            <span>Zeitausgleich</span>
-          </div>
-          <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded"></div>
-            <span>Feiertag</span>
-          </div>
-          <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            <span>${ui.t('weekend')}</span>
-          </div>
         </div>
 
         <!-- Actions -->

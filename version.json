@@ -1,11 +1,9 @@
 {
-  "version": "1.7.4",
+  "version": "1.7.5",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Verbesserung: Abwesenheit-Icon jetzt gleich groß wie Play-Button",
-    "Verbesserung: Kalenderansicht mit Farben für verschiedene Eintragstypen",
-    "Feature: History zeigt nur noch Listenansicht (Toggle entfernt)",
-    "Farben: Arbeitszeit (grün), Urlaub (blau), Krankenstand (rot), Zeitausgleich (lila), Feiertag (gelb)"
+    "Bugfix: Feiertag-Farbe auf Grün geändert (passt jetzt zum Button)",
+    "Verbesserung: Legende aus Kalenderansicht entfernt (Farben sind selbsterklärend)"
   ],
   "critical": false
 }
