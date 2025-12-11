@@ -501,7 +501,7 @@ class ExcelExport {
         console.log('✅ File and text copied to clipboard');
 
         // Open mailto with pre-filled fields
-        this.sendMailto(settings.email, subject, body);
+        this.sendMailto(settings.email, subject);
 
         // Show helpful toast
         setTimeout(() => {
