@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.6.2';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -335,13 +335,10 @@ class App {
     // Notes FAB (Floating Action Button) v1.6.1
     const notesFab = document.getElementById('notes-fab');
     if (notesFab) {
-      notesFab.addEventListener('click', () => {
-        this.showNotesManager();
+      notesFab.addEventListener('click', async () => {
+        await this.showNotesManager();
       });
     }
-
-    // Initialize default categories
-    storage.initializeDefaultCategories();
   }
 
   setupPullToRefresh() {
@@ -3806,10 +3803,23 @@ class App {
   // ===== Notes Manager (v1.6.1) =====
 
   async showNotesManager() {
-    const categories = await storage.getAllCategories();
-    const currentCategoryId = categories.length > 0 ? categories[0].id : null;
+    try {
+      // Ensure default categories exist
+      await storage.initializeDefaultCategories();
 
-    const content = `
+      // Load categories
+      let categories = await storage.getAllCategories();
+
+      // Double check - if still no categories, something went wrong
+      if (categories.length === 0) {
+        console.error('No categories found after initialization');
+        ui.showToast('Fehler beim Laden der Kategorien', 'error');
+        return;
+      }
+
+      const currentCategoryId = categories[0].id;
+
+      const content = `
       <div class="p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -3881,19 +3891,31 @@ class App {
 
     // Add text note
     document.getElementById('add-text-note-btn').addEventListener('click', () => {
-      const categoryId = parseInt(document.getElementById('category-selector').value);
-      this.showAddTextNoteDialog(categoryId);
+      const categorySelector = document.getElementById('category-selector');
+      if (categorySelector && categorySelector.value) {
+        const categoryId = parseInt(categorySelector.value);
+        this.showAddTextNoteDialog(categoryId);
+      } else {
+        ui.showToast('Bitte wähle eine Kategorie', 'error');
+      }
     });
 
     // Add checklist note
     document.getElementById('add-checklist-note-btn').addEventListener('click', () => {
-      const categoryId = parseInt(document.getElementById('category-selector').value);
-      this.showAddChecklistNoteDialog(categoryId);
+      const categorySelector = document.getElementById('category-selector');
+      if (categorySelector && categorySelector.value) {
+        const categoryId = parseInt(categorySelector.value);
+        this.showAddChecklistNoteDialog(categoryId);
+      } else {
+        ui.showToast('Bitte wähle eine Kategorie', 'error');
+      }
     });
 
     // Load notes for first category
-    if (currentCategoryId) {
-      await this.loadNotesForCategory(currentCategoryId);
+    await this.loadNotesForCategory(currentCategoryId);
+    } catch (error) {
+      console.error('Error in showNotesManager:', error);
+      ui.showToast('Fehler beim Öffnen der Notizen: ' + error.message, 'error');
     }
   }
 

@@ -1,12 +1,11 @@
 {
-  "version": "1.6.1",
+  "version": "1.6.2",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Neu: Notizfunktion mit Kategorien-System",
-    "Text-Notizen und Checklisten (Items mit ✓/○ Status)",
-    "FAB-Button unten links für schnellen Zugriff",
-    "Kategorien erstellen, bearbeiten und löschen",
-    "Offline-first mit IndexedDB"
+    "Bugfix: Notizfunktion funktioniert jetzt korrekt",
+    "Fehlende Storage-Methoden (add, getAllByIndex) hinzugefügt",
+    "Kategorien werden automatisch initialisiert",
+    "Text-Notizen und Checklisten funktionieren jetzt"
   ],
-  "critical": false
+  "critical": true
 }
