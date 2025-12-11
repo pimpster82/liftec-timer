@@ -3817,7 +3817,17 @@ class App {
         return;
       }
 
-      const currentCategoryId = categories[0].id;
+      // Get last selected category from localStorage
+      const lastCategoryId = localStorage.getItem('liftec-last-category-id');
+      let currentCategoryId = categories[0].id;
+
+      // Check if last selected category still exists
+      if (lastCategoryId) {
+        const lastCategory = categories.find(cat => cat.id === parseInt(lastCategoryId));
+        if (lastCategory) {
+          currentCategoryId = lastCategory.id;
+        }
+      }
 
       const content = `
       <div class="p-6">
@@ -3834,7 +3844,7 @@ class App {
         <!-- Category Selector -->
         <div class="mb-4 space-y-2">
           <select id="category-selector" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-            ${categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('')}
+            ${categories.map(cat => `<option value="${cat.id}" ${cat.id === currentCategoryId ? 'selected' : ''}>${cat.name}</option>`).join('')}
           </select>
           <div class="flex gap-2">
             <button id="add-category-btn" class="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm flex items-center justify-center gap-2">
@@ -3876,7 +3886,10 @@ class App {
 
     // Category selector change
     document.getElementById('category-selector').addEventListener('change', (e) => {
-      this.loadNotesForCategory(parseInt(e.target.value));
+      const categoryId = parseInt(e.target.value);
+      // Save last selected category to localStorage
+      localStorage.setItem('liftec-last-category-id', categoryId);
+      this.loadNotesForCategory(categoryId);
     });
 
     // Add category
