@@ -294,15 +294,17 @@ class ExcelExport {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
 
-    // Try to copy file to clipboard first
+    // Try to copy BOTH file AND text to clipboard (like iOS Share Sheet does)
     try {
       if (navigator.clipboard && navigator.clipboard.write) {
+        // Create clipboard item with BOTH the file and text
         const clipboardItem = new ClipboardItem({
-          [file.type]: blob
+          [file.type]: blob,
+          'text/plain': new Blob([body], { type: 'text/plain' })
         });
 
         await navigator.clipboard.write([clipboardItem]);
-        console.log('✅ File copied to clipboard');
+        console.log('✅ File and text copied to clipboard');
 
         // Open mailto with pre-filled fields
         this.sendMailto(settings.email, subject, body);
@@ -310,14 +312,32 @@ class ExcelExport {
         // Show helpful toast
         setTimeout(() => {
           if (window.ui) {
-            ui.showToast('📎 Datei kopiert! Einfügen im Anhang-Feld (Strg+V oder Paste)', 'success');
+            ui.showToast('📎 Datei + Text kopiert! Im Email: Anhang-Feld einfügen', 'success');
           }
         }, 500);
 
         return true;
       }
     } catch (clipboardError) {
-      console.log('Clipboard API failed, falling back to Share API:', clipboardError);
+      console.log('Clipboard API failed, trying text-only fallback:', clipboardError);
+
+      // Fallback: Try copying just the text if file copy fails
+      try {
+        await navigator.clipboard.writeText(body);
+        console.log('✅ Text copied to clipboard (file failed)');
+
+        this.sendMailto(settings.email, subject, body);
+
+        setTimeout(() => {
+          if (window.ui) {
+            ui.showToast('📎 Text kopiert - Datei bitte manuell anhängen', 'info');
+          }
+        }, 500);
+
+        return false;
+      } catch (textError) {
+        console.log('Text clipboard also failed, falling back to Share API:', textError);
+      }
     }
 
     // Fallback: Try Web Share API
@@ -372,5 +392,5 @@ class ExcelExport {
   }
 }
 
-// Create singleton instance
-const excelExport = new ExcelExport();
+// Create singleton instance and make it globally available
+window.excelExport = new ExcelExport();
