@@ -1,9 +1,10 @@
 {
-  "version": "1.7.6",
+  "version": "1.8.0",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Bugfix: Feiertag auf Gelb (Button + Kalender) - Konflikt mit Arbeitszeit behoben",
-    "Konsistenz: Alle Abwesenheitstypen haben jetzt gleiche Farben in Button und Kalender"
+    "Neu: Zeiteinträge mit anderen teilen (WhatsApp, AirDrop, etc.)",
+    "Neu: Geteilte Zeiteinträge importieren",
+    "Praktisch für Teams: Ein Eintrag erstellen, an Kollegen senden"
   ],
   "critical": false
 }

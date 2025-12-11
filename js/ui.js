@@ -153,7 +153,20 @@ class UI {
         hasEntry: 'Mit Eintrag',
         weekend: 'Wochenende',
         today: 'Heute',
-        monthNames: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+        monthNames: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+        // Share Entry Feature
+        shareEntry: 'Teilen',
+        shareEntryTitle: 'Eintrag teilen',
+        shareEntryDesc: 'Zeiteintrag mit anderen teilen (WhatsApp, AirDrop, etc.)',
+        importEntry: 'Eintrag importieren',
+        importEntryDesc: 'Geteilten Zeiteintrag importieren',
+        shareSuccess: 'Eintrag geteilt',
+        entryImported: 'Eintrag importiert',
+        duplicateWarning: 'Achtung: Eintrag für dieses Datum existiert bereits',
+        overwrite: 'Überschreiben',
+        keepBoth: 'Beide behalten',
+        copyToClipboard: 'In Zwischenablage kopieren',
+        copiedToClipboard: 'In Zwischenablage kopiert'
       },
       en: {
         appName: 'Time Tracking',
@@ -297,7 +310,20 @@ class UI {
         hasEntry: 'Has Entry',
         weekend: 'Weekend',
         today: 'Today',
-        monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+        monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+        // Share Entry Feature
+        shareEntry: 'Share',
+        shareEntryTitle: 'Share entry',
+        shareEntryDesc: 'Share time entry with others (WhatsApp, AirDrop, etc.)',
+        importEntry: 'Import entry',
+        importEntryDesc: 'Import shared time entry',
+        shareSuccess: 'Entry shared',
+        entryImported: 'Entry imported',
+        duplicateWarning: 'Warning: Entry for this date already exists',
+        overwrite: 'Overwrite',
+        keepBoth: 'Keep both',
+        copyToClipboard: 'Copy to clipboard',
+        copiedToClipboard: 'Copied to clipboard'
       },
       hr: {
         appName: 'Evidencija vremena',
@@ -441,7 +467,20 @@ class UI {
         hasEntry: 'Sa unosom',
         weekend: 'Vikend',
         today: 'Danas',
-        monthNames: ['Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipanj', 'Srpanj', 'Kolovoz', 'Rujan', 'Listopad', 'Studeni', 'Prosinac']
+        monthNames: ['Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipanj', 'Srpanj', 'Kolovoz', 'Rujan', 'Listopad', 'Studeni', 'Prosinac'],
+        // Share Entry Feature
+        shareEntry: 'Dijeli',
+        shareEntryTitle: 'Dijeli unos',
+        shareEntryDesc: 'Dijeli unos vremena s drugima (WhatsApp, AirDrop, itd.)',
+        importEntry: 'Uvezi unos',
+        importEntryDesc: 'Uvezi dijeljeni unos vremena',
+        shareSuccess: 'Unos podijeljen',
+        entryImported: 'Unos uvezen',
+        duplicateWarning: 'Upozorenje: Unos za ovaj datum već postoji',
+        overwrite: 'Prepiši',
+        keepBoth: 'Zadrži oba',
+        copyToClipboard: 'Kopiraj u međuspremnik',
+        copiedToClipboard: 'Kopirano u međuspremnik'
       }
     };
   }
@@ -485,7 +524,8 @@ class UI {
       'chevron-left': '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>',
       'chevron-right': '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>',
       'chevron-down': '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>',
-      cloud: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-4"/></svg>'
+      cloud: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-4"/></svg>',
+      share: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>'
     };
     return icons[name] || '';
   }
