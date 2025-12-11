@@ -488,8 +488,7 @@ class ExcelExport {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
 
-       // Try to copy BOTH file AND text to clipboard (like iOS Share Sheet does)
-
+    // Try to copy BOTH file AND text to clipboard (like iOS Share Sheet does)
     try {
       if (navigator.clipboard && navigator.clipboard.write) {
         // Create clipboard item with BOTH the file and text
@@ -517,22 +516,24 @@ class ExcelExport {
       console.log('Clipboard API failed, trying text-only fallback:', clipboardError);
 
       // Fallback: Try copying just the text if file copy fails
-
       try {
         await navigator.clipboard.writeText(body);
         console.log('✅ Text copied to clipboard (file failed)');
+
         this.sendMailto(settings.email, subject, body);
+
         setTimeout(() => {
           if (window.ui) {
             ui.showToast('📎 Text kopiert - Datei bitte manuell anhängen', 'info');
           }
         }, 500);
- 
+
         return false;
       } catch (textError) {
         console.log('Text clipboard also failed, falling back to Share API:', textError);
-
       }
+    }
+
     // Fallback: Try Web Share API
     if (navigator.share && navigator.canShare) {
       try {
@@ -585,5 +586,26 @@ class ExcelExport {
   }
 }
 
-// Create singleton instance
-const excelExport = new ExcelExport();
+// Create singleton instance and make it globally available
+// Wait for ExcelJS to be loaded
+if (typeof ExcelJS === 'undefined') {
+  console.error('❌ ExcelJS not loaded yet!');
+  // Create placeholder that will be replaced
+  window.excelExport = null;
+  // Try to create instance when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      window.excelExport = new ExcelExport();
+      console.log('✅ excelExport instance created (DOM ready)');
+    });
+  } else {
+    // DOM already loaded, try after small delay
+    setTimeout(() => {
+      window.excelExport = new ExcelExport();
+      console.log('✅ excelExport instance created (delayed)');
+    }, 100);
+  }
+} else {
+  window.excelExport = new ExcelExport();
+  console.log('✅ excelExport instance created immediately');
+}
