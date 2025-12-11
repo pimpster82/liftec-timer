@@ -1,11 +1,14 @@
 {
-  "version": "1.6.2",
+  "version": "1.7.0",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Bugfix: Notizfunktion funktioniert jetzt korrekt",
-    "Fehlende Storage-Methoden (add, getAllByIndex) hinzugefügt",
-    "Kategorien werden automatisch initialisiert",
-    "Text-Notizen und Checklisten funktionieren jetzt"
+    "Feature: Kalender-Monatsansicht für Aufzeichnungen",
+    "Feature: Zeit-Toggle in Hero Card (Dauer ↔ Startzeit)",
+    "Feature: Calendar-Button in Hero Card",
+    "Feature: Umschalten zwischen Listen- und Kalenderansicht",
+    "Farbliche Markierung von Tagen mit Einträgen",
+    "Getrennte View-Präferenzen für Hero und Aufzeichnungen",
+    "Übersetzungen für alle neuen Features (de/en/hr)"
   ],
-  "critical": true
+  "critical": false
 }

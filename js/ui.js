@@ -144,7 +144,16 @@ class UI {
         onCallEnded: 'Bereitschaft beendet',
         onCallTime: 'Bereitschaftszeit',
         onCallSummary: 'Bereitschaft: {start} bis {end}',
-        onCallTotal: 'Insgesamt: {hours}'
+        onCallTotal: 'Insgesamt: {hours}',
+        // Calendar View
+        startTime: 'Startzeit',
+        clickToToggle: 'Zum Wechseln tippen',
+        showCalendar: 'Kalender anzeigen',
+        showList: 'Liste anzeigen',
+        hasEntry: 'Mit Eintrag',
+        weekend: 'Wochenende',
+        today: 'Heute',
+        monthNames: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
       },
       en: {
         appName: 'Time Tracking',
@@ -279,7 +288,16 @@ class UI {
         onCallEnded: 'On-Call ended',
         onCallTime: 'On-Call Time',
         onCallSummary: 'On-Call: {start} to {end}',
-        onCallTotal: 'Total: {hours}'
+        onCallTotal: 'Total: {hours}',
+        // Calendar View
+        startTime: 'Start Time',
+        clickToToggle: 'Click to toggle',
+        showCalendar: 'Show Calendar',
+        showList: 'Show List',
+        hasEntry: 'Has Entry',
+        weekend: 'Weekend',
+        today: 'Today',
+        monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
       },
       hr: {
         appName: 'Evidencija vremena',
@@ -414,7 +432,16 @@ class UI {
         onCallEnded: 'Dežurstvo završeno',
         onCallTime: 'Vrijeme dežurstva',
         onCallSummary: 'Dežurstvo: {start} do {end}',
-        onCallTotal: 'Ukupno: {hours}'
+        onCallTotal: 'Ukupno: {hours}',
+        // Calendar View
+        startTime: 'Početak vremena',
+        clickToToggle: 'Kliknite za promjenu',
+        showCalendar: 'Prikaži kalendar',
+        showList: 'Prikaži listu',
+        hasEntry: 'Sa unosom',
+        weekend: 'Vikend',
+        today: 'Danas',
+        monthNames: ['Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipanj', 'Srpanj', 'Kolovoz', 'Rujan', 'Listopad', 'Studeni', 'Prosinac']
       }
     };
   }
@@ -476,6 +503,13 @@ class UI {
     const durMs = Date.now() - start.getTime();
     const hours = Math.floor(durMs / 3600000);
     const mins = Math.floor((durMs % 3600000) / 60000);
+    return `${this.pad2(hours)}:${this.pad2(mins)}`;
+  }
+
+  formatStartTime(startISO) {
+    const start = new Date(startISO);
+    const hours = start.getHours();
+    const mins = start.getMinutes();
     return `${this.pad2(hours)}:${this.pad2(mins)}`;
   }
 
@@ -541,17 +575,26 @@ class UI {
 
     let durationHTML = '';
     if (session) {
-      const duration = this.formatDuration(session.start);
+      // Check if we should show duration or start time
+      const showStartTime = this.settings?.heroTimeDisplay === 'startTime';
+      const timeValue = showStartTime
+        ? this.formatStartTime(session.start)
+        : this.formatDuration(session.start);
+      const timeLabel = showStartTime ? this.t('startTime') : this.t('duration');
+
       durationHTML = `
-        <div class="mt-4 bg-black bg-opacity-10 rounded-lg p-3">
-          <p class="text-xs text-gray-800 uppercase tracking-wide mb-1">${this.t('duration')}</p>
-          <p class="text-3xl font-bold text-gray-900 duration">${duration}</p>
+        <div id="hero-time-display" class="mt-4 bg-black bg-opacity-10 rounded-lg p-3 cursor-pointer hover:bg-opacity-20 transition-colors" title="${this.t('clickToToggle')}">
+          <p class="text-xs text-gray-800 uppercase tracking-wide mb-1">${timeLabel}</p>
+          <p class="text-3xl font-bold text-gray-900 duration">${timeValue}</p>
         </div>
       `;
     }
 
-    // On-call button HTML (only if enabled in settings)
-    let onCallButtonHTML = '';
+    // Top-right buttons (on-call and calendar)
+    let topRightButtonsHTML = '';
+    let buttons = [];
+
+    // On-call button (only if enabled in settings)
     if (this.settings?.onCallEnabled && onCallStatus) {
       const isActive = onCallStatus.active;
       const icon = isActive ? this.icon('onCallOn', 'w-5 h-5') : this.icon('onCallOff', 'w-5 h-5');
@@ -564,7 +607,7 @@ class UI {
         ? `<span class="absolute -top-1 -right-1 bg-white text-green-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-green-500">#${onCallStatus.id}</span>`
         : '';
 
-      onCallButtonHTML = `
+      buttons.push(`
         <div class="relative inline-block">
           <button id="oncall-btn"
                   class="${buttonClass} text-white rounded-full p-2 transition-colors btn-press"
@@ -573,7 +616,20 @@ class UI {
           </button>
           ${periodBadge}
         </div>
-      `;
+      `);
+    }
+
+    // Calendar button (always visible)
+    buttons.push(`
+      <button id="hero-calendar-btn"
+              class="bg-white bg-opacity-30 hover:bg-opacity-40 text-gray-900 rounded-full p-2 transition-colors btn-press"
+              title="${this.t('showCalendar')}">
+        ${this.icon('calendar', 'w-5 h-5')}
+      </button>
+    `);
+
+    if (buttons.length > 0) {
+      topRightButtonsHTML = `<div class="flex gap-2">${buttons.join('')}</div>`;
     }
 
     return `
@@ -596,7 +652,7 @@ class UI {
               <h2 class="text-xl font-bold">${username}</h2>
             </div>
           </div>
-          ${onCallButtonHTML}
+          ${topRightButtonsHTML}
         </div>
         ${durationHTML}
       </div>
