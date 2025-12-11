@@ -393,4 +393,25 @@ class ExcelExport {
 }
 
 // Create singleton instance and make it globally available
-window.excelExport = new ExcelExport();
+// Wait for ExcelJS to be loaded
+if (typeof ExcelJS === 'undefined') {
+  console.error('❌ ExcelJS not loaded yet!');
+  // Create placeholder that will be replaced
+  window.excelExport = null;
+  // Try to create instance when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      window.excelExport = new ExcelExport();
+      console.log('✅ excelExport instance created (DOM ready)');
+    });
+  } else {
+    // DOM already loaded, try after small delay
+    setTimeout(() => {
+      window.excelExport = new ExcelExport();
+      console.log('✅ excelExport instance created (delayed)');
+    }, 100);
+  }
+} else {
+  window.excelExport = new ExcelExport();
+  console.log('✅ excelExport instance created immediately');
+}
