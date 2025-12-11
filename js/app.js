@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.7.3';
+const APP_VERSION = '1.7.4';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -531,7 +531,7 @@ class App {
           <span>${ui.t('startSession')}</span>
         </button>
         <button id="absence-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg flex items-center justify-center space-x-2 btn-press mt-3">
-          ${ui.icon('calendar', 'icon-md')}
+          ${ui.icon('calendar', 'icon-lg')}
           <span>Abwesenheit eintragen</span>
         </button>
       `;
@@ -891,8 +891,21 @@ class App {
       const date = new Date(year, month, day);
       const dateStr = ui.formatDate(date);
 
-      // Check if there's an entry for this day
-      const hasEntry = entries.some(e => e.date === dateStr);
+      // Check if there's an entry for this day and what type
+      const entry = entries.find(e => e.date === dateStr);
+      const hasEntry = !!entry;
+
+      // Determine entry type
+      let entryType = null;
+      if (entry && entry.tasks && entry.tasks.length > 0) {
+        const task = entry.tasks[0];
+        // Absence entries have empty type and description contains absence type
+        if (task.type === '' && task.description) {
+          entryType = task.description; // Urlaub, Krankenstand, Zeitausgleich, Feiertag
+        } else {
+          entryType = 'work'; // Normal work entry
+        }
+      }
 
       // Check if it's a weekend
       const dayOfWeek = date.getDay();
@@ -908,6 +921,7 @@ class App {
         day,
         date: dateStr,
         hasEntry,
+        entryType,
         isWeekend,
         isToday,
         dateObj: date
@@ -951,9 +965,33 @@ class App {
             let bgClass = 'bg-gray-100 dark:bg-gray-800';
             let textClass = 'text-gray-900 dark:text-white';
 
-            if (dayInfo.hasEntry) {
-              bgClass = 'bg-green-100 dark:bg-green-900';
-              textClass = 'text-green-900 dark:text-green-100';
+            // Set colors based on entry type
+            if (dayInfo.hasEntry && dayInfo.entryType) {
+              switch (dayInfo.entryType) {
+                case 'work':
+                  bgClass = 'bg-green-100 dark:bg-green-900';
+                  textClass = 'text-green-900 dark:text-green-100';
+                  break;
+                case 'Urlaub':
+                  bgClass = 'bg-blue-100 dark:bg-blue-900';
+                  textClass = 'text-blue-900 dark:text-blue-100';
+                  break;
+                case 'Krankenstand':
+                  bgClass = 'bg-red-100 dark:bg-red-900';
+                  textClass = 'text-red-900 dark:text-red-100';
+                  break;
+                case 'Zeitausgleich':
+                  bgClass = 'bg-purple-100 dark:bg-purple-900';
+                  textClass = 'text-purple-900 dark:text-purple-100';
+                  break;
+                case 'Feiertag':
+                  bgClass = 'bg-yellow-100 dark:bg-yellow-900';
+                  textClass = 'text-yellow-900 dark:text-yellow-100';
+                  break;
+                default:
+                  bgClass = 'bg-green-100 dark:bg-green-900';
+                  textClass = 'text-green-900 dark:text-green-100';
+              }
             } else if (dayInfo.isWeekend) {
               bgClass = 'bg-gray-200 dark:bg-gray-700';
               textClass = 'text-gray-600 dark:text-gray-400';
@@ -974,28 +1012,35 @@ class App {
         </div>
 
         <!-- Legend -->
-        <div class="flex gap-4 text-xs text-gray-600 dark:text-gray-400 mb-4">
+        <div class="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400 mb-4">
           <div class="flex items-center gap-1">
             <div class="w-4 h-4 bg-green-100 dark:bg-green-900 rounded"></div>
-            <span>${ui.t('hasEntry')}</span>
+            <span>Arbeitszeit</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <div class="w-4 h-4 bg-blue-100 dark:bg-blue-900 rounded"></div>
+            <span>Urlaub</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <div class="w-4 h-4 bg-red-100 dark:bg-red-900 rounded"></div>
+            <span>Krankenstand</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <div class="w-4 h-4 bg-purple-100 dark:bg-purple-900 rounded"></div>
+            <span>Zeitausgleich</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <div class="w-4 h-4 bg-yellow-100 dark:bg-yellow-900 rounded"></div>
+            <span>Feiertag</span>
           </div>
           <div class="flex items-center gap-1">
             <div class="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
             <span>${ui.t('weekend')}</span>
           </div>
-          <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-gray-100 dark:bg-gray-800 ring-2 ring-primary rounded"></div>
-            <span>${ui.t('today')}</span>
-          </div>
         </div>
 
         <!-- Actions -->
         <div class="flex gap-2">
-          ${source === 'history' ? `
-            <button id="calendar-toggle-view" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
-              ${ui.icon('list')} ${ui.t('showList')}
-            </button>
-          ` : ''}
           <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
             ${ui.t('close')}
           </button>
@@ -1029,17 +1074,6 @@ class App {
         }
       });
     });
-
-    // Toggle view button (only in history)
-    if (source === 'history') {
-      document.getElementById('calendar-toggle-view').addEventListener('click', async () => {
-        // Switch to list view
-        ui.settings.historyView = 'list';
-        await storage.updateSettings(ui.settings);
-        // Directly show list view without waiting for modal to close
-        await this.showHistory();
-      });
-    }
 
     document.getElementById('dialog-ok').addEventListener('click', () => {
       ui.hideModal();
@@ -3308,13 +3342,6 @@ class App {
       return;
     }
 
-    // Check if user prefers calendar view
-    const preferCalendar = ui.settings.historyView === 'calendar';
-    if (preferCalendar) {
-      await this.showCalendarView('history');
-      return;
-    }
-
     // Sort entries by date (newest first)
     entries.sort((a, b) => {
       const dateA = a.date.split('.').reverse().join('-');
@@ -3424,10 +3451,7 @@ class App {
 
         <!-- Actions -->
         <div class="flex gap-2 mt-4">
-          <button id="history-toggle-view" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
-            ${ui.icon('calendar')} ${ui.t('showCalendar')}
-          </button>
-          <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+          <button id="dialog-ok" class="w-full px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
             ${ui.t('close')}
           </button>
         </div>
@@ -3460,15 +3484,6 @@ class App {
           await this.showHistory(); // Refresh history
         }
       });
-    });
-
-    // Add event listener for view toggle
-    document.getElementById('history-toggle-view').addEventListener('click', async () => {
-      // Switch to calendar view
-      ui.settings.historyView = 'calendar';
-      await storage.updateSettings(ui.settings);
-      // Directly switch to calendar view
-      await this.showCalendarView('history');
     });
 
     document.getElementById('dialog-ok').addEventListener('click', () => {

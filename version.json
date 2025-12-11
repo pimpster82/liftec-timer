@@ -1,10 +1,11 @@
 {
-  "version": "1.7.3",
+  "version": "1.7.4",
   "releaseDate": "2025-12-11",
   "changelog": [
-    "Bugfix: Calendar-Icon wird jetzt angezeigt",
-    "Bugfix: History View-Toggle (Kalender/Liste) wechselt jetzt sofort",
-    "Icons für Kalenderansicht hinzugefügt (chevron-left, chevron-right, chevron-down, cloud)"
+    "Verbesserung: Abwesenheit-Icon jetzt gleich groß wie Play-Button",
+    "Verbesserung: Kalenderansicht mit Farben für verschiedene Eintragstypen",
+    "Feature: History zeigt nur noch Listenansicht (Toggle entfernt)",
+    "Farben: Arbeitszeit (grün), Urlaub (blau), Krankenstand (rot), Zeitausgleich (lila), Feiertag (gelb)"
   ],
   "critical": false
 }
