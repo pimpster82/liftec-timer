@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.5.9';
+const APP_VERSION = '1.6.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2072,6 +2072,28 @@ class App {
             </div>
           </div>
 
+          <!-- Version Rollback Section -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="version-rollback-content">
+              <div class="flex items-center gap-2">
+                ${ui.icon('clock')}
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Versionsverwaltung</h4>
+              </div>
+              ${ui.icon('chevron-down', 'collapsible-icon transition-transform')}
+            </button>
+            <div id="version-rollback-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
+
+            <div id="versions-list" class="space-y-2">
+              <p class="text-sm text-gray-600 dark:text-gray-400">Lade verfügbare Versionen...</p>
+            </div>
+
+            <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
+              ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
+              <span>Stable Versions können wiederhergestellt werden. Alle Daten werden automatisch gesichert.</span>
+            </p>
+            </div>
+          </div>
+
           <!-- Basic Settings -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
@@ -2366,6 +2388,9 @@ class App {
         updateBtn.disabled = false;
       }
     });
+
+    // ===== Version Rollback - Load versions list =====
+    this.loadVersionsList();
 
     // ===== Settings Save =====
     document.getElementById('settings-save').addEventListener('click', async () => {
@@ -3574,6 +3599,141 @@ class App {
     } catch (error) {
       ui.showToast(ui.t('error') + ': ' + error.message, 'error');
     }
+  }
+
+  // ===== Version Management =====
+
+  async loadVersionsList() {
+    const versionsList = document.getElementById('versions-list');
+    if (!versionsList) return;
+
+    try {
+      // Load versions.json
+      const response = await fetch('versions.json?t=' + Date.now());
+      if (!response.ok) throw new Error('Could not load versions');
+
+      const data = await response.json();
+      const versions = data.stableVersions || [];
+
+      // Render versions list
+      let html = '';
+      versions.forEach(version => {
+        const isCurrent = version.version === APP_VERSION;
+        const statusBadge = isCurrent
+          ? '<span class="px-2 py-1 text-xs bg-green-500 text-white rounded">Aktuell</span>'
+          : '';
+
+        html += `
+          <div class="p-3 bg-white dark:bg-gray-700 rounded-lg border ${isCurrent ? 'border-green-500' : 'border-gray-200 dark:border-gray-600'}">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-gray-900 dark:text-white">v${version.version}</span>
+                ${statusBadge}
+              </div>
+              <span class="text-xs text-gray-500 dark:text-gray-400">${version.releaseDate}</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">${version.description}</p>
+            ${!isCurrent ? `
+              <button
+                data-version="${version.version}"
+                data-tag="${version.tag}"
+                class="rollback-btn w-full px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors">
+                Zu dieser Version zurückkehren
+              </button>
+            ` : ''}
+          </div>
+        `;
+      });
+
+      versionsList.innerHTML = html || '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Versionen verfügbar</p>';
+
+      // Attach event listeners to rollback buttons
+      document.querySelectorAll('.rollback-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const version = e.target.dataset.version;
+          const tag = e.target.dataset.tag;
+          await this.confirmAndRollback(version, tag);
+        });
+      });
+
+    } catch (error) {
+      console.error('Error loading versions:', error);
+      versionsList.innerHTML = '<p class="text-sm text-red-500">Fehler beim Laden der Versionen</p>';
+    }
+  }
+
+  async confirmAndRollback(version, tag) {
+    const confirmed = await this.showConfirmDialog(
+      `Zu Version ${version} zurückkehren?`,
+      `Dies wird die App auf Version ${version} zurücksetzen. Alle Ihre Daten werden automatisch gesichert. Möchten Sie fortfahren?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      ui.showLoading('Erstelle Backup...');
+
+      // Create automatic backup before rollback
+      await storage.createBackup(`Auto-Backup vor Rollback zu v${version}`);
+
+      ui.showLoading('Bereite Rollback vor...');
+
+      // Store rollback info in localStorage
+      localStorage.setItem('liftec-rollback-target', version);
+      localStorage.setItem('liftec-rollback-tag', tag);
+
+      // Clear service worker cache
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          await registration.unregister();
+        }
+      }
+
+      // Clear all caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+
+      ui.hideLoading();
+      ui.showToast('Rollback wird vorbereitet...', 'info');
+
+      // Show info dialog
+      await this.showInfoDialog(
+        'Rollback-Hinweis',
+        `Um zu Version ${version} zurückzukehren, öffnen Sie bitte die App über den folgenden Link in einem neuen Tab:\n\n${window.location.origin}?version=${tag}\n\nAlternativ können Sie die Version manuell von GitHub herunterladen.`
+      );
+
+    } catch (error) {
+      ui.hideLoading();
+      ui.showToast('Rollback fehlgeschlagen: ' + error.message, 'error');
+      console.error('Rollback error:', error);
+    }
+  }
+
+  async showInfoDialog(title, message) {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('info-circle')}
+            <span>${title}</span>
+          </h3>
+          <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line mb-6">${message}</p>
+          <button id="info-ok" class="w-full px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            OK
+          </button>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.getElementById('info-ok').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(true);
+      });
+    });
   }
 }
 
