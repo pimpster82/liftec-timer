@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.8.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -3827,7 +3827,7 @@ class App {
           ${ui.t('importEntryDesc')}
         </p>
 
-        <input type="file" id="import-entry-file" accept=".liftec,.json,application/json,application/vnd.liftec.timer+json"
+        <input type="file" id="import-entry-file"
           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white mb-4">
 
         <div class="flex gap-2">

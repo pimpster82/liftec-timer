@@ -1,9 +1,12 @@
 {
-  "version": "1.8.0",
+  "version": "1.8.1",
   "releaseDate": "2025-12-11",
   "changelog": [
+    "Bugfix: Import-Dialog akzeptiert jetzt alle Dateitypen (.liftec nicht mehr ausgegraut)",
+    "Neu: .htaccess für korrekten MIME-Type von .liftec Dateien",
+    "Neu: Detaillierter Duplikat-Dialog zeigt beide Einträge im Vergleich",
     "Neu: Zeiteinträge mit anderen teilen (WhatsApp, AirDrop, etc.)",
-    "Neu: Geteilte Zeiteinträge importieren",
+    "Neu: Geteilte Zeiteinträge importieren (.liftec Format)",
     "Feature: Laufende Session wird in Woche/Monat-Statistik mitgerechnet",
     "Verbesserung: Pulsierender grüner Punkt zeigt an, dass Zeit noch läuft"
   ],
