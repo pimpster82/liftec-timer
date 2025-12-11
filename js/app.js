@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.6';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -149,38 +149,39 @@ class App {
   showUpdateBanner(updateInfo) {
     const banner = document.createElement('div');
     banner.id = 'update-banner';
-    banner.className = 'fixed top-0 left-0 right-0 bg-blue-600 text-white p-4 shadow-lg z-50 animate-slide-down';
+    banner.className = 'fixed top-0 left-0 right-0 bg-blue-600 text-white p-3 shadow-lg z-50 animate-slide-down';
 
-    const changelogHtml = updateInfo.changelog
-      ? `<ul class="text-sm mt-2 space-y-1 list-disc list-inside">${updateInfo.changelog.map(item => `<li>${item}</li>`).join('')}</ul>`
+    // Only show first 2 changelog items to save space
+    const changelogItems = updateInfo.changelog ? updateInfo.changelog.slice(0, 2) : [];
+    const hasMore = updateInfo.changelog && updateInfo.changelog.length > 2;
+    const changelogHtml = changelogItems.length > 0
+      ? `<ul class="text-xs mt-1.5 space-y-0.5 opacity-90">${changelogItems.map(item => `<li>• ${item}</li>`).join('')}</ul>${hasMore ? '<p class="text-xs mt-1 opacity-75">+ weitere Verbesserungen</p>' : ''}`
       : '';
 
     banner.innerHTML = `
       <div class="max-w-4xl mx-auto">
-        <div class="flex items-start justify-between">
-          <div class="flex-1">
-            <div class="flex items-center gap-2 mb-1">
-              ${ui.icon('arrow-down-circle')}
-              <strong class="text-lg">Update verfügbar: v${updateInfo.version}</strong>
-              ${updateInfo.critical ? '<span class="bg-red-500 px-2 py-0.5 rounded text-xs ml-2">Wichtig</span>' : ''}
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <strong class="text-base">Update v${updateInfo.version}</strong>
+              ${updateInfo.critical ? '<span class="bg-red-500 px-1.5 py-0.5 rounded text-xs ml-1">Wichtig</span>' : ''}
             </div>
-            <p class="text-sm opacity-90">Veröffentlicht am ${updateInfo.releaseDate}</p>
             ${changelogHtml}
           </div>
-          <button id="update-banner-close" class="ml-4 text-white hover:text-gray-200" ${updateInfo.critical ? 'disabled style="display:none"' : ''}>
+          <button id="update-banner-close" class="flex-shrink-0 text-white hover:text-gray-200" ${updateInfo.critical ? 'disabled style="display:none"' : ''}>
             ${ui.icon('x')}
           </button>
         </div>
-        <div class="flex gap-2 mt-4">
-          <button id="update-now-btn" class="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100">
-            Jetzt aktualisieren
+        <div class="flex gap-2 mt-3">
+          <button id="update-now-btn" class="px-3 py-1.5 bg-white text-blue-600 rounded text-sm font-semibold hover:bg-gray-100">
+            Aktualisieren
           </button>
           ${!updateInfo.critical ? `
-            <button id="update-later-btn" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-400">
-              Später erinnern
+            <button id="update-later-btn" class="px-3 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-400">
+              Später
             </button>
-            <button id="update-dismiss-btn" class="px-4 py-2 text-white hover:bg-blue-500 rounded-lg">
-              Nicht mehr anzeigen
+            <button id="update-dismiss-btn" class="px-3 py-1.5 text-white hover:bg-blue-500 rounded text-sm">
+              Ignorieren
             </button>
           ` : ''}
         </div>
@@ -294,6 +295,146 @@ class App {
     const action = urlParams.get('action');
     if (action === 'start') {
       this.startSession();
+    }
+
+    // Setup Pull-to-Refresh
+    this.setupPullToRefresh();
+
+    // Setup Double-click on title for desktop hard refresh
+    const appTitle = document.getElementById('app-title');
+    if (appTitle) {
+      appTitle.addEventListener('dblclick', async () => {
+        // Only enable if cloud sync is active
+        if (firebaseService && firebaseService.currentUser && ui.settings && ui.settings.cloudSync) {
+          const confirmed = await this.showConfirmDialog(
+            'Daten neu laden?',
+            'Dies löscht den lokalen Cache und lädt alle Daten vom Cloud neu. Die App wird danach neu geladen. Fortfahren?'
+          );
+
+          if (!confirmed) return;
+
+          try {
+            ui.showToast('Aktualisiere...', 'info');
+            await this.performHardRefresh();
+          } catch (error) {
+            console.error('Hard refresh error:', error);
+            ui.showToast('Fehler beim Aktualisieren', 'error');
+          }
+        }
+      });
+    }
+  }
+
+  setupPullToRefresh() {
+    // Only enable pull-to-refresh if user is signed in and cloud sync is enabled
+    const checkCloudSync = () => {
+      return firebaseService &&
+             firebaseService.currentUser &&
+             ui.settings &&
+             ui.settings.cloudSync;
+    };
+
+    let startY = 0;
+    let currentY = 0;
+    let pulling = false;
+    const threshold = 80; // Pull distance needed to trigger refresh
+
+    const pullIndicator = document.getElementById('pull-to-refresh');
+    const refreshText = document.getElementById('refresh-text');
+    const refreshSpinner = document.getElementById('refresh-spinner');
+    const appContainer = document.getElementById('app');
+
+    appContainer.addEventListener('touchstart', (e) => {
+      // Only start if at top of scroll AND cloud sync enabled
+      if (appContainer.scrollTop === 0 && checkCloudSync()) {
+        startY = e.touches[0].pageY;
+        pulling = true;
+      }
+    }, { passive: true });
+
+    appContainer.addEventListener('touchmove', (e) => {
+      if (!pulling || !checkCloudSync()) return;
+
+      currentY = e.touches[0].pageY;
+      const pullDistance = currentY - startY;
+
+      // Only show indicator if pulling down
+      if (pullDistance > 0) {
+        const translateY = Math.min(pullDistance, threshold + 20);
+        pullIndicator.style.transform = `translateY(${translateY - 100}%)`;
+
+        if (pullDistance >= threshold) {
+          refreshText.textContent = 'Loslassen zum Aktualisieren...';
+        } else {
+          refreshText.textContent = 'Zum Aktualisieren ziehen...';
+        }
+      }
+    }, { passive: true });
+
+    appContainer.addEventListener('touchend', async () => {
+      if (!pulling || !checkCloudSync()) return;
+
+      const pullDistance = currentY - startY;
+
+      if (pullDistance >= threshold) {
+        // Trigger refresh
+        refreshText.textContent = 'Aktualisiere...';
+        refreshSpinner.classList.remove('hidden');
+        pullIndicator.style.transform = 'translateY(0)';
+
+        try {
+          await this.performHardRefresh();
+        } catch (error) {
+          console.error('Pull-to-refresh error:', error);
+          ui.showToast('Fehler beim Aktualisieren', 'error');
+        }
+
+        // Reset indicator
+        setTimeout(() => {
+          pullIndicator.style.transform = 'translateY(-100%)';
+          refreshSpinner.classList.add('hidden');
+          refreshText.textContent = 'Zum Aktualisieren ziehen...';
+        }, 500);
+      } else {
+        // Reset indicator
+        pullIndicator.style.transform = 'translateY(-100%)';
+      }
+
+      pulling = false;
+      startY = 0;
+      currentY = 0;
+    });
+  }
+
+  async performHardRefresh() {
+    // Step 1: Unregister service worker
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const registration of registrations) {
+        await registration.unregister();
+      }
+      console.log('✅ Service Worker unregistered');
+    }
+
+    // Step 2: Clear all caches
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+      console.log('✅ All caches cleared');
+    }
+
+    // Step 3: Perform full sync from cloud
+    const success = await firebaseService.fullSync();
+
+    if (success) {
+      ui.showToast('Daten erfolgreich neu geladen', 'success');
+
+      // Step 4: Force reload from server (not cache)
+      setTimeout(() => {
+        window.location.href = window.location.href;
+      }, 1000);
+    } else {
+      throw new Error('Sync failed');
     }
   }
 
@@ -1824,7 +1965,7 @@ class App {
               </div>
 
               ${isSignedIn && settings.cloudSync ? `
-                <div class="mt-3">
+                <div class="mt-3 space-y-2">
                   <button id="firebase-manual-sync" class="w-full px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
                     <span id="sync-button-text">Jetzt syncen</span>
                     <span id="sync-button-spinner" class="hidden">
@@ -1834,9 +1975,20 @@ class App {
                       </svg>
                     </span>
                   </button>
-                  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
-                    ${ui.icon('clock', 'flex-shrink-0 mt-0.5')}
-                    <span>Automatischer Sync: alle 60 Minuten</span>
+                  <button id="firebase-hard-refresh" class="w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center justify-center gap-2">
+                    <span id="refresh-button-text">Daten neu laden (Cache leeren)</span>
+                    <span id="refresh-button-spinner" class="hidden">
+                      <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </span>
+                  </button>
+                  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Automatischer Sync: alle 60 Minuten
+                  </p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 italic">
+                    "Daten neu laden" löscht den Cache und holt aktuelle Daten vom Cloud. Nutze dies beim Gerätewechsel.
                   </p>
                 </div>
               ` : ''}
@@ -2068,6 +2220,39 @@ class App {
         });
       }
 
+      // Hard Refresh Button (Clear cache + sync from cloud)
+      const hardRefreshBtn = document.getElementById('firebase-hard-refresh');
+      if (hardRefreshBtn) {
+        hardRefreshBtn.addEventListener('click', async () => {
+          const buttonText = document.getElementById('refresh-button-text');
+          const buttonSpinner = document.getElementById('refresh-button-spinner');
+
+          // Confirm action
+          const confirmed = await this.showConfirmDialog(
+            'Daten neu laden?',
+            'Dies löscht den lokalen Cache und lädt alle Daten vom Cloud neu. Die App wird danach neu geladen. Fortfahren?'
+          );
+
+          if (!confirmed) return;
+
+          try {
+            // Show spinner
+            buttonText.textContent = 'Lade neu...';
+            buttonSpinner.classList.remove('hidden');
+            hardRefreshBtn.disabled = true;
+
+            // Use shared performHardRefresh method
+            await this.performHardRefresh();
+          } catch (error) {
+            console.error('Hard refresh error:', error);
+            ui.showToast('Fehler beim Neu laden: ' + error.message, 'error');
+            buttonText.textContent = 'Daten neu laden (Cache leeren)';
+            buttonSpinner.classList.add('hidden');
+            hardRefreshBtn.disabled = false;
+          }
+        });
+      }
+
       // Email Login
       const emailLoginBtn = document.getElementById('firebase-login-email');
       if (emailLoginBtn) {
@@ -2114,7 +2299,7 @@ class App {
         if (content.classList.contains('hidden')) {
           // Opening
           content.classList.remove('hidden');
-          icon.style.transform = 'rotate(180deg)';
+          if (icon) icon.style.transform = 'rotate(180deg)';
 
           // Restore scroll position to prevent jumping up
           if (scrollableParent) {
@@ -2123,7 +2308,7 @@ class App {
         } else {
           // Closing
           content.classList.add('hidden');
-          icon.style.transform = 'rotate(0deg)';
+          if (icon) icon.style.transform = 'rotate(0deg)';
         }
       });
     });
@@ -2479,49 +2664,8 @@ class App {
 
     const { year, month } = selectedMonth;
 
-    // Step 2: Choose export format
-    const formatDialogContent = `
-      <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-          ${ui.icon('download')}
-          <span>Export-Format wählen</span>
-        </h3>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Monat: <strong>${year}-${pad2(month)}</strong>
-        </p>
-        <div class="space-y-3">
-          <button id="export-xlsx" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
-            ${ui.icon('document')}
-            <span>Excel (.xlsx) - Formatiert</span>
-          </button>
-          <button id="export-csv" class="w-full px-4 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 flex items-center justify-center gap-2">
-            ${ui.icon('document')}
-            <span>CSV - Einfach</span>
-          </button>
-        </div>
-        <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-          Abbrechen
-        </button>
-      </div>
-    `;
-
-    ui.showModal(formatDialogContent);
-
-    // Excel export
-    document.getElementById('export-xlsx').addEventListener('click', async () => {
-      ui.hideModal();
-      await this.showExcelExport(year, month);
-    });
-
-    // CSV export
-    document.getElementById('export-csv').addEventListener('click', async () => {
-      ui.hideModal();
-      await this.showCSVExport(year, month);
-    });
-
-    document.getElementById('dialog-cancel').addEventListener('click', () => {
-      ui.hideModal();
-    });
+    // Step 2: Generate Excel directly (no format selection)
+    await this.showExcelExport(year, month);
   }
 
   // Excel export dialog
@@ -2543,21 +2687,21 @@ class App {
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
             ${ui.icon('check')}
-            <span>${ui.t('exportSuccess')}</span>
+            <span>Excel erstellt</span>
           </h3>
           <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${filename}</p>
-          <div class="space-y-2">
+          <div class="space-y-3">
             <button id="xlsx-download" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
               ${ui.icon('download')}
-              <span>${ui.t('download')}</span>
+              <span>Herunterladen</span>
             </button>
             <button id="xlsx-email" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
               ${ui.icon('mail')}
-              <span>${ui.t('sendEmail')}</span>
+              <span>Per Mail senden</span>
             </button>
           </div>
           <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-            ${ui.t('close')}
+            Schließen
           </button>
         </div>
       `;
@@ -2572,9 +2716,13 @@ class App {
       });
 
       // E-Mail / Share Button
-      document.getElementById('xlsx-email').addEventListener('click', () => {
-        excelExport.sendEmail(blob, filename, ui.settings);
-        ui.hideModal();
+      document.getElementById('xlsx-email').addEventListener('click', async () => {
+        const success = await excelExport.sendEmail(blob, filename, ui.settings);
+        if (success) {
+          ui.hideModal();
+        } else {
+          ui.showToast('Bitte lade die Datei herunter und hänge sie manuell an', 'info');
+        }
       });
 
       // Cancel

@@ -474,32 +474,97 @@ class ExcelExport {
     this.sendEmail(blob, filename, settings);
   }
 
-  // Send Excel via email (using Web Share API or mailto)
-  sendEmail(blob, filename, settings) {
-  const monthStr = filename.match(/(\w+) \d{4}/)[1];
-  const subject = settings.emailSubject
-    .replace('{month}', monthStr)
-    .replace('{name}', settings.username);
-  const body = settings.emailBody
-    .replace('{month}', monthStr)
-    .replace('{name}', settings.username);
+  // Send Excel via email (using Clipboard API + mailto)
+  async sendEmail(blob, filename, settings) {
+    const monthStr = filename.match(/(\w+) \d{4}/)[1];
+    const subject = settings.emailSubject
+      .replace('{month}', monthStr)
+      .replace('{name}', settings.username);
+    const body = settings.emailBody
+      .replace('{month}', monthStr)
+      .replace('{name}', settings.username);
 
-  const file = new File([blob], filename, {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  });
+    const file = new File([blob], filename, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
 
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({
-      title: subject,
-      text: body,
-      files: [file]
-    })
-    .then(() => console.log('Excel geteilt'))
-    .catch(() => this.sendMailto(settings.email, subject, body));
-  } else {
+    // Try to copy BOTH file AND text to clipboard (like iOS Share Sheet does)
+    try {
+      if (navigator.clipboard && navigator.clipboard.write) {
+        // Create clipboard item with BOTH the file and text
+        const clipboardItem = new ClipboardItem({
+          [file.type]: blob,
+          'text/plain': new Blob([body], { type: 'text/plain' })
+        });
+
+        await navigator.clipboard.write([clipboardItem]);
+        console.log('✅ File and text copied to clipboard');
+
+        // Open mailto with pre-filled fields
+        this.sendMailto(settings.email, subject, body);
+
+        // Show helpful toast
+        setTimeout(() => {
+          if (window.ui) {
+            ui.showToast('📎 Datei + Text kopiert! Im Email: Anhang-Feld einfügen', 'success');
+          }
+        }, 500);
+
+        return true;
+      }
+    } catch (clipboardError) {
+      console.log('Clipboard API failed, trying text-only fallback:', clipboardError);
+
+      // Fallback: Try copying just the text if file copy fails
+      try {
+        await navigator.clipboard.writeText(body);
+        console.log('✅ Text copied to clipboard (file failed)');
+
+        this.sendMailto(settings.email, subject, body);
+
+        setTimeout(() => {
+          if (window.ui) {
+            ui.showToast('📎 Text kopiert - Datei bitte manuell anhängen', 'info');
+          }
+        }, 500);
+
+        return false;
+      } catch (textError) {
+        console.log('Text clipboard also failed, falling back to Share API:', textError);
+      }
+    }
+
+    // Fallback: Try Web Share API
+    if (navigator.share && navigator.canShare) {
+      try {
+        const canShareFiles = await navigator.canShare({ files: [file] });
+
+        if (canShareFiles) {
+          // Share with file - NOTE: title/text are often ignored by email apps
+          await navigator.share({
+            files: [file],
+            title: subject,
+            text: `${body}\n\nEmpfänger: ${settings.email}`
+          });
+          console.log('✅ Excel via Share API geteilt');
+          return true;
+        }
+      } catch (error) {
+        // User cancelled or error occurred
+        if (error.name === 'AbortError') {
+          console.log('❌ Share cancelled by user');
+          // Open mailto as fallback
+          this.sendMailto(settings.email, subject, body);
+          return false;
+        }
+        console.error('Share API error:', error);
+      }
+    }
+
+    // Final fallback: Open mailto (without attachment, but with recipient/subject/body)
     this.sendMailto(settings.email, subject, body);
+    return false;
   }
-}
 
   // Send email using mailto (without attachment)
   sendMailto(email, subject, body) {
@@ -521,5 +586,26 @@ class ExcelExport {
   }
 }
 
-// Create singleton instance
-const excelExport = new ExcelExport();
+// Create singleton instance and make it globally available
+// Wait for ExcelJS to be loaded
+if (typeof ExcelJS === 'undefined') {
+  console.error('❌ ExcelJS not loaded yet!');
+  // Create placeholder that will be replaced
+  window.excelExport = null;
+  // Try to create instance when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      window.excelExport = new ExcelExport();
+      console.log('✅ excelExport instance created (DOM ready)');
+    });
+  } else {
+    // DOM already loaded, try after small delay
+    setTimeout(() => {
+      window.excelExport = new ExcelExport();
+      console.log('✅ excelExport instance created (delayed)');
+    }, 100);
+  }
+} else {
+  window.excelExport = new ExcelExport();
+  console.log('✅ excelExport instance created immediately');
+}

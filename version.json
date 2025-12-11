@@ -1,12 +1,9 @@
 {
-  "version": "1.4.0",
-  "releaseDate": "2025-11-22",
+  "version": "1.5.6",
+  "releaseDate": "2025-12-10",
   "changelog": [
-    "UX: Combined pause and travel time picker with +/- buttons (0.5h steps)",
-    "UX: Better default values - pause and travel time now default to 0.5h",
-    "Fix: Timezone - datetime picker now uses local time instead of UTC",
-    "Fix: Keyboard overlap on mobile - improved scroll behavior for inputs",
-    "Fix: Onboarding walkthrough loop - now checks both flag and username"
+    "Fix: ExcelJS Race Condition - wartet auf vollständiges Laden",
+    "Bessere Fehlerbehandlung beim Excel-Export"
   ],
   "critical": false
 }
