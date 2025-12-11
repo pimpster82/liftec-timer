@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.6.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -331,6 +331,17 @@ class App {
         this.quickExport();
       });
     }
+
+    // Notes FAB (Floating Action Button) v1.6.1
+    const notesFab = document.getElementById('notes-fab');
+    if (notesFab) {
+      notesFab.addEventListener('click', () => {
+        this.showNotesManager();
+      });
+    }
+
+    // Initialize default categories
+    storage.initializeDefaultCategories();
   }
 
   setupPullToRefresh() {
@@ -1663,6 +1674,62 @@ class App {
         ui.hideModal();
         resolve(false);
       });
+    });
+  }
+
+  showInputDialog(title, defaultValue = '', multiline = false) {
+    return new Promise((resolve) => {
+      const inputField = multiline
+        ? `<textarea id="dialog-input" rows="6" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="Eingeben...">${defaultValue}</textarea>`
+        : `<input type="text" id="dialog-input" value="${defaultValue}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="Eingeben...">`;
+
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${title}</h3>
+          ${inputField}
+          <div class="flex space-x-3 mt-4">
+            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">
+              Abbrechen
+            </button>
+            <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold">
+              OK
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      const input = document.getElementById('dialog-input');
+      input.focus();
+
+      // Select text if default value exists
+      if (defaultValue && !multiline) {
+        input.select();
+      }
+
+      const handleOk = () => {
+        const value = input.value.trim();
+        ui.hideModal();
+        resolve(value || null);
+      };
+
+      const handleCancel = () => {
+        ui.hideModal();
+        resolve(null);
+      };
+
+      document.getElementById('dialog-ok').addEventListener('click', handleOk);
+      document.getElementById('dialog-cancel').addEventListener('click', handleCancel);
+
+      // Enter key submits (only for single-line input)
+      if (!multiline) {
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            handleOk();
+          }
+        });
+      }
     });
   }
 
@@ -3734,6 +3801,429 @@ class App {
         resolve(true);
       });
     });
+  }
+
+  // ===== Notes Manager (v1.6.1) =====
+
+  async showNotesManager() {
+    const categories = await storage.getAllCategories();
+    const currentCategoryId = categories.length > 0 ? categories[0].id : null;
+
+    const content = `
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('notepad')}
+            <span>Meine Notizen</span>
+          </h3>
+          <button id="close-notes" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            ${ui.icon('x')}
+          </button>
+        </div>
+
+        <!-- Category Selector -->
+        <div class="mb-4 space-y-2">
+          <select id="category-selector" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+            ${categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('')}
+          </select>
+          <div class="flex gap-2">
+            <button id="add-category-btn" class="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm flex items-center justify-center gap-2">
+              ${ui.icon('plus', 'w-4 h-4')}
+              <span>Kategorie</span>
+            </button>
+            <button id="manage-categories-btn" class="flex-1 px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm flex items-center justify-center gap-2">
+              ${ui.icon('settings', 'w-4 h-4')}
+              <span>Verwalten</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Notes List -->
+        <div id="notes-list" class="space-y-3 mb-4 max-h-96 overflow-y-auto">
+          <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Lade Notizen...</p>
+        </div>
+
+        <!-- Add Note Buttons -->
+        <div class="flex gap-2">
+          <button id="add-text-note-btn" class="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm flex items-center justify-center gap-2">
+            ${ui.icon('text', 'w-4 h-4')}
+            <span>Text-Notiz</span>
+          </button>
+          <button id="add-checklist-note-btn" class="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm flex items-center justify-center gap-2">
+            ${ui.icon('list', 'w-4 h-4')}
+            <span>Checkliste</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    // Close button
+    document.getElementById('close-notes').addEventListener('click', () => {
+      ui.hideModal();
+    });
+
+    // Category selector change
+    document.getElementById('category-selector').addEventListener('change', (e) => {
+      this.loadNotesForCategory(parseInt(e.target.value));
+    });
+
+    // Add category
+    document.getElementById('add-category-btn').addEventListener('click', () => {
+      this.showAddCategoryDialog();
+    });
+
+    // Manage categories
+    document.getElementById('manage-categories-btn').addEventListener('click', () => {
+      this.showManageCategoriesDialog();
+    });
+
+    // Add text note
+    document.getElementById('add-text-note-btn').addEventListener('click', () => {
+      const categoryId = parseInt(document.getElementById('category-selector').value);
+      this.showAddTextNoteDialog(categoryId);
+    });
+
+    // Add checklist note
+    document.getElementById('add-checklist-note-btn').addEventListener('click', () => {
+      const categoryId = parseInt(document.getElementById('category-selector').value);
+      this.showAddChecklistNoteDialog(categoryId);
+    });
+
+    // Load notes for first category
+    if (currentCategoryId) {
+      await this.loadNotesForCategory(currentCategoryId);
+    }
+  }
+
+  async loadNotesForCategory(categoryId) {
+    const notesList = document.getElementById('notes-list');
+    if (!notesList) return;
+
+    const notes = await storage.getNotesByCategory(categoryId);
+
+    if (notes.length === 0) {
+      notesList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Keine Notizen in dieser Kategorie</p>';
+      return;
+    }
+
+    let html = '';
+    notes.forEach(note => {
+      if (note.type === 'text') {
+        html += this.renderTextNoteCard(note);
+      } else if (note.type === 'checklist') {
+        html += this.renderChecklistNoteCard(note);
+      }
+    });
+
+    notesList.innerHTML = html;
+
+    // Attach event listeners
+    this.attachNoteEventListeners();
+  }
+
+  renderTextNoteCard(note) {
+    const createdAt = new Date(note.createdAt);
+    const timeAgo = this.getTimeAgo(createdAt);
+
+    return `
+      <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="flex items-start justify-between mb-2">
+          <div class="flex items-center gap-2">
+            ${ui.icon('text', 'w-4 h-4 text-gray-500')}
+            <span class="text-xs text-gray-500 dark:text-gray-400">${timeAgo}</span>
+          </div>
+          <div class="flex gap-1">
+            <button class="edit-note-btn p-1 text-gray-500 hover:text-blue-600" data-note-id="${note.id}">
+              ${ui.icon('edit', 'w-4 h-4')}
+            </button>
+            <button class="delete-note-btn p-1 text-gray-500 hover:text-red-600" data-note-id="${note.id}">
+              ${ui.icon('trash', 'w-4 h-4')}
+            </button>
+          </div>
+        </div>
+        <div class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">${this.escapeHtml(note.content)}</div>
+      </div>
+    `;
+  }
+
+  renderChecklistNoteCard(note) {
+    const createdAt = new Date(note.createdAt);
+    const timeAgo = this.getTimeAgo(createdAt);
+    const completedCount = note.items.filter(item => item.completed).length;
+
+    return `
+      <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="flex items-start justify-between mb-2">
+          <div class="flex items-center gap-2">
+            ${ui.icon('list', 'w-4 h-4 text-gray-500')}
+            <span class="text-xs text-gray-500 dark:text-gray-400">${timeAgo}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">(${completedCount}/${note.items.length})</span>
+          </div>
+          <div class="flex gap-1">
+            <button class="edit-note-btn p-1 text-gray-500 hover:text-blue-600" data-note-id="${note.id}">
+              ${ui.icon('edit', 'w-4 h-4')}
+            </button>
+            <button class="delete-note-btn p-1 text-gray-500 hover:text-red-600" data-note-id="${note.id}">
+              ${ui.icon('trash', 'w-4 h-4')}
+            </button>
+          </div>
+        </div>
+        <div class="space-y-1">
+          ${note.items.map((item, idx) => `
+            <div class="flex items-center gap-2">
+              <button class="toggle-item-btn text-gray-500 hover:text-blue-600" data-note-id="${note.id}" data-item-idx="${idx}">
+                ${item.completed ? ui.icon('check-circle', 'w-5 h-5 text-green-500') : ui.icon('circle', 'w-5 h-5')}
+              </button>
+              <span class="text-sm ${item.completed ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'}">${this.escapeHtml(item.text)}</span>
+            </div>
+          `).join('')}
+        </div>
+        <button class="add-item-btn mt-2 text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1" data-note-id="${note.id}">
+          ${ui.icon('plus', 'w-3 h-3')}
+          <span>Item hinzufügen</span>
+        </button>
+      </div>
+    `;
+  }
+
+  attachNoteEventListeners() {
+    // Toggle checklist items
+    document.querySelectorAll('.toggle-item-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const noteId = parseInt(e.currentTarget.dataset.noteId);
+        const itemIdx = parseInt(e.currentTarget.dataset.itemIdx);
+        await this.toggleChecklistItem(noteId, itemIdx);
+      });
+    });
+
+    // Add item to checklist
+    document.querySelectorAll('.add-item-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const noteId = parseInt(e.currentTarget.dataset.noteId);
+        await this.addChecklistItem(noteId);
+      });
+    });
+
+    // Edit note
+    document.querySelectorAll('.edit-note-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const noteId = parseInt(e.currentTarget.dataset.noteId);
+        await this.editNote(noteId);
+      });
+    });
+
+    // Delete note
+    document.querySelectorAll('.delete-note-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const noteId = parseInt(e.currentTarget.dataset.noteId);
+        await this.deleteNote(noteId);
+      });
+    });
+  }
+
+  async showAddCategoryDialog() {
+    const name = await this.showInputDialog('Neue Kategorie', '');
+    if (!name) return;
+
+    await storage.addCategory({ name: name.trim() });
+    ui.showToast('Kategorie erstellt', 'success');
+    await this.showNotesManager();
+  }
+
+  async showManageCategoriesDialog() {
+    const categories = await storage.getAllCategories();
+
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Kategorien verwalten</h3>
+        <div class="space-y-2 mb-4">
+          ${categories.map(cat => `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <span class="text-gray-900 dark:text-white">${cat.name}</span>
+              <div class="flex gap-2">
+                <button class="edit-category-btn px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm" data-category-id="${cat.id}">
+                  Bearbeiten
+                </button>
+                <button class="delete-category-btn px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm" data-category-id="${cat.id}">
+                  Löschen
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <button id="close-manage-categories" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">
+          Schließen
+        </button>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('close-manage-categories').addEventListener('click', () => {
+      this.showNotesManager();
+    });
+
+    document.querySelectorAll('.edit-category-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const categoryId = parseInt(e.target.dataset.categoryId);
+        await this.editCategory(categoryId);
+      });
+    });
+
+    document.querySelectorAll('.delete-category-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const categoryId = parseInt(e.target.dataset.categoryId);
+        await this.deleteCategory(categoryId);
+      });
+    });
+  }
+
+  async editCategory(categoryId) {
+    const category = await storage.getCategory(categoryId);
+    if (!category) return;
+
+    const newName = await this.showInputDialog('Kategorie bearbeiten', category.name);
+    if (!newName) return;
+
+    await storage.updateCategory(categoryId, { name: newName.trim() });
+    ui.showToast('Kategorie aktualisiert', 'success');
+    await this.showManageCategoriesDialog();
+  }
+
+  async deleteCategory(categoryId) {
+    const confirmed = await this.showConfirmDialog(
+      'Kategorie löschen?',
+      'Alle Notizen in dieser Kategorie werden ebenfalls gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.'
+    );
+
+    if (!confirmed) return;
+
+    await storage.deleteCategory(categoryId);
+    ui.showToast('Kategorie gelöscht', 'success');
+    await this.showManageCategoriesDialog();
+  }
+
+  async showAddTextNoteDialog(categoryId) {
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Neue Text-Notiz</h3>
+        <textarea id="note-content" rows="6" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="Notiz schreiben..."></textarea>
+        <div class="flex gap-2 mt-4">
+          <button id="save-text-note" class="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">
+            Speichern
+          </button>
+          <button id="cancel-text-note" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('save-text-note').addEventListener('click', async () => {
+      const noteContent = document.getElementById('note-content').value.trim();
+      if (!noteContent) {
+        ui.showToast('Bitte Text eingeben', 'error');
+        return;
+      }
+
+      await storage.addNote({
+        categoryId,
+        type: 'text',
+        content: noteContent
+      });
+
+      ui.showToast('Notiz erstellt', 'success');
+      await this.showNotesManager();
+    });
+
+    document.getElementById('cancel-text-note').addEventListener('click', () => {
+      this.showNotesManager();
+    });
+  }
+
+  async showAddChecklistNoteDialog(categoryId) {
+    await storage.addNote({
+      categoryId,
+      type: 'checklist',
+      items: []
+    });
+
+    ui.showToast('Checkliste erstellt', 'success');
+    await this.showNotesManager();
+  }
+
+  async toggleChecklistItem(noteId, itemIdx) {
+    const note = await storage.getNote(noteId);
+    if (!note || !note.items[itemIdx]) return;
+
+    note.items[itemIdx].completed = !note.items[itemIdx].completed;
+    await storage.updateNote(noteId, { items: note.items });
+
+    const categoryId = note.categoryId;
+    await this.loadNotesForCategory(categoryId);
+  }
+
+  async addChecklistItem(noteId) {
+    const note = await storage.getNote(noteId);
+    if (!note) return;
+
+    const text = await this.showInputDialog('Neues Item', '');
+    if (!text) return;
+
+    note.items.push({ text: text.trim(), completed: false });
+    await storage.updateNote(noteId, { items: note.items });
+
+    const categoryId = note.categoryId;
+    await this.loadNotesForCategory(categoryId);
+  }
+
+  async editNote(noteId) {
+    const note = await storage.getNote(noteId);
+    if (!note) return;
+
+    if (note.type === 'text') {
+      const newContent = await this.showInputDialog('Notiz bearbeiten', note.content, true);
+      if (newContent === null) return;
+
+      await storage.updateNote(noteId, { content: newContent.trim() });
+      ui.showToast('Notiz aktualisiert', 'success');
+      await this.loadNotesForCategory(note.categoryId);
+    }
+  }
+
+  async deleteNote(noteId) {
+    const confirmed = await this.showConfirmDialog(
+      'Notiz löschen?',
+      'Diese Aktion kann nicht rückgängig gemacht werden.'
+    );
+
+    if (!confirmed) return;
+
+    const note = await storage.getNote(noteId);
+    await storage.deleteNote(noteId);
+    ui.showToast('Notiz gelöscht', 'success');
+    await this.loadNotesForCategory(note.categoryId);
+  }
+
+  getTimeAgo(date) {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return 'gerade eben';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `vor ${minutes} Min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `vor ${hours} Std`;
+    const days = Math.floor(hours / 24);
+    return `vor ${days} Tag${days > 1 ? 'en' : ''}`;
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 }
 
