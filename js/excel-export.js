@@ -474,7 +474,7 @@ class ExcelExport {
     this.sendEmail(blob, filename, settings);
   }
 
-  // Send Excel via email (using Clipboard API + mailto)
+  // Send Excel via email (using Web Share API + Clipboard for text)
   async sendEmail(blob, filename, settings) {
     const monthStr = filename.match(/(\w+) \d{4}/)[1];
     const subject = settings.emailSubject
@@ -488,81 +488,67 @@ class ExcelExport {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
 
-    // Try to copy BOTH file AND text to clipboard (like iOS Share Sheet does)
+    // Strategy: Copy text to clipboard, then share file via Share API
+    // User can paste the text into the email body after selecting email app
+
+    // Step 1: Try to copy text to clipboard
+    let textCopied = false;
     try {
-      if (navigator.clipboard && navigator.clipboard.write) {
-        // Create clipboard item with BOTH the file and text
-        const clipboardItem = new ClipboardItem({
-          [file.type]: blob,
-          'text/plain': new Blob([body], { type: 'text/plain' })
-        });
-
-        await navigator.clipboard.write([clipboardItem]);
-        console.log('✅ File and text copied to clipboard');
-
-        // Open mailto with pre-filled fields
-        this.sendMailto(settings.email, subject);
-
-        // Show helpful toast
-        setTimeout(() => {
-          if (window.ui) {
-            ui.showToast('📎 Datei + Text kopiert! Im Email: Anhang-Feld einfügen', 'success');
-          }
-        }, 500);
-
-        return true;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(body);
+        textCopied = true;
+        console.log('✅ Text in Zwischenablage kopiert');
       }
     } catch (clipboardError) {
-      console.log('Clipboard API failed, trying text-only fallback:', clipboardError);
-
-      // Fallback: Try copying just the text if file copy fails
-      try {
-        await navigator.clipboard.writeText(body);
-        console.log('✅ Text copied to clipboard (file failed)');
-
-        this.sendMailto(settings.email, subject, body);
-
-        setTimeout(() => {
-          if (window.ui) {
-            ui.showToast('📎 Text kopiert - Datei bitte manuell anhängen', 'info');
-          }
-        }, 500);
-
-        return false;
-      } catch (textError) {
-        console.log('Text clipboard also failed, falling back to Share API:', textError);
-      }
+      console.log('⚠️ Clipboard API failed:', clipboardError);
     }
 
-    // Fallback: Try Web Share API
+    // Step 2: Try Web Share API for the file
     if (navigator.share && navigator.canShare) {
       try {
         const canShareFiles = await navigator.canShare({ files: [file] });
 
         if (canShareFiles) {
-          // Share with file - NOTE: title/text are often ignored by email apps
+          // Share with file and subject
           await navigator.share({
             files: [file],
             title: subject,
-            text: `${body}\n\nEmpfänger: ${settings.email}`
+            text: `Empfänger: ${settings.email}`
           });
           console.log('✅ Excel via Share API geteilt');
+
+          // Show toast about clipboard
+          if (textCopied) {
+            setTimeout(() => {
+              if (window.ui) {
+                ui.showToast('📋 Email-Text in Zwischenablage - im Email einfügen!', 'success');
+              }
+            }, 500);
+          }
+
           return true;
         }
       } catch (error) {
         // User cancelled or error occurred
         if (error.name === 'AbortError') {
           console.log('❌ Share cancelled by user');
-          // Open mailto as fallback
-          this.sendMailto(settings.email, subject, body);
           return false;
         }
         console.error('Share API error:', error);
       }
     }
 
-    // Final fallback: Open mailto (without attachment, but with recipient/subject/body)
+    // Fallback: Open mailto (without attachment, but with recipient/subject/body)
     this.sendMailto(settings.email, subject, body);
+
+    if (textCopied) {
+      setTimeout(() => {
+        if (window.ui) {
+          ui.showToast('Email geöffnet - Text aus Zwischenablage einfügen', 'info');
+        }
+      }, 500);
+    }
+
     return false;
   }
 

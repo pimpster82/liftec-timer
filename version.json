@@ -1,11 +1,10 @@
 {
-  "version": "1.5.6",
+  "version": "1.5.7",
   "releaseDate": "2025-12-10",
   "changelog": [
-    "Fix: ExcelJS Race Condition - wartet auf vollständiges Laden",
-    "Neu: Email-Export mit Datei-Kopie in Zwischenablage",
-    "Pull-to-Refresh Geste für mobile Geräte",
-    "Bessere Fehlerbehandlung beim Excel-Export"
+    "Fix: Email-Export - Text in Zwischenablage + Datei via Share Sheet",
+    "Share Sheet öffnet mit Datei, Text kann eingefügt werden",
+    "Pull-to-Refresh Geste für mobile Geräte"
   ],
   "critical": false
 }
