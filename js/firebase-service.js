@@ -827,9 +827,9 @@ class FirebaseService {
         from: this.currentUser.uid,
         fromNickname: myProfile.nickname,
         fromName: myProfile.displayName,
-        to: friendUserId,
-        toNickname: friendData.nickname,
-        toName: friendData.displayName,
+        recipientId: friendUserId,
+        recipientNickname: friendData.nickname,
+        recipientName: friendData.displayName,
         entry: {
           date: entry.date,
           startTime: entry.startTime,
@@ -870,7 +870,7 @@ class FirebaseService {
     try {
       const snapshot = await this.db
         .collection('shared_entries')
-        .where('to', '==', this.currentUser.uid)
+        .where('recipientId', '==', this.currentUser.uid)
         .where('status', '==', 'pending')
         .orderBy('createdAt', 'desc')
         .get();
@@ -938,7 +938,7 @@ class FirebaseService {
 
     const unsubscribe = this.db
       .collection('shared_entries')
-      .where('to', '==', this.currentUser.uid)
+      .where('recipientId', '==', this.currentUser.uid)
       .where('status', '==', 'pending')
       .onSnapshot(snapshot => {
         const shares = snapshot.docs.map(doc => ({

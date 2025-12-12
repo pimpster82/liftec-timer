@@ -1,11 +1,11 @@
 {
-  "version": "1.9.4",
+  "version": "1.9.5",
   "releaseDate": "2025-12-12",
   "changelog": [
+    "Fix: Firestore Index Error - 'to' Feld umbenannt zu 'recipientId' (reserviertes Keyword)",
     "Fix: QR-Code Friend hinzufügen - Berechtigungsproblem behoben (nur eigenes Profil wird aktualisiert)",
     "Fix: Verwendung der korrekten storage.saveSettings() statt updateSettings()",
-    "Fix: Fehlermeldung beim Umschalten zwischen Dauer und Startzeit auf Hero Card behoben",
-    "Fix: Settings null check in toggleHeroTimeDisplay hinzugefügt"
+    "Fix: Fehlermeldung beim Umschalten zwischen Dauer und Startzeit auf Hero Card behoben"
   ],
   "critical": false
 }
