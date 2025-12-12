@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.8.1';
+const APP_VERSION = '1.8.2';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -152,70 +152,130 @@ class App {
   showUpdateBanner(updateInfo) {
     const banner = document.createElement('div');
     banner.id = 'update-banner';
-    banner.className = 'fixed top-0 left-0 right-0 bg-blue-600 text-white p-3 shadow-lg z-50 animate-slide-down';
+    banner.className = 'fixed top-4 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg z-50 max-w-xs border border-gray-200 dark:border-gray-700 transition-all';
 
-    // Only show first 2 changelog items to save space
-    const changelogItems = updateInfo.changelog ? updateInfo.changelog.slice(0, 2) : [];
-    const hasMore = updateInfo.changelog && updateInfo.changelog.length > 2;
-    const changelogHtml = changelogItems.length > 0
-      ? `<ul class="text-xs mt-1.5 space-y-0.5 opacity-90">${changelogItems.map(item => `<li>• ${item}</li>`).join('')}</ul>${hasMore ? '<p class="text-xs mt-1 opacity-75">+ weitere Verbesserungen</p>' : ''}`
-      : '';
+    const firstChangelog = updateInfo.changelog && updateInfo.changelog.length > 0
+      ? updateInfo.changelog[0]
+      : 'Neue Version verfügbar';
 
     banner.innerHTML = `
-      <div class="max-w-4xl mx-auto">
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5 mb-0.5">
-              <strong class="text-base">Update v${updateInfo.version}</strong>
-              ${updateInfo.critical ? '<span class="bg-red-500 px-1.5 py-0.5 rounded text-xs ml-1">Wichtig</span>' : ''}
+      <div class="p-3">
+        <!-- Collapsed State -->
+        <div id="banner-collapsed">
+          <button id="banner-expand-btn" class="w-full flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-1 -m-1">
+            <div class="flex items-center gap-2">
+              ${ui.icon('download', 'w-5 h-5 text-blue-500')}
+              <span class="text-sm font-medium text-gray-900 dark:text-white">
+                Update v${updateInfo.version}
+              </span>
             </div>
-            ${changelogHtml}
-          </div>
-          <button id="update-banner-close" class="flex-shrink-0 text-white hover:text-gray-200" ${updateInfo.critical ? 'disabled style="display:none"' : ''}>
-            ${ui.icon('x')}
+            ${ui.icon('chevron-down', 'w-4 h-4 text-gray-400')}
           </button>
         </div>
-        <div class="flex gap-2 mt-3">
-          <button id="update-now-btn" class="px-3 py-1.5 bg-white text-blue-600 rounded text-sm font-semibold hover:bg-gray-100">
-            Aktualisieren
-          </button>
-          ${!updateInfo.critical ? `
-            <button id="update-later-btn" class="px-3 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-400">
-              Später
+
+        <!-- Expanded State -->
+        <div id="banner-expanded" class="hidden">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <div class="flex items-center gap-2">
+              ${ui.icon('download', 'w-5 h-5 text-blue-500')}
+              <span class="text-sm font-medium text-gray-900 dark:text-white">
+                Update v${updateInfo.version}
+              </span>
+            </div>
+            <button id="banner-collapse-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              ${ui.icon('chevron-up', 'w-4 h-4')}
             </button>
-            <button id="update-dismiss-btn" class="px-3 py-1.5 text-white hover:bg-blue-500 rounded text-sm">
-              Ignorieren
+          </div>
+          <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">${firstChangelog}</p>
+          <div class="flex flex-col gap-2">
+            <button id="update-now-btn" class="w-full px-3 py-2 bg-blue-500 text-white rounded text-sm font-semibold hover:bg-blue-600">
+              Installieren
             </button>
-          ` : ''}
+            <div class="flex gap-2">
+              <button id="update-info-btn" class="flex-1 text-xs text-blue-500 hover:underline">
+                Mehr Info
+              </button>
+              ${!updateInfo.critical ? `
+                <button id="update-skip-btn" class="flex-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                  Überspringen
+                </button>
+              ` : ''}
+            </div>
+          </div>
         </div>
       </div>
     `;
 
     document.body.prepend(banner);
 
+    // Toggle expand/collapse
+    document.getElementById('banner-expand-btn').addEventListener('click', () => {
+      document.getElementById('banner-collapsed').classList.add('hidden');
+      document.getElementById('banner-expanded').classList.remove('hidden');
+    });
+
+    document.getElementById('banner-collapse-btn').addEventListener('click', () => {
+      document.getElementById('banner-expanded').classList.add('hidden');
+      document.getElementById('banner-collapsed').classList.remove('hidden');
+    });
+
     // Event listeners
     document.getElementById('update-now-btn').addEventListener('click', () => {
       this.performUpdate();
     });
 
-    if (!updateInfo.critical) {
-      document.getElementById('update-banner-close')?.addEventListener('click', () => {
-        banner.remove();
-      });
+    document.getElementById('update-info-btn').addEventListener('click', () => {
+      banner.remove();
+      this.showUpdateDetails(updateInfo);
+    });
 
-      document.getElementById('update-later-btn')?.addEventListener('click', () => {
-        // Remind in 24 hours
+    if (!updateInfo.critical) {
+      document.getElementById('update-skip-btn')?.addEventListener('click', () => {
         localStorage.setItem('remindUpdateLater', String(Date.now() + 24 * 60 * 60 * 1000));
         banner.remove();
-        ui.showToast('Erinnerung in 24 Stunden', 'info');
-      });
-
-      document.getElementById('update-dismiss-btn')?.addEventListener('click', () => {
-        localStorage.setItem('dismissedUpdateVersion', updateInfo.version);
-        banner.remove();
-        ui.showToast('Update-Benachrichtigung deaktiviert', 'info');
       });
     }
+  }
+
+  showUpdateDetails(updateInfo) {
+    const changelogHtml = updateInfo.changelog && updateInfo.changelog.length > 0
+      ? updateInfo.changelog.map(item => `<li class="text-sm text-gray-700 dark:text-gray-300">• ${item}</li>`).join('')
+      : '<li class="text-sm text-gray-500">Keine Details verfügbar</li>';
+
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+          ${ui.icon('info')}
+          <span>Update v${updateInfo.version}</span>
+        </h3>
+
+        <div class="mb-4">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Veröffentlicht: ${updateInfo.releaseDate || 'Heute'}</p>
+          <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Was ist neu:</h4>
+          <ul class="space-y-1">${changelogHtml}</ul>
+        </div>
+
+        <div class="flex gap-2">
+          <button id="details-update-btn" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600">
+            Jetzt installieren
+          </button>
+          <button id="details-close-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            Schließen
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('details-update-btn').addEventListener('click', () => {
+      ui.hideModal();
+      this.performUpdate();
+    });
+
+    document.getElementById('details-close-btn').addEventListener('click', () => {
+      ui.hideModal();
+    });
   }
 
   async performUpdate() {

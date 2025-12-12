@@ -166,7 +166,22 @@ class UI {
         overwrite: 'Überschreiben',
         keepBoth: 'Beide behalten',
         copyToClipboard: 'In Zwischenablage kopieren',
-        copiedToClipboard: 'In Zwischenablage kopiert'
+        copiedToClipboard: 'In Zwischenablage kopiert',
+        // Cloud Share Feature
+        shareToUser: 'An User senden',
+        shareViaFile: 'Als Datei teilen',
+        enterEmailOrNickname: 'E-Mail oder @nickname',
+        userNotFound: 'User nicht gefunden',
+        cannotShareWithYourself: 'Du kannst nicht mit dir selbst teilen',
+        sharedWithUser: 'Mit {user} geteilt',
+        newShares: 'Neue Teilungen',
+        sharedEntriesTitle: 'Geteilte Einträge',
+        sharedBy: 'Geteilt von',
+        acceptShare: 'Übernehmen',
+        declineShare: 'Ablehnen',
+        noSharedEntries: 'Keine geteilten Einträge',
+        shareDeclined: 'Eintrag abgelehnt',
+        mustBeSignedIn: 'Du musst angemeldet sein um diese Funktion zu nutzen'
       },
       en: {
         appName: 'Time Tracking',
@@ -323,7 +338,22 @@ class UI {
         overwrite: 'Overwrite',
         keepBoth: 'Keep both',
         copyToClipboard: 'Copy to clipboard',
-        copiedToClipboard: 'Copied to clipboard'
+        copiedToClipboard: 'Copied to clipboard',
+        // Cloud Share Feature
+        shareToUser: 'Send to user',
+        shareViaFile: 'Share as file',
+        enterEmailOrNickname: 'Email or @nickname',
+        userNotFound: 'User not found',
+        cannotShareWithYourself: 'Cannot share with yourself',
+        sharedWithUser: 'Shared with {user}',
+        newShares: 'New shares',
+        sharedEntriesTitle: 'Shared entries',
+        sharedBy: 'Shared by',
+        acceptShare: 'Accept',
+        declineShare: 'Decline',
+        noSharedEntries: 'No shared entries',
+        shareDeclined: 'Entry declined',
+        mustBeSignedIn: 'You must be signed in to use this feature'
       },
       hr: {
         appName: 'Evidencija vremena',
@@ -480,7 +510,22 @@ class UI {
         overwrite: 'Prepiši',
         keepBoth: 'Zadrži oba',
         copyToClipboard: 'Kopiraj u međuspremnik',
-        copiedToClipboard: 'Kopirano u međuspremnik'
+        copiedToClipboard: 'Kopirano u međuspremnik',
+        // Cloud Share Feature
+        shareToUser: 'Pošalji korisniku',
+        shareViaFile: 'Dijeli kao datoteku',
+        enterEmailOrNickname: 'Email ili @nadimak',
+        userNotFound: 'Korisnik nije pronađen',
+        cannotShareWithYourself: 'Ne možete dijeliti sa sobom',
+        sharedWithUser: 'Podijeljeno s {user}',
+        newShares: 'Nova dijeljenja',
+        sharedEntriesTitle: 'Podijeljeni unosi',
+        sharedBy: 'Podijelio',
+        acceptShare: 'Prihvati',
+        declineShare: 'Odbij',
+        noSharedEntries: 'Nema podijeljenih unosa',
+        shareDeclined: 'Unos odbijen',
+        mustBeSignedIn: 'Morate biti prijavljeni da koristite ovu funkciju'
       }
     };
   }
