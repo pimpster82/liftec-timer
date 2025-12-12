@@ -1,10 +1,10 @@
 {
-  "version": "1.9.6",
+  "version": "1.9.7",
   "releaseDate": "2025-12-12",
   "changelog": [
-    "Fix: Fehlende storage.getWorklogEntryByDate() Funktion hinzugefügt",
-    "Fix: Shared Entry Accept - Duplikat-Prüfung funktioniert jetzt korrekt",
-    "Fix: updateWorklogEntry() Aufruf korrigiert (nur ein Parameter benötigt)"
+    "Fix: Share-Notifications kommen jetzt auch bei schnell aufeinanderfolgenden Shares",
+    "Fix: lastSharedEntriesCheck wird nur noch aktualisiert, wenn Banner angezeigt wird",
+    "Fix: Notification-Timeout von 60 auf 5 Sekunden reduziert"
   ],
   "critical": false
 }

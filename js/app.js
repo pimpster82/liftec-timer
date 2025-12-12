@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.9.6';
+const APP_VERSION = '1.9.7';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -332,12 +332,12 @@ class App {
         const lastCheck = localStorage.getItem('lastSharedEntriesCheck');
         const now = Date.now();
 
-        // Only show banner if we haven't checked in the last minute (avoid showing on every page load)
-        if (!lastCheck || (now - parseInt(lastCheck)) > 60000) {
+        // Only show banner if we haven't checked in the last 5 seconds (avoid duplicate notifications on page load)
+        if (!lastCheck || (now - parseInt(lastCheck)) > 5000) {
           this.showSharedEntriesBanner(sharedEntries.length);
+          // Update timestamp ONLY when banner is shown
+          localStorage.setItem('lastSharedEntriesCheck', String(now));
         }
-
-        localStorage.setItem('lastSharedEntriesCheck', String(now));
       }
     });
   }
