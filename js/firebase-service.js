@@ -702,13 +702,10 @@ class FirebaseService {
         throw new Error('Friend has no share profile');
       }
 
-      // Add friend to both profiles (bidirectional)
+      // Add friend to my profile only (unidirectional)
+      // Note: Cannot update friend's profile due to security rules
       await this.db.collection('share_profiles').doc(this.currentUser.uid).update({
         friends: firebase.firestore.FieldValue.arrayUnion(friendUserId)
-      });
-
-      await this.db.collection('share_profiles').doc(friendUserId).update({
-        friends: firebase.firestore.FieldValue.arrayUnion(this.currentUser.uid)
       });
 
       console.log('✅ Friend added:', friendUserId);
@@ -719,7 +716,7 @@ class FirebaseService {
   }
 
   /**
-   * Remove friend (bidirectional)
+   * Remove friend (unidirectional)
    * @param {string} friendUserId - Friend's user ID
    * @returns {Promise<void>}
    */
@@ -729,13 +726,10 @@ class FirebaseService {
     }
 
     try {
-      // Remove from both profiles
+      // Remove from my profile only (unidirectional)
+      // Note: Cannot update friend's profile due to security rules
       await this.db.collection('share_profiles').doc(this.currentUser.uid).update({
         friends: firebase.firestore.FieldValue.arrayRemove(friendUserId)
-      });
-
-      await this.db.collection('share_profiles').doc(friendUserId).update({
-        friends: firebase.firestore.FieldValue.arrayRemove(this.currentUser.uid)
       });
 
       console.log('✅ Friend removed:', friendUserId);
