@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.9.1';
+const APP_VERSION = '1.9.2';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1115,6 +1115,11 @@ class App {
    */
   async toggleHeroTimeDisplay() {
     try {
+      // Ensure settings are loaded
+      if (!ui.settings) {
+        ui.settings = await storage.getSettings();
+      }
+
       // Toggle between 'duration' and 'startTime'
       const currentDisplay = ui.settings.heroTimeDisplay || 'duration';
       const newDisplay = currentDisplay === 'duration' ? 'startTime' : 'duration';

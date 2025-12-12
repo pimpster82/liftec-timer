@@ -1,8 +1,8 @@
 {
-  "version": "1.9.1",
+  "version": "1.9.2",
   "releaseDate": "2025-12-12",
   "changelog": [
-    "Fix: Fehlermeldung beim Umschalten zwischen Dauer und Startzeit behoben"
+    "Fix: Fehlermeldung beim Umschalten zwischen Dauer und Startzeit behoben (ui.settings null check)"
   ],
   "critical": false
 }
