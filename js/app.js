@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.9.5';
+const APP_VERSION = '1.9.6';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -508,8 +508,12 @@ class App {
         if (choice === 'cancel') {
           return;
         } else if (choice === 'overwrite') {
-          // Replace existing entry
-          await storage.updateWorklogEntry(existingEntry.id, share.entry);
+          // Replace existing entry - keep the existing ID but update all fields
+          const updatedEntry = {
+            ...share.entry,
+            id: existingEntry.id
+          };
+          await storage.updateWorklogEntry(updatedEntry);
         } else if (choice === 'keep-both') {
           // Add as new entry
           await storage.addWorklogEntry(share.entry);

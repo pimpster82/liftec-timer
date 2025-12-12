@@ -85,23 +85,59 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User kann nur eigene Daten lesen/schreiben
-    match /users/{userId}/{document=**} {
+    // Users Collection - nur eigene Daten
+    match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Subcollections unter /users/{userId}/
+      match /{subcollection}/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
-    // Keine anderen Zugriffe erlaubt
-    match /{document=**} {
-      allow read, write: if false;
+    // Share Profiles - öffentlich lesbar für Friend-Add via QR-Code
+    match /share_profiles/{userId} {
+      // Jeder angemeldete User kann Profile lesen (für Friend-Add & Nickname-Check)
+      allow read: if request.auth != null;
+
+      // Nur eigenes Profil erstellen/bearbeiten
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+
+      // Löschen nicht erlaubt
+      allow delete: if false;
+    }
+
+    // Shared Entries - für Friend-Sharing (v1.6.0+)
+    match /shared_entries/{shareId} {
+      // Lesen: Nur wenn du sender (from) oder recipient (recipientId) bist
+      allow read: if request.auth != null &&
+                  (resource.data.recipientId == request.auth.uid ||
+                   resource.data.from == request.auth.uid);
+
+      // Erstellen: Nur als sender (from muss deine User-ID sein)
+      allow create: if request.auth != null &&
+                    request.resource.data.from == request.auth.uid;
+
+      // Update: Nur als recipient (um status zu ändern: imported/declined)
+      allow update: if request.auth != null &&
+                    resource.data.recipientId == request.auth.uid;
+
+      // Löschen: Sender oder Recipient können löschen
+      allow delete: if request.auth != null &&
+                    (resource.data.recipientId == request.auth.uid ||
+                     resource.data.from == request.auth.uid);
     }
   }
 }
 ```
 
 **Wichtig:** Diese Rules bedeuten:
-- ✅ Jeder User kann nur seine eigenen Daten sehen
+- ✅ Jeder User kann nur seine eigenen Daten sehen (`/users/{userId}/...`)
 - ✅ Anonyme User haben auch Zugriff (aber nur auf ihre Daten)
-- ❌ Kein User kann Daten von anderen sehen
+- ✅ Share-Profile sind **öffentlich lesbar** für angemeldete User (für QR-Code Friend-Add & Nickname-Suche)
+- ✅ Jeder User kann nur sein **eigenes** Share-Profil erstellen/bearbeiten
+- ✅ Users können Worklog-Einträge mit Friends teilen (`shared_entries`)
+- ✅ Users sehen nur geteilte Einträge, wo sie sender (`from`) oder recipient (`recipientId`) sind
 
 ---
 
@@ -254,6 +290,31 @@ Eintrag X ändern       Eintrag X ändern
 - Firestore Rules prüfen (siehe oben)
 - User muss angemeldet sein
 - User ID muss mit Firestore Path übereinstimmen
+
+### Problem: "Share listener error: Missing or insufficient permissions"
+**Ursache:** Die Firestore Security Rules fehlen für die `shared_entries` Collection (Friend-Sharing Feature ab v1.6.0)
+
+**Lösung:**
+1. Firebase Console öffnen → **Firestore Database** → **Rules**
+2. Die Rules mit den **aktualisierten Rules** von oben ersetzen (inkl. `shared_entries` Block)
+3. "Veröffentlichen" klicken
+4. App neu laden
+
+**Hinweis:** Dieser Fehler ist harmlos für die Hauptfunktionen der App. Er betrifft nur das Friend-Sharing Feature. Die App funktioniert trotzdem normal für normale Worklog-Einträge.
+
+### Problem: "checkNicknameAvailable failed" oder "Create share profile failed: Missing or insufficient permissions"
+**Ursache:** Die Firestore Security Rules fehlen für die `share_profiles` Collection
+
+**Lösung:**
+1. Firebase Console öffnen → **Firestore Database** → **Rules**
+2. Die Rules mit den **aktualisierten Rules** von oben ersetzen (inkl. `share_profiles` Block)
+3. "Veröffentlichen" klicken
+4. App neu laden
+
+**Wichtig:** Die `share_profiles` Collection muss für **alle angemeldeten User lesbar** sein, damit:
+- Nickname-Verfügbarkeit geprüft werden kann
+- Friends via QR-Code hinzugefügt werden können
+- Friend-Profile angezeigt werden können
 
 ### Problem: Daten nicht gesynct
 **Lösung:**
