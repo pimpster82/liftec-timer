@@ -1115,8 +1115,13 @@ class App {
    */
   async toggleHeroTimeDisplay() {
     try {
+      // Ensure settings are loaded
+      if (!ui.settings) {
+        ui.settings = await storage.getSettings();
+      }
+
       // Toggle between 'duration' and 'startTime'
-      const currentDisplay = ui.settings.heroTimeDisplay || 'duration';
+      const currentDisplay = ui.settings?.heroTimeDisplay || 'duration';
       const newDisplay = currentDisplay === 'duration' ? 'startTime' : 'duration';
 
       // Update settings
