@@ -218,7 +218,14 @@ class UI {
         displayNameRequired: 'Anzeigename erforderlich',
         nicknameTaken: 'Dieser Nickname ist bereits vergeben',
         profileCreated: 'Profil erstellt',
-        profileUpdated: 'Profil aktualisiert'
+        profileUpdated: 'Profil aktualisiert',
+        shareToFriend: 'An Friend senden',
+        selectFriend: 'Friend auswählen',
+        selectOption: '-- Bitte wählen --',
+        noFriendsToShare: 'Du hast noch keine Friends',
+        selectFriendFirst: 'Bitte wähle einen Friend',
+        sharing: 'Wird geteilt...',
+        canOnlyShareWithFriends: 'Du kannst nur mit Friends teilen'
       },
       en: {
         appName: 'Time Tracking',
@@ -427,7 +434,14 @@ class UI {
         displayNameRequired: 'Display name required',
         nicknameTaken: 'This nickname is already taken',
         profileCreated: 'Profile created',
-        profileUpdated: 'Profile updated'
+        profileUpdated: 'Profile updated',
+        shareToFriend: 'Send to friend',
+        selectFriend: 'Select friend',
+        selectOption: '-- Please select --',
+        noFriendsToShare: 'You have no friends yet',
+        selectFriendFirst: 'Please select a friend',
+        sharing: 'Sharing...',
+        canOnlyShareWithFriends: 'You can only share with friends'
       },
       hr: {
         appName: 'Evidencija vremena',
@@ -636,7 +650,14 @@ class UI {
         displayNameRequired: 'Ime za prikaz je obavezno',
         nicknameTaken: 'Ovaj nadimak je već zauzet',
         profileCreated: 'Profil kreiran',
-        profileUpdated: 'Profil ažuriran'
+        profileUpdated: 'Profil ažuriran',
+        shareToFriend: 'Pošalji prijatelju',
+        selectFriend: 'Odaberi prijatelja',
+        selectOption: '-- Molimo odaberite --',
+        noFriendsToShare: 'Još nemaš prijatelja',
+        selectFriendFirst: 'Molimo odaberi prijatelja',
+        sharing: 'Dijeljenje...',
+        canOnlyShareWithFriends: 'Možeš dijeliti samo s prijateljima'
       }
     };
   }
