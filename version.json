@@ -1,14 +1,8 @@
 {
-  "version": "1.9.0",
+  "version": "1.9.1",
   "releaseDate": "2025-12-12",
   "changelog": [
-    "Neu: QR-Code basiertes Friend-System - Sichere Verknüpfung mit anderen Usern",
-    "Neu: Share-Profil mit frei wählbarem Nickname (@nickname)",
-    "Neu: QR-Code Scanner zum Hinzufügen von Friends",
-    "Neu: Friend-Verwaltung - Übersicht und Entfernen von Friends",
-    "Geändert: Zeiteinträge nur noch an explizit hinzugefügte Friends teilbar",
-    "Verbessert: Settings aufgeräumt - Cloud Sync immer aktiv wenn angemeldet",
-    "Entfernt: Email-basiertes Sharing (ersetzt durch Friend-System)"
+    "Fix: Fehlermeldung beim Umschalten zwischen Dauer und Startzeit behoben"
   ],
   "critical": false
 }
