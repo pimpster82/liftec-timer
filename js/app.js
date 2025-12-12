@@ -1128,6 +1128,7 @@ class App {
 
       // Restart duration updater if session is active
       if (this.session) {
+        this.stopDurationUpdater();  // Stop old interval first
         this.startDurationUpdater();
       }
     } catch (error) {
