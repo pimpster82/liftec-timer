@@ -1,10 +1,11 @@
 {
-  "version": "1.9.7",
+  "version": "1.10.0",
   "releaseDate": "2025-12-12",
   "changelog": [
-    "Fix: Share-Notifications kommen jetzt auch bei schnell aufeinanderfolgenden Shares",
-    "Fix: lastSharedEntriesCheck wird nur noch aktualisiert, wenn Banner angezeigt wird",
-    "Fix: Notification-Timeout von 60 auf 5 Sekunden reduziert"
+    "Feature: Inbox-Dialog bleibt nach Accept/Decline offen für weitere Shares",
+    "Feature: Dialog schließt automatisch wenn alle Shares verarbeitet sind",
+    "Feature: Alte Shares werden automatisch aus Firestore gelöscht (Cleanup)",
+    "Improve: Bessere UX beim Verarbeiten mehrerer geteilter Einträge"
   ],
   "critical": false
 }

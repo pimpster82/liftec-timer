@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.9.7';
+const APP_VERSION = '1.10.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -523,11 +523,21 @@ class App {
         await storage.addWorklogEntry(share.entry);
       }
 
-      // Mark as imported in Firestore
-      await firebaseService.markSharedEntryAsImported(shareId);
+      // Delete from Firestore (cleanup old shares)
+      await firebaseService.deleteSharedEntry(shareId);
 
       ui.showToast(ui.t('entryImported'), 'success');
-      ui.hideModal();
+
+      // Check if there are more shares to process
+      const remainingShares = await firebaseService.getSharedEntries();
+
+      if (remainingShares.length === 0) {
+        // No more shares - close modal
+        ui.hideModal();
+      } else {
+        // Refresh inbox to show remaining entries (keep modal open)
+        await this.showSharedEntriesInbox();
+      }
 
       // Refresh history if we're on that screen
       if (this.currentView === 'history') {
@@ -542,12 +552,20 @@ class App {
 
   async declineSharedEntry(shareId) {
     try {
-      await firebaseService.markSharedEntryAsDeclined(shareId);
+      // Delete from Firestore (cleanup old shares)
+      await firebaseService.deleteSharedEntry(shareId);
       ui.showToast(ui.t('shareDeclined'), 'success');
 
-      // Refresh inbox
-      ui.hideModal();
-      await this.showSharedEntriesInbox();
+      // Check if there are more shares to process
+      const remainingShares = await firebaseService.getSharedEntries();
+
+      if (remainingShares.length === 0) {
+        // No more shares - close modal
+        ui.hideModal();
+      } else {
+        // Refresh inbox to show remaining entries (keep modal open)
+        await this.showSharedEntriesInbox();
+      }
 
     } catch (error) {
       console.error('Failed to decline shared entry:', error);

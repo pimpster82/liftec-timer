@@ -927,6 +927,24 @@ class FirebaseService {
   }
 
   /**
+   * Delete shared entry (cleanup after accept/decline)
+   * @param {string} shareId - Share ID
+   */
+  async deleteSharedEntry(shareId) {
+    if (!this.db || !this.currentUser) {
+      throw new Error('Not signed in');
+    }
+
+    try {
+      await this.db.collection('shared_entries').doc(shareId).delete();
+      console.log('✅ Shared entry deleted:', shareId);
+    } catch (error) {
+      console.error('Delete shared entry failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Listen for new shared entries (real-time)
    * @param {Function} callback - Called when new shares arrive
    * @returns {Function} Unsubscribe function
