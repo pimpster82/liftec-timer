@@ -356,6 +356,12 @@ class Storage {
     return entriesToDelete.length;
   }
 
+  // Get worklog entry by specific date (for duplicate checking)
+  async getWorklogEntryByDate(date) {
+    const allEntries = await this.getAllWorklogEntries();
+    return allEntries.find(entry => entry.date === date) || null;
+  }
+
   async updateWorklogEntry(entry) {
     // Update yearMonth index if date changed
     if (entry.date) {
