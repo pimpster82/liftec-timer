@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.8.2';
+const APP_VERSION = '1.9.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -427,7 +427,7 @@ class App {
             <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-2">
               <div class="flex items-start justify-between mb-2">
                 <div>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">${ui.t('sharedBy')}: ${share.fromName || share.fromEmail}</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">${ui.t('sharedBy')}: @${share.fromNickname} (${share.fromName})</p>
                   <p class="text-sm font-medium text-gray-900 dark:text-white mt-1">${share.entry.date}</p>
                   <p class="text-xs text-gray-600 dark:text-gray-400">
                     ${share.entry.startTime} - ${share.entry.endTime}
@@ -503,7 +503,7 @@ class App {
 
       if (existingEntry) {
         // Show duplicate warning dialog
-        const choice = await this.showDuplicateEntryDialog(share.entry, existingEntry, share.fromName || share.fromEmail);
+        const choice = await this.showDuplicateEntryDialog(share.entry, existingEntry, `@${share.fromNickname} (${share.fromName})`);
 
         if (choice === 'cancel') {
           return;
@@ -2537,33 +2537,30 @@ class App {
     if (firebaseService && firebaseService.isInitialized) {
       if (isSignedIn) {
         const statusText = isAnonymous ? 'Anonym angemeldet' : `Angemeldet als ${userEmail}`;
-        const statusColor = settings.cloudSync ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400';
         syncStatusHTML = `
-          <div class="mt-2 text-sm ${statusColor}">
-            ● ${statusText}${settings.cloudSync ? ' (Sync aktiv)' : ' (Sync deaktiviert)'}
+          <div class="mt-2 text-sm text-green-600 dark:text-green-400">
+            ● ${statusText} (Sync aktiv)
           </div>
         `;
 
         // Last sync time
-        if (settings.cloudSync) {
-          const lastSync = firebaseService.getLastSyncTime();
-          if (lastSync) {
-            const timeSince = Math.floor((Date.now() - lastSync.getTime()) / 1000 / 60); // minutes
-            const timeText = timeSince < 1 ? 'gerade eben' :
-                           timeSince < 60 ? `vor ${timeSince} Min` :
-                           `vor ${Math.floor(timeSince / 60)} Std`;
-            lastSyncHTML = `
-              <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Letzter Sync: ${timeText}
-              </div>
-            `;
-          } else {
-            lastSyncHTML = `
-              <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Noch kein Sync durchgeführt
-              </div>
-            `;
-          }
+        const lastSync = firebaseService.getLastSyncTime();
+        if (lastSync) {
+          const timeSince = Math.floor((Date.now() - lastSync.getTime()) / 1000 / 60); // minutes
+          const timeText = timeSince < 1 ? 'gerade eben' :
+                         timeSince < 60 ? `vor ${timeSince} Min` :
+                         `vor ${Math.floor(timeSince / 60)} Std`;
+          lastSyncHTML = `
+            <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Letzter Sync: ${timeText}
+            </div>
+          `;
+        } else {
+          lastSyncHTML = `
+            <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Noch kein Sync durchgeführt
+            </div>
+          `;
         }
       } else {
         syncStatusHTML = `
@@ -2597,15 +2594,7 @@ class App {
               ${syncStatusHTML}
               ${lastSyncHTML}
 
-              <div class="mt-3 flex items-center gap-3">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" id="setting-cloud-sync" ${settings.cloudSync ? 'checked' : ''}
-                    class="w-4 h-4 text-primary focus:ring-primary rounded" ${!isSignedIn ? 'disabled' : ''}>
-                  <span class="text-sm text-gray-700 dark:text-gray-300">Cloud Sync aktivieren</span>
-                </label>
-              </div>
-
-              ${isSignedIn && settings.cloudSync ? `
+              ${isSignedIn ? `
                 <div class="mt-3 space-y-2">
                   <button id="firebase-manual-sync" class="w-full px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
                     <span id="sync-button-text">Jetzt syncen</span>
@@ -2727,6 +2716,48 @@ class App {
             </div>
           </div>
 
+          <!-- Sharing & Friends Section -->
+          ${firebaseService && firebaseService.isInitialized && isSignedIn ? `
+            <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+              <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="sharing-content">
+                <div class="flex items-center gap-2">
+                  ${ui.icon('users')}
+                  <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Teilen & Freunde</h4>
+                </div>
+                ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
+              </button>
+              <div id="sharing-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
+
+                <div class="space-y-2">
+                  <button id="manage-profile-btn" class="w-full px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+                    ${ui.icon('user')}
+                    <span>Mein Share-Profil</span>
+                  </button>
+
+                  <button id="show-qr-btn" class="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
+                    ${ui.icon('qr-code')}
+                    <span>Mein QR-Code anzeigen</span>
+                  </button>
+
+                  <button id="scan-qr-btn" class="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
+                    ${ui.icon('camera')}
+                    <span>Friend QR scannen</span>
+                  </button>
+
+                  <button id="manage-friends-btn" class="w-full px-3 py-2 bg-gray-600 text-white rounded-lg text-sm font-semibold hover:bg-gray-700 flex items-center justify-center gap-2">
+                    ${ui.icon('users')}
+                    <span>Friends verwalten</span>
+                  </button>
+                </div>
+
+                <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
+                  ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
+                  <span>Erstelle ein Profil, teile deinen QR-Code und füge Friends hinzu um Zeiteinträge zu teilen</span>
+                </p>
+              </div>
+            </div>
+          ` : ''}
+
           <!-- Basic Settings -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
@@ -2771,11 +2802,6 @@ class App {
             </button>
             <div id="email-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary space-y-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email-Adresse</label>
-                <input type="email" id="setting-email" value="${settings.email}"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-              </div>
-              <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Betreff</label>
                 <input type="text" id="setting-email-subject" value="${settings.emailSubject}"
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
@@ -2814,25 +2840,6 @@ class App {
 
     // ===== Firebase Event Listeners =====
     if (firebaseService && firebaseService.isInitialized) {
-      // Cloud Sync Toggle
-      const cloudSyncCheckbox = document.getElementById('setting-cloud-sync');
-      if (cloudSyncCheckbox) {
-        cloudSyncCheckbox.addEventListener('change', async (e) => {
-          const enabled = e.target.checked;
-          if (enabled) {
-            firebaseService.enableSync();
-            // Start initial sync
-            const entries = await storage.getAllWorklogEntries();
-            if (entries.length > 0) {
-              ui.showToast('Synchronisiere Daten...', 'info');
-              await firebaseService.syncWorklogEntries(entries);
-            }
-          } else {
-            firebaseService.disableSync();
-          }
-        });
-      }
-
       // Anonymous Login
       const anonLoginBtn = document.getElementById('firebase-login-anon');
       if (anonLoginBtn) {
@@ -3026,17 +3033,46 @@ class App {
     this.loadVersionsList();
 
     // ===== Settings Save =====
+    // Sharing & Friends Event Listeners
+    const manageProfileBtn = document.getElementById('manage-profile-btn');
+    if (manageProfileBtn) {
+      manageProfileBtn.addEventListener('click', () => {
+        ui.hideModal();
+        this.showShareProfileDialog();
+      });
+    }
+
+    const showQRBtn = document.getElementById('show-qr-btn');
+    if (showQRBtn) {
+      showQRBtn.addEventListener('click', () => {
+        ui.hideModal();
+        this.showMyQRCode();
+      });
+    }
+
+    const scanQRBtn = document.getElementById('scan-qr-btn');
+    if (scanQRBtn) {
+      scanQRBtn.addEventListener('click', () => {
+        ui.hideModal();
+        this.showQRScanner();
+      });
+    }
+
+    const manageFriendsBtn = document.getElementById('manage-friends-btn');
+    if (manageFriendsBtn) {
+      manageFriendsBtn.addEventListener('click', () => {
+        ui.hideModal();
+        this.showFriendsList();
+      });
+    }
+
     document.getElementById('settings-save').addEventListener('click', async () => {
       const newSettings = {
         username: document.getElementById('setting-username').value,
-        email: document.getElementById('setting-email').value,
         language: document.getElementById('setting-language').value,
         surchargePercent: parseInt(document.getElementById('setting-surcharge').value),
         emailSubject: document.getElementById('setting-email-subject').value,
         emailBody: document.getElementById('setting-email-body').value,
-        cloudSync: document.getElementById('setting-cloud-sync') ?
-                   document.getElementById('setting-cloud-sync').checked :
-                   settings.cloudSync,
         onCallEnabled: document.getElementById('setting-oncall-enabled').checked
       };
 
@@ -4093,88 +4129,96 @@ class App {
   }
 
   async shareWorklogEntryToUser(entry) {
-    return new Promise((resolve) => {
-      const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-            ${ui.icon('user-plus')}
-            <span>${ui.t('shareToUser')}</span>
-          </h3>
+    try {
+      // Load friends list
+      const friends = await firebaseService.getFriends();
 
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              ${ui.t('enterEmailOrNickname')}
-            </label>
-            <input
-              type="text"
-              id="share-user-input"
-              placeholder="user@email.com oder @nickname"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            >
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              ${ui.t('shareUserHint')}
-            </p>
+      if (friends.length === 0) {
+        ui.showToast(ui.t('noFriendsToShare'), 'error');
+        return;
+      }
+
+      return new Promise((resolve) => {
+        const friendOptions = friends.map(friend =>
+          `<option value="${friend.uid}">@${friend.nickname} (${friend.displayName})</option>`
+        ).join('');
+
+        const content = `
+          <div class="p-6">
+            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+              ${ui.icon('user-plus')}
+              <span>${ui.t('shareToFriend')}</span>
+            </h3>
+
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                ${ui.t('selectFriend')}
+              </label>
+              <select id="share-friend-select" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                <option value="">${ui.t('selectOption')}</option>
+                ${friendOptions}
+              </select>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
+              <p class="text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('sharingEntry')}:</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">${entry.date}</p>
+              <p class="text-xs text-gray-600 dark:text-gray-400">
+                ${entry.startTime} - ${entry.endTime} (${entry.tasks?.length || 0} ${ui.t('tasks')})
+              </p>
+            </div>
+
+            <div class="flex gap-2">
+              <button id="share-send-btn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+                ${ui.t('send')}
+              </button>
+              <button id="dialog-cancel" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+                ${ui.t('cancel')}
+              </button>
+            </div>
           </div>
+        `;
 
-          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
-            <p class="text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('sharingEntry')}:</p>
-            <p class="text-sm font-medium text-gray-900 dark:text-white">${entry.date}</p>
-            <p class="text-xs text-gray-600 dark:text-gray-400">
-              ${entry.startTime} - ${entry.endTime} (${entry.tasks?.length || 0} ${ui.t('tasks')})
-            </p>
-          </div>
+        ui.showModal(content);
 
-          <div class="flex gap-2">
-            <button id="share-send-btn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
-              ${ui.t('send')}
-            </button>
-            <button id="dialog-cancel" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-              ${ui.t('cancel')}
-            </button>
-          </div>
-        </div>
-      `;
+        const select = document.getElementById('share-friend-select');
 
-      ui.showModal(content);
-
-      const input = document.getElementById('share-user-input');
-      input.focus();
-
-      const sendShare = async () => {
-        const identifier = input.value.trim();
-        if (!identifier) {
-          ui.showToast(ui.t('enterEmailOrNickname'), 'error');
-          return;
-        }
-
-        try {
-          ui.showToast(ui.t('searching'), 'info');
-
-          const result = await firebaseService.shareWorklogEntry(entry, identifier);
-
-          ui.hideModal();
-          ui.showToast(ui.t('sharedWithUser').replace('{user}', result.recipientEmail), 'success');
-          resolve(true);
-        } catch (error) {
-          console.error('Cloud share failed:', error);
-          if (error.message.includes('not found')) {
-            ui.showToast(ui.t('userNotFound'), 'error');
-          } else {
-            ui.showToast(ui.t('shareFailed'), 'error');
+        const sendShare = async () => {
+          const friendUserId = select.value;
+          if (!friendUserId) {
+            ui.showToast(ui.t('selectFriendFirst'), 'error');
+            return;
           }
-        }
-      };
 
-      document.getElementById('share-send-btn').addEventListener('click', sendShare);
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendShare();
-      });
+          try {
+            ui.showToast(ui.t('sharing'), 'info');
 
-      document.getElementById('dialog-cancel').addEventListener('click', () => {
-        ui.hideModal();
-        resolve(false);
+            const result = await firebaseService.shareWorklogEntry(entry, friendUserId);
+
+            ui.hideModal();
+            ui.showToast(ui.t('sharedWithUser').replace('{user}', `@${result.recipientNickname}`), 'success');
+            resolve(true);
+          } catch (error) {
+            console.error('Cloud share failed:', error);
+            if (error.message.includes('only share with friends')) {
+              ui.showToast(ui.t('canOnlyShareWithFriends'), 'error');
+            } else {
+              ui.showToast(ui.t('shareFailed'), 'error');
+            }
+          }
+        };
+
+        document.getElementById('share-send-btn').addEventListener('click', sendShare);
+
+        document.getElementById('dialog-cancel').addEventListener('click', () => {
+          ui.hideModal();
+          resolve(false);
+        });
       });
-    });
+    } catch (error) {
+      console.error('Failed to load friends:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
   }
 
   async shareWorklogEntryViaFile(entry) {
@@ -4448,6 +4492,431 @@ class App {
         resolve('cancel');
       });
     });
+  }
+
+  // ===== QR Code & Friend System =====
+
+  /**
+   * Show QR code for own share profile
+   */
+  async showMyQRCode() {
+    if (!firebaseService.isSignedIn()) {
+      ui.showToast(ui.t('mustBeSignedIn'), 'error');
+      return;
+    }
+
+    try {
+      const profile = await firebaseService.getShareProfile();
+
+      if (!profile) {
+        ui.showToast(ui.t('createProfileFirst'), 'error');
+        return;
+      }
+
+      // QR Data: userId|nickname
+      const qrData = `liftec-timer://add-friend/${firebaseService.currentUser.uid}|${profile.nickname}`;
+
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white text-center">
+            ${ui.t('myQRCode')}
+          </h3>
+
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-center">
+            <p class="text-2xl font-bold text-gray-900 dark:text-white mb-1">@${profile.nickname}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">${profile.displayName}</p>
+          </div>
+
+          <!-- QR Code Container -->
+          <div id="qrcode-container" class="bg-white p-4 rounded-lg mx-auto mb-4 flex justify-center"></div>
+
+          <p class="text-xs text-gray-500 dark:text-gray-400 text-center mb-4">
+            ${ui.t('qrCodeHint')}
+          </p>
+
+          <button id="qr-close-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('close')}
+          </button>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      // Generate QR Code
+      const qrContainer = document.getElementById('qrcode-container');
+      new QRCode(qrContainer, {
+        text: qrData,
+        width: 200,
+        height: 200,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      document.getElementById('qr-close-btn').addEventListener('click', () => {
+        ui.hideModal();
+      });
+
+    } catch (error) {
+      console.error('Show QR code failed:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * Show QR scanner to add friend
+   */
+  async showQRScanner() {
+    if (!firebaseService.isSignedIn()) {
+      ui.showToast(ui.t('mustBeSignedIn'), 'error');
+      return;
+    }
+
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white text-center">
+          ${ui.t('scanQRCode')}
+        </h3>
+
+        <!-- Scanner Container -->
+        <div id="qr-reader" class="mb-4 rounded-lg overflow-hidden"></div>
+
+        <p class="text-xs text-gray-500 dark:text-gray-400 text-center mb-4">
+          ${ui.t('scannerHint')}
+        </p>
+
+        <button id="scanner-close-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+          ${ui.t('cancel')}
+        </button>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    // Initialize QR Scanner
+    const html5QrCode = new Html5Qrcode("qr-reader");
+
+    const onScanSuccess = async (decodedText) => {
+      // Stop scanner
+      await html5QrCode.stop();
+      ui.hideModal();
+
+      // Parse QR data: liftec-timer://add-friend/{userId}|{nickname}
+      if (decodedText.startsWith('liftec-timer://add-friend/')) {
+        const data = decodedText.replace('liftec-timer://add-friend/', '');
+        const [userId, nickname] = data.split('|');
+
+        await this.confirmAddFriend(userId, nickname);
+      } else {
+        ui.showToast(ui.t('invalidQRCode'), 'error');
+      }
+    };
+
+    const onScanError = (errorMessage) => {
+      // Silent - scanning errors are normal
+    };
+
+    // Start scanning
+    html5QrCode.start(
+      { facingMode: "environment" }, // Use back camera
+      {
+        fps: 10,
+        qrbox: { width: 250, height: 250 }
+      },
+      onScanSuccess,
+      onScanError
+    ).catch(err => {
+      console.error('Scanner start failed:', err);
+      ui.showToast(ui.t('cameraError'), 'error');
+      ui.hideModal();
+    });
+
+    // Close button
+    document.getElementById('scanner-close-btn').addEventListener('click', async () => {
+      await html5QrCode.stop();
+      ui.hideModal();
+    });
+  }
+
+  /**
+   * Confirm adding a friend after QR scan
+   */
+  async confirmAddFriend(friendUserId, friendNickname) {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white text-center">
+            ${ui.t('addFriend')}
+          </h3>
+
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-center">
+            <p class="text-xl font-bold text-gray-900 dark:text-white">@${friendNickname}</p>
+          </div>
+
+          <p class="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
+            ${ui.t('addFriendConfirm')}
+          </p>
+
+          <div class="flex gap-2">
+            <button id="add-friend-yes" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+              ${ui.t('yes')}
+            </button>
+            <button id="add-friend-no" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('no')}
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.getElementById('add-friend-yes').addEventListener('click', async () => {
+        try {
+          await firebaseService.addFriend(friendUserId);
+          ui.hideModal();
+          ui.showToast(ui.t('friendAdded').replace('{nickname}', `@${friendNickname}`), 'success');
+          resolve(true);
+        } catch (error) {
+          console.error('Add friend failed:', error);
+          ui.hideModal();
+
+          if (error.message.includes('create a share profile first')) {
+            ui.showToast(ui.t('createProfileFirst'), 'error');
+          } else if (error.message.includes('no share profile')) {
+            ui.showToast(ui.t('friendHasNoProfile'), 'error');
+          } else {
+            ui.showToast(ui.t('error'), 'error');
+          }
+          resolve(false);
+        }
+      });
+
+      document.getElementById('add-friend-no').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(false);
+      });
+    });
+  }
+
+  /**
+   * Show friends list with management options
+   */
+  async showFriendsList() {
+    if (!firebaseService.isSignedIn()) {
+      ui.showToast(ui.t('mustBeSignedIn'), 'error');
+      return;
+    }
+
+    try {
+      const friends = await firebaseService.getFriends();
+
+      const friendsHtml = friends.length > 0
+        ? friends.map(friend => `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg mb-2">
+              <div>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">@${friend.nickname}</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400">${friend.displayName}</p>
+              </div>
+              <button class="remove-friend-btn text-red-500 hover:text-red-700 text-sm" data-friend-id="${friend.uid}" data-friend-nickname="${friend.nickname}">
+                ${ui.icon('trash-2', 'w-5 h-5')}
+              </button>
+            </div>
+          `).join('')
+        : `<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">${ui.t('noFriends')}</p>`;
+
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('users')}
+            <span>${ui.t('myFriends')}</span>
+          </h3>
+
+          <div class="max-h-96 overflow-y-auto mb-4">
+            ${friendsHtml}
+          </div>
+
+          <button id="friends-close-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('close')}
+          </button>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      // Remove friend buttons
+      document.querySelectorAll('.remove-friend-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const friendId = e.currentTarget.getAttribute('data-friend-id');
+          const nickname = e.currentTarget.getAttribute('data-friend-nickname');
+
+          const confirmed = await this.showConfirmDialog(
+            ui.t('removeFriend'),
+            ui.t('removeFriendConfirm').replace('{nickname}', `@${nickname}`)
+          );
+
+          if (confirmed) {
+            try {
+              await firebaseService.removeFriend(friendId);
+              ui.showToast(ui.t('friendRemoved'), 'success');
+              ui.hideModal();
+              // Reopen to refresh list
+              await this.showFriendsList();
+            } catch (error) {
+              console.error('Remove friend failed:', error);
+              ui.showToast(ui.t('error'), 'error');
+            }
+          }
+        });
+      });
+
+      document.getElementById('friends-close-btn').addEventListener('click', () => {
+        ui.hideModal();
+      });
+
+    } catch (error) {
+      console.error('Show friends failed:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * Show create/edit share profile dialog
+   */
+  async showShareProfileDialog() {
+    if (!firebaseService.isSignedIn()) {
+      ui.showToast(ui.t('mustBeSignedIn'), 'error');
+      return;
+    }
+
+    try {
+      const profile = await firebaseService.getShareProfile();
+      const isEdit = !!profile;
+
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+            ${isEdit ? ui.t('editProfile') : ui.t('createProfile')}
+          </h3>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                ${ui.t('nickname')} *
+              </label>
+              <div class="flex gap-2">
+                <span class="flex items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-l-lg">@</span>
+                <input
+                  type="text"
+                  id="profile-nickname"
+                  value="${profile?.nickname || ''}"
+                  placeholder="maya"
+                  class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-r-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  ${isEdit ? 'disabled' : ''}
+                >
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                ${isEdit ? ui.t('nicknameCannotChange') : ui.t('nicknameHint')}
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                ${ui.t('displayName')} *
+              </label>
+              <input
+                type="text"
+                id="profile-displayname"
+                value="${profile?.displayName || ui.settings.username || ''}"
+                placeholder="Maya Liftec"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              >
+            </div>
+          </div>
+
+          <div class="flex gap-2 mt-6">
+            <button id="save-profile-btn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+              ${ui.t('save')}
+            </button>
+            <button id="cancel-profile-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      const nicknameInput = document.getElementById('profile-nickname');
+      const displayNameInput = document.getElementById('profile-displayname');
+
+      // Real-time nickname validation (only for new profiles)
+      if (!isEdit) {
+        let checkTimeout;
+        nicknameInput.addEventListener('input', () => {
+          clearTimeout(checkTimeout);
+          const nickname = nicknameInput.value.trim().toLowerCase();
+
+          if (nickname.length < 3) {
+            nicknameInput.classList.remove('border-green-500', 'border-red-500');
+            return;
+          }
+
+          checkTimeout = setTimeout(async () => {
+            const available = await firebaseService.checkNicknameAvailable(nickname);
+            if (available) {
+              nicknameInput.classList.remove('border-red-500');
+              nicknameInput.classList.add('border-green-500');
+            } else {
+              nicknameInput.classList.remove('border-green-500');
+              nicknameInput.classList.add('border-red-500');
+            }
+          }, 500);
+        });
+      }
+
+      document.getElementById('save-profile-btn').addEventListener('click', async () => {
+        const nickname = nicknameInput.value.trim().toLowerCase();
+        const displayName = displayNameInput.value.trim();
+
+        if (!nickname || nickname.length < 3) {
+          ui.showToast(ui.t('nicknameMinLength'), 'error');
+          return;
+        }
+
+        if (!displayName) {
+          ui.showToast(ui.t('displayNameRequired'), 'error');
+          return;
+        }
+
+        try {
+          if (isEdit) {
+            await firebaseService.updateShareProfile({ displayName });
+            ui.showToast(ui.t('profileUpdated'), 'success');
+          } else {
+            await firebaseService.createShareProfile(nickname, displayName);
+            ui.showToast(ui.t('profileCreated'), 'success');
+          }
+
+          ui.hideModal();
+        } catch (error) {
+          console.error('Save profile failed:', error);
+
+          if (error.message.includes('already taken')) {
+            ui.showToast(ui.t('nicknameTaken'), 'error');
+          } else {
+            ui.showToast(ui.t('error'), 'error');
+          }
+        }
+      });
+
+      document.getElementById('cancel-profile-btn').addEventListener('click', () => {
+        ui.hideModal();
+      });
+
+    } catch (error) {
+      console.error('Show profile dialog failed:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
   }
 
   // ===== About =====

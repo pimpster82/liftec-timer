@@ -1,12 +1,14 @@
 {
-  "version": "1.8.2",
+  "version": "1.9.0",
   "releaseDate": "2025-12-12",
   "changelog": [
-    "Neu: Cloud-Sharing - Zeiteinträge direkt an andere User senden (@nickname oder Email)",
-    "Neu: Echtzeit-Benachrichtigungen für geteilte Einträge von anderen Usern",
-    "Neu: Shared Entries Inbox für empfangene Einträge",
-    "Verbesserung: Update-Banner jetzt mit Expand/Collapse Funktion",
-    "Verbesserung: Kompakterer Update-Notifier mit Beschreibung beim Ausklappen"
+    "Neu: QR-Code basiertes Friend-System - Sichere Verknüpfung mit anderen Usern",
+    "Neu: Share-Profil mit frei wählbarem Nickname (@nickname)",
+    "Neu: QR-Code Scanner zum Hinzufügen von Friends",
+    "Neu: Friend-Verwaltung - Übersicht und Entfernen von Friends",
+    "Geändert: Zeiteinträge nur noch an explizit hinzugefügte Friends teilbar",
+    "Verbessert: Settings aufgeräumt - Cloud Sync immer aktiv wenn angemeldet",
+    "Entfernt: Email-basiertes Sharing (ersetzt durch Friend-System)"
   ],
   "critical": false
 }
