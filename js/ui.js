@@ -181,7 +181,16 @@ class UI {
         declineShare: 'Ablehnen',
         noSharedEntries: 'Keine geteilten Einträge',
         shareDeclined: 'Eintrag abgelehnt',
-        mustBeSignedIn: 'Du musst angemeldet sein um diese Funktion zu nutzen'
+        mustBeSignedIn: 'Du musst angemeldet sein um diese Funktion zu nutzen',
+        signInToShareCloud: 'Melde dich an, um Einträge mit anderen Usern zu teilen',
+        shareUserHint: 'Gib die E-Mail oder den @nickname des Empfängers ein',
+        sharingEntry: 'Eintrag wird geteilt',
+        send: 'Senden',
+        searching: 'Suche...',
+        tasks: 'Aufgaben',
+        hasSharedEntries: 'Du hast neue geteilte Einträge',
+        viewShares: 'Anzeigen',
+        dismiss: 'Schließen'
       },
       en: {
         appName: 'Time Tracking',
@@ -353,7 +362,16 @@ class UI {
         declineShare: 'Decline',
         noSharedEntries: 'No shared entries',
         shareDeclined: 'Entry declined',
-        mustBeSignedIn: 'You must be signed in to use this feature'
+        mustBeSignedIn: 'You must be signed in to use this feature',
+        signInToShareCloud: 'Sign in to share entries with other users',
+        shareUserHint: 'Enter the recipient\'s email or @nickname',
+        sharingEntry: 'Sharing entry',
+        send: 'Send',
+        searching: 'Searching...',
+        tasks: 'Tasks',
+        hasSharedEntries: 'You have new shared entries',
+        viewShares: 'View',
+        dismiss: 'Dismiss'
       },
       hr: {
         appName: 'Evidencija vremena',
@@ -525,7 +543,16 @@ class UI {
         declineShare: 'Odbij',
         noSharedEntries: 'Nema podijeljenih unosa',
         shareDeclined: 'Unos odbijen',
-        mustBeSignedIn: 'Morate biti prijavljeni da koristite ovu funkciju'
+        mustBeSignedIn: 'Morate biti prijavljeni da koristite ovu funkciju',
+        signInToShareCloud: 'Prijavite se za dijeljenje unosa s drugim korisnicima',
+        shareUserHint: 'Unesite email ili @nadimak primatelja',
+        sharingEntry: 'Dijeljenje unosa',
+        send: 'Pošalji',
+        searching: 'Tražim...',
+        tasks: 'Zadaci',
+        hasSharedEntries: 'Imate nove podijeljene unose',
+        viewShares: 'Prikaži',
+        dismiss: 'Zatvori'
       }
     };
   }
