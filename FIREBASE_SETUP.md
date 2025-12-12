@@ -90,6 +90,25 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Shared entries collection für Friend-Sharing (v1.6.0+)
+    match /shared_entries/{shareId} {
+      // Lesen: Nur wenn du sender oder recipient bist
+      allow read: if request.auth != null &&
+        (resource.data.senderId == request.auth.uid ||
+         resource.data.recipientId == request.auth.uid);
+
+      // Erstellen: Nur als sender
+      allow create: if request.auth != null &&
+        request.resource.data.senderId == request.auth.uid;
+
+      // Update: Nur als recipient (um status zu ändern: imported/declined)
+      allow update: if request.auth != null &&
+        resource.data.recipientId == request.auth.uid;
+
+      // Löschen: Nicht erlaubt (alte Shares bleiben zur Nachvollziehbarkeit)
+      allow delete: if false;
+    }
+
     // Keine anderen Zugriffe erlaubt
     match /{document=**} {
       allow read, write: if false;
@@ -99,8 +118,10 @@ service cloud.firestore {
 ```
 
 **Wichtig:** Diese Rules bedeuten:
-- ✅ Jeder User kann nur seine eigenen Daten sehen
+- ✅ Jeder User kann nur seine eigenen Daten sehen (`/users/{userId}/...`)
 - ✅ Anonyme User haben auch Zugriff (aber nur auf ihre Daten)
+- ✅ Users können Worklog-Einträge mit Friends teilen (`shared_entries`)
+- ✅ Users sehen nur geteilte Einträge, wo sie sender oder recipient sind
 - ❌ Kein User kann Daten von anderen sehen
 
 ---
@@ -254,6 +275,17 @@ Eintrag X ändern       Eintrag X ändern
 - Firestore Rules prüfen (siehe oben)
 - User muss angemeldet sein
 - User ID muss mit Firestore Path übereinstimmen
+
+### Problem: "Share listener error: Missing or insufficient permissions"
+**Ursache:** Die Firestore Security Rules fehlen für die `shared_entries` Collection (Friend-Sharing Feature ab v1.6.0)
+
+**Lösung:**
+1. Firebase Console öffnen → **Firestore Database** → **Rules**
+2. Die Rules mit den **aktualisierten Rules** von oben ersetzen (inkl. `shared_entries` Block)
+3. "Veröffentlichen" klicken
+4. App neu laden
+
+**Hinweis:** Dieser Fehler ist harmlos für die Hauptfunktionen der App. Er betrifft nur das Friend-Sharing Feature. Die App funktioniert trotzdem normal für normale Worklog-Einträge.
 
 ### Problem: Daten nicht gesynct
 **Lösung:**
