@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.9.2';
+const APP_VERSION = '1.9.3';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1126,7 +1126,7 @@ class App {
 
       // Update settings
       ui.settings.heroTimeDisplay = newDisplay;
-      await storage.updateSettings(ui.settings);
+      await storage.saveSettings(ui.settings);
 
       // Re-render main screen to update display
       await this.renderMainScreen();
