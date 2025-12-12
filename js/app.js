@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.10.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -418,6 +418,10 @@ class App {
     });
   }
 
+  hideSharedEntriesBanner() {
+    document.getElementById('shared-entries-banner')?.remove();
+  }
+
   async showSharedEntriesInbox() {
     try {
       const sharedEntries = await firebaseService.getSharedEntries();
@@ -532,8 +536,9 @@ class App {
       const remainingShares = await firebaseService.getSharedEntries();
 
       if (remainingShares.length === 0) {
-        // No more shares - close modal
+        // No more shares - close modal and remove banner
         ui.hideModal();
+        this.hideSharedEntriesBanner();
       } else {
         // Refresh inbox to show remaining entries (keep modal open)
         await this.showSharedEntriesInbox();
@@ -560,8 +565,9 @@ class App {
       const remainingShares = await firebaseService.getSharedEntries();
 
       if (remainingShares.length === 0) {
-        // No more shares - close modal
+        // No more shares - close modal and remove banner
         ui.hideModal();
+        this.hideSharedEntriesBanner();
       } else {
         // Refresh inbox to show remaining entries (keep modal open)
         await this.showSharedEntriesInbox();
