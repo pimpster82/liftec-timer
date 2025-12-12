@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.8.1';
+const APP_VERSION = '1.8.2';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -31,6 +31,11 @@ class App {
       if (typeof firebaseService !== 'undefined') {
         await firebaseService.init();
         console.log('Firebase service initialized');
+
+        // Setup shared entries listener if signed in
+        if (firebaseService.isSignedIn()) {
+          this.setupSharedEntriesListener();
+        }
       }
 
       // Load current session
@@ -152,70 +157,130 @@ class App {
   showUpdateBanner(updateInfo) {
     const banner = document.createElement('div');
     banner.id = 'update-banner';
-    banner.className = 'fixed top-0 left-0 right-0 bg-blue-600 text-white p-3 shadow-lg z-50 animate-slide-down';
+    banner.className = 'fixed top-4 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg z-50 max-w-xs border border-gray-200 dark:border-gray-700 transition-all';
 
-    // Only show first 2 changelog items to save space
-    const changelogItems = updateInfo.changelog ? updateInfo.changelog.slice(0, 2) : [];
-    const hasMore = updateInfo.changelog && updateInfo.changelog.length > 2;
-    const changelogHtml = changelogItems.length > 0
-      ? `<ul class="text-xs mt-1.5 space-y-0.5 opacity-90">${changelogItems.map(item => `<li>• ${item}</li>`).join('')}</ul>${hasMore ? '<p class="text-xs mt-1 opacity-75">+ weitere Verbesserungen</p>' : ''}`
-      : '';
+    const firstChangelog = updateInfo.changelog && updateInfo.changelog.length > 0
+      ? updateInfo.changelog[0]
+      : 'Neue Version verfügbar';
 
     banner.innerHTML = `
-      <div class="max-w-4xl mx-auto">
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5 mb-0.5">
-              <strong class="text-base">Update v${updateInfo.version}</strong>
-              ${updateInfo.critical ? '<span class="bg-red-500 px-1.5 py-0.5 rounded text-xs ml-1">Wichtig</span>' : ''}
+      <div class="p-3">
+        <!-- Collapsed State -->
+        <div id="banner-collapsed">
+          <button id="banner-expand-btn" class="w-full flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-1 -m-1">
+            <div class="flex items-center gap-2">
+              ${ui.icon('download', 'w-5 h-5 text-blue-500')}
+              <span class="text-sm font-medium text-gray-900 dark:text-white">
+                Update v${updateInfo.version}
+              </span>
             </div>
-            ${changelogHtml}
-          </div>
-          <button id="update-banner-close" class="flex-shrink-0 text-white hover:text-gray-200" ${updateInfo.critical ? 'disabled style="display:none"' : ''}>
-            ${ui.icon('x')}
+            ${ui.icon('chevron-down', 'w-4 h-4 text-gray-400')}
           </button>
         </div>
-        <div class="flex gap-2 mt-3">
-          <button id="update-now-btn" class="px-3 py-1.5 bg-white text-blue-600 rounded text-sm font-semibold hover:bg-gray-100">
-            Aktualisieren
-          </button>
-          ${!updateInfo.critical ? `
-            <button id="update-later-btn" class="px-3 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-400">
-              Später
+
+        <!-- Expanded State -->
+        <div id="banner-expanded" class="hidden">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <div class="flex items-center gap-2">
+              ${ui.icon('download', 'w-5 h-5 text-blue-500')}
+              <span class="text-sm font-medium text-gray-900 dark:text-white">
+                Update v${updateInfo.version}
+              </span>
+            </div>
+            <button id="banner-collapse-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              ${ui.icon('chevron-up', 'w-4 h-4')}
             </button>
-            <button id="update-dismiss-btn" class="px-3 py-1.5 text-white hover:bg-blue-500 rounded text-sm">
-              Ignorieren
+          </div>
+          <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">${firstChangelog}</p>
+          <div class="flex flex-col gap-2">
+            <button id="update-now-btn" class="w-full px-3 py-2 bg-blue-500 text-white rounded text-sm font-semibold hover:bg-blue-600">
+              Installieren
             </button>
-          ` : ''}
+            <div class="flex gap-2">
+              <button id="update-info-btn" class="flex-1 text-xs text-blue-500 hover:underline">
+                Mehr Info
+              </button>
+              ${!updateInfo.critical ? `
+                <button id="update-skip-btn" class="flex-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                  Überspringen
+                </button>
+              ` : ''}
+            </div>
+          </div>
         </div>
       </div>
     `;
 
     document.body.prepend(banner);
 
+    // Toggle expand/collapse
+    document.getElementById('banner-expand-btn').addEventListener('click', () => {
+      document.getElementById('banner-collapsed').classList.add('hidden');
+      document.getElementById('banner-expanded').classList.remove('hidden');
+    });
+
+    document.getElementById('banner-collapse-btn').addEventListener('click', () => {
+      document.getElementById('banner-expanded').classList.add('hidden');
+      document.getElementById('banner-collapsed').classList.remove('hidden');
+    });
+
     // Event listeners
     document.getElementById('update-now-btn').addEventListener('click', () => {
       this.performUpdate();
     });
 
-    if (!updateInfo.critical) {
-      document.getElementById('update-banner-close')?.addEventListener('click', () => {
-        banner.remove();
-      });
+    document.getElementById('update-info-btn').addEventListener('click', () => {
+      banner.remove();
+      this.showUpdateDetails(updateInfo);
+    });
 
-      document.getElementById('update-later-btn')?.addEventListener('click', () => {
-        // Remind in 24 hours
+    if (!updateInfo.critical) {
+      document.getElementById('update-skip-btn')?.addEventListener('click', () => {
         localStorage.setItem('remindUpdateLater', String(Date.now() + 24 * 60 * 60 * 1000));
         banner.remove();
-        ui.showToast('Erinnerung in 24 Stunden', 'info');
-      });
-
-      document.getElementById('update-dismiss-btn')?.addEventListener('click', () => {
-        localStorage.setItem('dismissedUpdateVersion', updateInfo.version);
-        banner.remove();
-        ui.showToast('Update-Benachrichtigung deaktiviert', 'info');
       });
     }
+  }
+
+  showUpdateDetails(updateInfo) {
+    const changelogHtml = updateInfo.changelog && updateInfo.changelog.length > 0
+      ? updateInfo.changelog.map(item => `<li class="text-sm text-gray-700 dark:text-gray-300">• ${item}</li>`).join('')
+      : '<li class="text-sm text-gray-500">Keine Details verfügbar</li>';
+
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+          ${ui.icon('info')}
+          <span>Update v${updateInfo.version}</span>
+        </h3>
+
+        <div class="mb-4">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Veröffentlicht: ${updateInfo.releaseDate || 'Heute'}</p>
+          <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Was ist neu:</h4>
+          <ul class="space-y-1">${changelogHtml}</ul>
+        </div>
+
+        <div class="flex gap-2">
+          <button id="details-update-btn" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600">
+            Jetzt installieren
+          </button>
+          <button id="details-close-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            Schließen
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('details-update-btn').addEventListener('click', () => {
+      ui.hideModal();
+      this.performUpdate();
+    });
+
+    document.getElementById('details-close-btn').addEventListener('click', () => {
+      ui.hideModal();
+    });
   }
 
   async performUpdate() {
@@ -253,6 +318,237 @@ class App {
     document.getElementById('update-btn')?.addEventListener('click', () => {
       this.performUpdate();
     });
+  }
+
+  // ===== Shared Entries Notifications =====
+
+  setupSharedEntriesListener() {
+    if (!firebaseService.isSignedIn()) return;
+
+    // Real-time listener for new shared entries
+    this.sharedEntriesUnsubscribe = firebaseService.onSharedEntriesChange(async (sharedEntries) => {
+      if (sharedEntries.length > 0) {
+        // Check if this is a new notification (not from page load)
+        const lastCheck = localStorage.getItem('lastSharedEntriesCheck');
+        const now = Date.now();
+
+        // Only show banner if we haven't checked in the last minute (avoid showing on every page load)
+        if (!lastCheck || (now - parseInt(lastCheck)) > 60000) {
+          this.showSharedEntriesBanner(sharedEntries.length);
+        }
+
+        localStorage.setItem('lastSharedEntriesCheck', String(now));
+      }
+    });
+  }
+
+  showSharedEntriesBanner(count) {
+    // Remove existing banner if any
+    document.getElementById('shared-entries-banner')?.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'shared-entries-banner';
+    banner.className = 'fixed top-20 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg z-50 max-w-xs border border-green-200 dark:border-green-700 transition-all';
+
+    banner.innerHTML = `
+      <div class="p-3">
+        <!-- Collapsed State -->
+        <div id="shares-banner-collapsed">
+          <button id="shares-banner-expand-btn" class="w-full flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded p-1 -m-1">
+            <div class="flex items-center gap-2">
+              ${ui.icon('inbox', 'w-5 h-5 text-green-500')}
+              <span class="text-sm font-medium text-gray-900 dark:text-white">
+                ${count} ${ui.t('newShares')}
+              </span>
+            </div>
+            ${ui.icon('chevron-down', 'w-4 h-4 text-gray-400')}
+          </button>
+        </div>
+
+        <!-- Expanded State -->
+        <div id="shares-banner-expanded" class="hidden">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <div class="flex items-center gap-2">
+              ${ui.icon('inbox', 'w-5 h-5 text-green-500')}
+              <span class="text-sm font-medium text-gray-900 dark:text-white">
+                ${count} ${ui.t('newShares')}
+              </span>
+            </div>
+            <button id="shares-banner-collapse-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              ${ui.icon('chevron-up', 'w-4 h-4')}
+            </button>
+          </div>
+          <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">
+            ${ui.t('hasSharedEntries')}
+          </p>
+          <div class="flex flex-col gap-2">
+            <button id="view-shares-btn" class="w-full px-3 py-2 bg-green-500 text-white rounded text-sm font-semibold hover:bg-green-600">
+              ${ui.t('viewShares')}
+            </button>
+            <button id="dismiss-shares-btn" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+              ${ui.t('dismiss')}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.prepend(banner);
+
+    // Toggle expand/collapse
+    document.getElementById('shares-banner-expand-btn').addEventListener('click', () => {
+      document.getElementById('shares-banner-collapsed').classList.add('hidden');
+      document.getElementById('shares-banner-expanded').classList.remove('hidden');
+    });
+
+    document.getElementById('shares-banner-collapse-btn').addEventListener('click', () => {
+      document.getElementById('shares-banner-expanded').classList.add('hidden');
+      document.getElementById('shares-banner-collapsed').classList.remove('hidden');
+    });
+
+    // View shares button
+    document.getElementById('view-shares-btn').addEventListener('click', () => {
+      banner.remove();
+      this.showSharedEntriesInbox();
+    });
+
+    // Dismiss button
+    document.getElementById('dismiss-shares-btn').addEventListener('click', () => {
+      banner.remove();
+    });
+  }
+
+  async showSharedEntriesInbox() {
+    try {
+      const sharedEntries = await firebaseService.getSharedEntries();
+
+      const entriesHtml = sharedEntries.length > 0
+        ? sharedEntries.map(share => `
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-2">
+              <div class="flex items-start justify-between mb-2">
+                <div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">${ui.t('sharedBy')}: ${share.fromName || share.fromEmail}</p>
+                  <p class="text-sm font-medium text-gray-900 dark:text-white mt-1">${share.entry.date}</p>
+                  <p class="text-xs text-gray-600 dark:text-gray-400">
+                    ${share.entry.startTime} - ${share.entry.endTime}
+                  </p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    ${share.entry.tasks?.length || 0} ${ui.t('tasks')}
+                  </p>
+                </div>
+              </div>
+              <div class="flex gap-2 mt-2">
+                <button class="accept-share-btn flex-1 px-3 py-1.5 bg-green-500 text-white rounded text-xs font-semibold hover:bg-green-600" data-share-id="${share.id}">
+                  ${ui.t('acceptShare')}
+                </button>
+                <button class="decline-share-btn px-3 py-1.5 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white rounded text-xs hover:bg-gray-400 dark:hover:bg-gray-500" data-share-id="${share.id}">
+                  ${ui.t('declineShare')}
+                </button>
+              </div>
+            </div>
+          `).join('')
+        : `<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">${ui.t('noSharedEntries')}</p>`;
+
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('inbox')}
+            <span>${ui.t('sharedEntriesTitle')}</span>
+          </h3>
+
+          <div class="max-h-96 overflow-y-auto">
+            ${entriesHtml}
+          </div>
+
+          <button id="inbox-close-btn" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('close')}
+          </button>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      // Attach event listeners
+      document.querySelectorAll('.accept-share-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const shareId = e.target.getAttribute('data-share-id');
+          await this.acceptSharedEntry(shareId, sharedEntries);
+        });
+      });
+
+      document.querySelectorAll('.decline-share-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const shareId = e.target.getAttribute('data-share-id');
+          await this.declineSharedEntry(shareId);
+        });
+      });
+
+      document.getElementById('inbox-close-btn').addEventListener('click', () => {
+        ui.hideModal();
+      });
+
+    } catch (error) {
+      console.error('Failed to load shared entries:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  async acceptSharedEntry(shareId, sharedEntries) {
+    try {
+      const share = sharedEntries.find(s => s.id === shareId);
+      if (!share) return;
+
+      // Check for duplicate
+      const existingEntry = await storage.getWorklogEntryByDate(share.entry.date);
+
+      if (existingEntry) {
+        // Show duplicate warning dialog
+        const choice = await this.showDuplicateEntryDialog(share.entry, existingEntry, share.fromName || share.fromEmail);
+
+        if (choice === 'cancel') {
+          return;
+        } else if (choice === 'overwrite') {
+          // Replace existing entry
+          await storage.updateWorklogEntry(existingEntry.id, share.entry);
+        } else if (choice === 'keep-both') {
+          // Add as new entry
+          await storage.addWorklogEntry(share.entry);
+        }
+      } else {
+        // No duplicate, just add
+        await storage.addWorklogEntry(share.entry);
+      }
+
+      // Mark as imported in Firestore
+      await firebaseService.markSharedEntryAsImported(shareId);
+
+      ui.showToast(ui.t('entryImported'), 'success');
+      ui.hideModal();
+
+      // Refresh history if we're on that screen
+      if (this.currentView === 'history') {
+        await this.showHistory();
+      }
+
+    } catch (error) {
+      console.error('Failed to accept shared entry:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  async declineSharedEntry(shareId) {
+    try {
+      await firebaseService.markSharedEntryAsDeclined(shareId);
+      ui.showToast(ui.t('shareDeclined'), 'success');
+
+      // Refresh inbox
+      ui.hideModal();
+      await this.showSharedEntriesInbox();
+
+    } catch (error) {
+      console.error('Failed to decline shared entry:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
   }
 
   // ===== Install Prompt =====
@@ -3726,6 +4022,162 @@ class App {
   // ===== Share & Import Entry =====
 
   async shareWorklogEntry(entry) {
+    // Show choice dialog: Cloud vs File sharing
+    const choice = await this.showShareChoiceDialog(entry);
+    if (!choice) return;
+
+    if (choice === 'cloud') {
+      await this.shareWorklogEntryToUser(entry);
+    } else {
+      await this.shareWorklogEntryViaFile(entry);
+    }
+  }
+
+  async showShareChoiceDialog(entry) {
+    return new Promise((resolve) => {
+      const isSignedIn = firebaseService.isSignedIn();
+
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('share-2')}
+            <span>${ui.t('shareEntry')}</span>
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            ${ui.t('entryFrom')} ${entry.date}
+          </p>
+
+          <div class="space-y-2">
+            ${isSignedIn ? `
+              <button id="share-cloud-btn" class="w-full px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
+                ${ui.icon('user-plus', 'w-5 h-5')}
+                <span>${ui.t('shareToUser')}</span>
+              </button>
+            ` : ''}
+            <button id="share-file-btn" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
+              ${ui.icon('share-2', 'w-5 h-5')}
+              <span>${ui.t('shareViaFile')}</span>
+            </button>
+            <button id="dialog-cancel" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+          </div>
+
+          ${!isSignedIn ? `
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
+              ${ui.t('signInToShareCloud')}
+            </p>
+          ` : ''}
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      if (isSignedIn) {
+        document.getElementById('share-cloud-btn').addEventListener('click', () => {
+          ui.hideModal();
+          resolve('cloud');
+        });
+      }
+
+      document.getElementById('share-file-btn').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('file');
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(null);
+      });
+    });
+  }
+
+  async shareWorklogEntryToUser(entry) {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('user-plus')}
+            <span>${ui.t('shareToUser')}</span>
+          </h3>
+
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              ${ui.t('enterEmailOrNickname')}
+            </label>
+            <input
+              type="text"
+              id="share-user-input"
+              placeholder="user@email.com oder @nickname"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              ${ui.t('shareUserHint')}
+            </p>
+          </div>
+
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
+            <p class="text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('sharingEntry')}:</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">${entry.date}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">
+              ${entry.startTime} - ${entry.endTime} (${entry.tasks?.length || 0} ${ui.t('tasks')})
+            </p>
+          </div>
+
+          <div class="flex gap-2">
+            <button id="share-send-btn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+              ${ui.t('send')}
+            </button>
+            <button id="dialog-cancel" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      const input = document.getElementById('share-user-input');
+      input.focus();
+
+      const sendShare = async () => {
+        const identifier = input.value.trim();
+        if (!identifier) {
+          ui.showToast(ui.t('enterEmailOrNickname'), 'error');
+          return;
+        }
+
+        try {
+          ui.showToast(ui.t('searching'), 'info');
+
+          const result = await firebaseService.shareWorklogEntry(entry, identifier);
+
+          ui.hideModal();
+          ui.showToast(ui.t('sharedWithUser').replace('{user}', result.recipientEmail), 'success');
+          resolve(true);
+        } catch (error) {
+          console.error('Cloud share failed:', error);
+          if (error.message.includes('not found')) {
+            ui.showToast(ui.t('userNotFound'), 'error');
+          } else {
+            ui.showToast(ui.t('shareFailed'), 'error');
+          }
+        }
+      };
+
+      document.getElementById('share-send-btn').addEventListener('click', sendShare);
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendShare();
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(false);
+      });
+    });
+  }
+
+  async shareWorklogEntryViaFile(entry) {
     try {
       // Create shareable data (exclude internal id)
       const shareData = {
@@ -3915,7 +4367,7 @@ class App {
     }
   }
 
-  async showDuplicateEntryDialog(newData, existingEntry) {
+  async showDuplicateEntryDialog(newData, existingEntry, senderName = null) {
     return new Promise((resolve) => {
       // Format existing entry details
       const existingTasks = existingEntry.tasks && existingEntry.tasks.length > 0
@@ -3926,6 +4378,9 @@ class App {
       const newTasks = newData.tasks && newData.tasks.length > 0
         ? newData.tasks.map(t => `${t.type}: ${t.description}`).join(', ')
         : 'Keine Aufgaben';
+
+      // Use senderName if provided, otherwise fall back to exportedBy
+      const fromName = senderName || newData.exportedBy || 'Unbekannt';
 
       const content = `
         <div class="p-6">
@@ -3952,7 +4407,7 @@ class App {
 
           <!-- New Entry -->
           <div class="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded">
-            <p class="text-xs font-semibold text-green-700 dark:text-green-400 mb-2">📥 Neuer Eintrag (von ${newData.exportedBy}):</p>
+            <p class="text-xs font-semibold text-green-700 dark:text-green-400 mb-2">📥 Neuer Eintrag (von ${fromName}):</p>
             <div class="text-xs text-gray-700 dark:text-gray-300 space-y-1">
               <p>⏰ ${newData.startTime} - ${newData.endTime}</p>
               <p>⏸️ Pause: ${newData.pause || '00:00'}</p>
@@ -3985,7 +4440,7 @@ class App {
 
       document.getElementById('duplicate-keep-both').addEventListener('click', () => {
         ui.hideModal();
-        resolve('keepBoth');
+        resolve('keep-both');
       });
 
       document.getElementById('duplicate-cancel').addEventListener('click', () => {

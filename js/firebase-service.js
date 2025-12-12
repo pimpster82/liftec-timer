@@ -559,6 +559,217 @@ class FirebaseService {
     this.syncEnabled = false;
     this.unsubscribeAll();
   }
+
+  // ===== Share Entry Functions =====
+
+  /**
+   * Find user by email or @nickname
+   * @param {string} identifier - Email or @nickname
+   * @returns {Promise<Object|null>} User data or null if not found
+   */
+  async findUserByIdentifier(identifier) {
+    if (!this.db || !this.currentUser) {
+      throw new Error('Not signed in');
+    }
+
+    try {
+      const isEmail = identifier.includes('@') && !identifier.startsWith('@');
+
+      if (isEmail) {
+        // Search by email
+        const usersSnapshot = await this.db
+          .collection('users')
+          .where('email', '==', identifier.toLowerCase())
+          .limit(1)
+          .get();
+
+        if (usersSnapshot.empty) return null;
+
+        const userData = usersSnapshot.docs[0].data();
+        return {
+          uid: usersSnapshot.docs[0].id,
+          email: userData.email,
+          username: userData.username || userData.email
+        };
+      } else {
+        // Search by @nickname (remove @ if present)
+        const nickname = identifier.startsWith('@') ? identifier.slice(1) : identifier;
+        const usersSnapshot = await this.db
+          .collection('users')
+          .where('username', '==', nickname)
+          .limit(1)
+          .get();
+
+        if (usersSnapshot.empty) return null;
+
+        const userData = usersSnapshot.docs[0].data();
+        return {
+          uid: usersSnapshot.docs[0].id,
+          email: userData.email,
+          username: userData.username || userData.email
+        };
+      }
+    } catch (error) {
+      console.error('User lookup failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Share worklog entry with another user
+   * @param {Object} entry - Worklog entry to share
+   * @param {string} recipientIdentifier - Email or @nickname
+   * @returns {Promise<string>} Share ID
+   */
+  async shareWorklogEntry(entry, recipientIdentifier) {
+    if (!this.db || !this.currentUser) {
+      throw new Error('Not signed in');
+    }
+
+    try {
+      // Find recipient
+      const recipient = await this.findUserByIdentifier(recipientIdentifier);
+      if (!recipient) {
+        throw new Error('User not found');
+      }
+
+      // Can't share with yourself
+      if (recipient.uid === this.currentUser.uid) {
+        throw new Error('Cannot share with yourself');
+      }
+
+      // Get current user data
+      const currentUserDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
+      const currentUserData = currentUserDoc.data();
+
+      // Create shared entry
+      const shareData = {
+        from: this.currentUser.uid,
+        fromEmail: this.currentUser.email,
+        fromName: currentUserData?.username || this.currentUser.email,
+        to: recipient.uid,
+        toEmail: recipient.email,
+        toName: recipient.username,
+        entry: {
+          date: entry.date,
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          pause: entry.pause || '00:00',
+          travelTime: entry.travelTime || '00:00',
+          surcharge: entry.surcharge || '00:00',
+          tasks: entry.tasks || []
+        },
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'pending', // pending|imported|declined
+        importedAt: null
+      };
+
+      const shareRef = await this.db.collection('shared_entries').add(shareData);
+      console.log('Entry shared:', shareRef.id);
+
+      return shareRef.id;
+    } catch (error) {
+      console.error('Share failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all entries shared with current user
+   * @returns {Promise<Array>} Array of shared entries
+   */
+  async getSharedEntries() {
+    if (!this.db || !this.currentUser) {
+      return [];
+    }
+
+    try {
+      const snapshot = await this.db
+        .collection('shared_entries')
+        .where('to', '==', this.currentUser.uid)
+        .where('status', '==', 'pending')
+        .orderBy('createdAt', 'desc')
+        .get();
+
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate()
+      }));
+    } catch (error) {
+      console.error('Get shared entries failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Mark shared entry as imported
+   * @param {string} shareId - Share ID
+   */
+  async markSharedEntryAsImported(shareId) {
+    if (!this.db || !this.currentUser) {
+      throw new Error('Not signed in');
+    }
+
+    try {
+      await this.db.collection('shared_entries').doc(shareId).update({
+        status: 'imported',
+        importedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Mark as imported failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Decline shared entry
+   * @param {string} shareId - Share ID
+   */
+  async declineSharedEntry(shareId) {
+    if (!this.db || !this.currentUser) {
+      throw new Error('Not signed in');
+    }
+
+    try {
+      await this.db.collection('shared_entries').doc(shareId).update({
+        status: 'declined',
+        importedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Decline failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Listen for new shared entries (real-time)
+   * @param {Function} callback - Called when new shares arrive
+   * @returns {Function} Unsubscribe function
+   */
+  onSharedEntriesChange(callback) {
+    if (!this.db || !this.currentUser) {
+      return () => {};
+    }
+
+    const unsubscribe = this.db
+      .collection('shared_entries')
+      .where('to', '==', this.currentUser.uid)
+      .where('status', '==', 'pending')
+      .onSnapshot(snapshot => {
+        const shares = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate()
+        }));
+        callback(shares);
+      }, error => {
+        console.error('Share listener error:', error);
+      });
+
+    this.listeners.push(unsubscribe);
+    return unsubscribe;
+  }
 }
 
 // Create singleton instance
