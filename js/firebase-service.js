@@ -560,96 +560,282 @@ class FirebaseService {
     this.unsubscribeAll();
   }
 
-  // ===== Share Entry Functions =====
+  // ===== Share Profile & Friend System =====
 
   /**
-   * Find user by email or @nickname
-   * @param {string} identifier - Email or @nickname
-   * @returns {Promise<Object|null>} User data or null if not found
+   * Create or update share profile
+   * @param {string} nickname - Unique nickname (without @)
+   * @param {string} displayName - Display name
+   * @returns {Promise<void>}
    */
-  async findUserByIdentifier(identifier) {
+  async createShareProfile(nickname, displayName) {
     if (!this.db || !this.currentUser) {
       throw new Error('Not signed in');
     }
 
     try {
-      const isEmail = identifier.includes('@') && !identifier.startsWith('@');
-
-      if (isEmail) {
-        // Search by email
-        const usersSnapshot = await this.db
-          .collection('users')
-          .where('email', '==', identifier.toLowerCase())
-          .limit(1)
-          .get();
-
-        if (usersSnapshot.empty) return null;
-
-        const userData = usersSnapshot.docs[0].data();
-        return {
-          uid: usersSnapshot.docs[0].id,
-          email: userData.email,
-          username: userData.username || userData.email
-        };
-      } else {
-        // Search by @nickname (remove @ if present)
-        const nickname = identifier.startsWith('@') ? identifier.slice(1) : identifier;
-        const usersSnapshot = await this.db
-          .collection('users')
-          .where('username', '==', nickname)
-          .limit(1)
-          .get();
-
-        if (usersSnapshot.empty) return null;
-
-        const userData = usersSnapshot.docs[0].data();
-        return {
-          uid: usersSnapshot.docs[0].id,
-          email: userData.email,
-          username: userData.username || userData.email
-        };
+      // Check if nickname is available
+      const available = await this.checkNicknameAvailable(nickname);
+      if (!available) {
+        throw new Error('Nickname already taken');
       }
+
+      const profileData = {
+        nickname: nickname.toLowerCase(),
+        displayName: displayName,
+        friends: [],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      await this.db.collection('share_profiles').doc(this.currentUser.uid).set(profileData);
+      console.log('✅ Share profile created:', nickname);
     } catch (error) {
-      console.error('User lookup failed:', error);
+      console.error('Create share profile failed:', error);
       throw error;
     }
   }
 
   /**
-   * Share worklog entry with another user
-   * @param {Object} entry - Worklog entry to share
-   * @param {string} recipientIdentifier - Email or @nickname
-   * @returns {Promise<string>} Share ID
+   * Check if nickname is available
+   * @param {string} nickname - Nickname to check
+   * @returns {Promise<boolean>} True if available
    */
-  async shareWorklogEntry(entry, recipientIdentifier) {
+  async checkNicknameAvailable(nickname) {
     if (!this.db || !this.currentUser) {
       throw new Error('Not signed in');
     }
 
     try {
-      // Find recipient
-      const recipient = await this.findUserByIdentifier(recipientIdentifier);
-      if (!recipient) {
-        throw new Error('User not found');
+      const snapshot = await this.db
+        .collection('share_profiles')
+        .where('nickname', '==', nickname.toLowerCase())
+        .limit(1)
+        .get();
+
+      // Available if empty, or if it's the current user's own nickname
+      if (snapshot.empty) return true;
+      return snapshot.docs[0].id === this.currentUser.uid;
+    } catch (error) {
+      console.error('Nickname check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get current user's share profile
+   * @returns {Promise<Object|null>} Share profile or null
+   */
+  async getShareProfile() {
+    if (!this.db || !this.currentUser) {
+      return null;
+    }
+
+    try {
+      const doc = await this.db.collection('share_profiles').doc(this.currentUser.uid).get();
+      if (!doc.exists) return null;
+
+      return {
+        uid: this.currentUser.uid,
+        ...doc.data()
+      };
+    } catch (error) {
+      console.error('Get share profile failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update share profile
+   * @param {Object} updates - Fields to update
+   * @returns {Promise<void>}
+   */
+  async updateShareProfile(updates) {
+    if (!this.db || !this.currentUser) {
+      throw new Error('Not signed in');
+    }
+
+    try {
+      // If nickname is being updated, check availability
+      if (updates.nickname) {
+        const available = await this.checkNicknameAvailable(updates.nickname);
+        if (!available) {
+          throw new Error('Nickname already taken');
+        }
+        updates.nickname = updates.nickname.toLowerCase();
       }
 
-      // Can't share with yourself
-      if (recipient.uid === this.currentUser.uid) {
-        throw new Error('Cannot share with yourself');
+      updates.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+      await this.db.collection('share_profiles').doc(this.currentUser.uid).update(updates);
+      console.log('✅ Share profile updated');
+    } catch (error) {
+      console.error('Update share profile failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add friend (bidirectional)
+   * @param {string} friendUserId - Friend's user ID
+   * @returns {Promise<void>}
+   */
+  async addFriend(friendUserId) {
+    if (!this.db || !this.currentUser) {
+      throw new Error('Not signed in');
+    }
+
+    if (friendUserId === this.currentUser.uid) {
+      throw new Error('Cannot add yourself as friend');
+    }
+
+    try {
+      // Check if both users have share profiles
+      const myProfile = await this.getShareProfile();
+      const friendProfile = await this.db.collection('share_profiles').doc(friendUserId).get();
+
+      if (!myProfile) {
+        throw new Error('You must create a share profile first');
       }
 
-      // Get current user data
-      const currentUserDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
-      const currentUserData = currentUserDoc.data();
+      if (!friendProfile.exists) {
+        throw new Error('Friend has no share profile');
+      }
+
+      // Add friend to both profiles (bidirectional)
+      await this.db.collection('share_profiles').doc(this.currentUser.uid).update({
+        friends: firebase.firestore.FieldValue.arrayUnion(friendUserId)
+      });
+
+      await this.db.collection('share_profiles').doc(friendUserId).update({
+        friends: firebase.firestore.FieldValue.arrayUnion(this.currentUser.uid)
+      });
+
+      console.log('✅ Friend added:', friendUserId);
+    } catch (error) {
+      console.error('Add friend failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove friend (bidirectional)
+   * @param {string} friendUserId - Friend's user ID
+   * @returns {Promise<void>}
+   */
+  async removeFriend(friendUserId) {
+    if (!this.db || !this.currentUser) {
+      throw new Error('Not signed in');
+    }
+
+    try {
+      // Remove from both profiles
+      await this.db.collection('share_profiles').doc(this.currentUser.uid).update({
+        friends: firebase.firestore.FieldValue.arrayRemove(friendUserId)
+      });
+
+      await this.db.collection('share_profiles').doc(friendUserId).update({
+        friends: firebase.firestore.FieldValue.arrayRemove(this.currentUser.uid)
+      });
+
+      console.log('✅ Friend removed:', friendUserId);
+    } catch (error) {
+      console.error('Remove friend failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all friends with their profiles
+   * @returns {Promise<Array>} Array of friend profiles
+   */
+  async getFriends() {
+    if (!this.db || !this.currentUser) {
+      return [];
+    }
+
+    try {
+      const myProfile = await this.getShareProfile();
+      if (!myProfile || !myProfile.friends || myProfile.friends.length === 0) {
+        return [];
+      }
+
+      // Fetch all friend profiles
+      const friendPromises = myProfile.friends.map(async (friendId) => {
+        const doc = await this.db.collection('share_profiles').doc(friendId).get();
+        if (!doc.exists) return null;
+
+        return {
+          uid: friendId,
+          ...doc.data()
+        };
+      });
+
+      const friends = await Promise.all(friendPromises);
+      return friends.filter(f => f !== null);
+    } catch (error) {
+      console.error('Get friends failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if user is a friend
+   * @param {string} userId - User ID to check
+   * @returns {Promise<boolean>} True if friend
+   */
+  async isFriend(userId) {
+    if (!this.db || !this.currentUser) {
+      return false;
+    }
+
+    try {
+      const myProfile = await this.getShareProfile();
+      return myProfile && myProfile.friends && myProfile.friends.includes(userId);
+    } catch (error) {
+      console.error('Is friend check failed:', error);
+      return false;
+    }
+  }
+
+  // ===== Share Entry Functions =====
+
+  /**
+   * Share worklog entry with a friend
+   * @param {Object} entry - Worklog entry to share
+   * @param {string} friendUserId - Friend's user ID
+   * @returns {Promise<Object>} Share result with ID and recipient info
+   */
+  async shareWorklogEntry(entry, friendUserId) {
+    if (!this.db || !this.currentUser) {
+      throw new Error('Not signed in');
+    }
+
+    try {
+      // Check if recipient is a friend
+      const isFriend = await this.isFriend(friendUserId);
+      if (!isFriend) {
+        throw new Error('Can only share with friends');
+      }
+
+      // Get both share profiles
+      const myProfile = await this.getShareProfile();
+      const friendProfile = await this.db.collection('share_profiles').doc(friendUserId).get();
+
+      if (!friendProfile.exists) {
+        throw new Error('Friend not found');
+      }
+
+      const friendData = friendProfile.data();
 
       // Create shared entry
       const shareData = {
         from: this.currentUser.uid,
-        fromEmail: this.currentUser.email,
-        fromName: currentUserData?.username || this.currentUser.email,
-        to: recipient.uid,
-        toEmail: recipient.email,
-        toName: recipient.username,
+        fromNickname: myProfile.nickname,
+        fromName: myProfile.displayName,
+        to: friendUserId,
+        toNickname: friendData.nickname,
+        toName: friendData.displayName,
         entry: {
           date: entry.date,
           startTime: entry.startTime,
@@ -665,9 +851,13 @@ class FirebaseService {
       };
 
       const shareRef = await this.db.collection('shared_entries').add(shareData);
-      console.log('Entry shared:', shareRef.id);
+      console.log('✅ Entry shared with friend:', shareRef.id);
 
-      return shareRef.id;
+      return {
+        shareId: shareRef.id,
+        recipientNickname: friendData.nickname,
+        recipientName: friendData.displayName
+      };
     } catch (error) {
       console.error('Share failed:', error);
       throw error;
@@ -723,10 +913,10 @@ class FirebaseService {
   }
 
   /**
-   * Decline shared entry
+   * Mark shared entry as declined
    * @param {string} shareId - Share ID
    */
-  async declineSharedEntry(shareId) {
+  async markSharedEntryAsDeclined(shareId) {
     if (!this.db || !this.currentUser) {
       throw new Error('Not signed in');
     }
@@ -734,7 +924,7 @@ class FirebaseService {
     try {
       await this.db.collection('shared_entries').doc(shareId).update({
         status: 'declined',
-        importedAt: firebase.firestore.FieldValue.serverTimestamp()
+        declinedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch (error) {
       console.error('Decline failed:', error);
