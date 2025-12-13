@@ -82,6 +82,13 @@ js/
 - **CSV Format:** Semicolon-delimited, UTF-8 BOM
 - **Excel:** A4 landscape, styled header (green #92D050), weekend highlighting
 
+⚠️ **CRITICAL: Excel Export Protection**
+- **NEVER modify `js/excel-export.js` without explicit user request!**
+- The export format (columns, layout, styling, structure) is exactly as required by the user
+- If new features (like time tracking) need to be added to exports → **ASK USER FIRST**
+- Exception: Only change if user explicitly says "please update the Excel export"
+- This file is production-critical for external systems/accounting
+
 ---
 
 ## Data Storage
@@ -232,6 +239,7 @@ Open `http://localhost:8000`, edit files, hard refresh `Ctrl+Shift+R`
 
 | Instead of... | Do this... |
 |---|---|
+| **⚠️ Modifying excel-export.js** | **NEVER change excel-export.js without explicit user request! Format is exact as needed for export.** |
 | Awaiting Firebase in main flow | Fire-and-forget sync (no await, catch errors) |
 | Using .then() chains | Use async/await consistently |
 | Hardcoding English strings | Use ui.t('key') with translations in all 3 languages |
