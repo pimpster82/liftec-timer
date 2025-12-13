@@ -2833,6 +2833,18 @@ class App {
             </label>
           </div>
 
+          <!-- Work Time Tracking Feature Toggle -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" id="setting-worktime-enabled" ${settings.workTimeTracking?.enabled ? 'checked' : ''}
+                class="w-4 h-4 text-primary focus:ring-primary rounded">
+              <div>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${ui.t('workTimeTrackingShort')}</span>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${ui.t('workTimeTrackingDesc')}</p>
+              </div>
+            </label>
+          </div>
+
           <!-- Email Export Settings -->
           <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
             <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="email-content">
@@ -3109,13 +3121,20 @@ class App {
     }
 
     document.getElementById('settings-save').addEventListener('click', async () => {
+      const workTimeTrackingEnabled = document.getElementById('setting-worktime-enabled').checked;
+      const wasEnabled = ui.settings.workTimeTracking?.enabled || false;
+
       const newSettings = {
         username: document.getElementById('setting-username').value,
         language: document.getElementById('setting-language').value,
         surchargePercent: parseInt(document.getElementById('setting-surcharge').value),
         emailSubject: document.getElementById('setting-email-subject').value,
         emailBody: document.getElementById('setting-email-body').value,
-        onCallEnabled: document.getElementById('setting-oncall-enabled').checked
+        onCallEnabled: document.getElementById('setting-oncall-enabled').checked,
+        workTimeTracking: {
+          ...(ui.settings.workTimeTracking || {}),
+          enabled: workTimeTrackingEnabled
+        }
       };
 
       await storage.saveSettings(newSettings);
@@ -3123,8 +3142,14 @@ class App {
       ui.i18n = ui.getI18N();
 
       ui.hideModal();
-      ui.showToast('Einstellungen gespeichert', 'success');
-      await this.renderMainScreen();
+
+      // If workTimeTracking was just enabled for the first time, show onboarding
+      if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
+        this.showWorkTimeTrackingOnboarding();
+      } else {
+        ui.showToast('Einstellungen gespeichert', 'success');
+        await this.renderMainScreen();
+      }
     });
 
     document.getElementById('settings-backups').addEventListener('click', () => {
@@ -5858,6 +5883,266 @@ class App {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // ===== Work Time Tracking & Vacation Onboarding =====
+
+  async showWorkTimeTrackingOnboarding() {
+    let currentStep = 1;
+    const totalSteps = 3;
+
+    // Temporary storage for onboarding data
+    let onboardingData = {
+      dailyHours: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 },
+      timeAccountBalance: 0,
+      remainingVacation: 25,
+      annualVacation: 25
+    };
+
+    const showStep = (step) => {
+      if (step === 1) {
+        this.showWTTOnboardingStep1(onboardingData, () => showStep(2));
+      } else if (step === 2) {
+        this.showWTTOnboardingStep2(onboardingData, () => showStep(3), () => showStep(1));
+      } else if (step === 3) {
+        this.showWTTOnboardingStep3(onboardingData, () => showStep(2));
+      }
+    };
+
+    showStep(1);
+  }
+
+  showWTTOnboardingStep1(data, onNext) {
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white">${ui.t('wttOnboardingTitle')}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">${ui.t('wttOnboardingWelcome')}</p>
+
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-xs text-gray-500">${ui.t('onboardingStep').replace('{current}', '1').replace('{total}', '3')}</span>
+          </div>
+          <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div class="bg-primary h-2 rounded-full transition-all" style="width: 33%"></div>
+          </div>
+        </div>
+
+        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">${ui.t('wttOnboardingStep1Title')}</h4>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${ui.t('wttOnboardingStep1Desc')}</p>
+
+        <div class="space-y-3 mb-6">
+          ${['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => `
+            <div class="flex items-center justify-between">
+              <label class="text-sm text-gray-700 dark:text-gray-300 w-32">${ui.t(day)}</label>
+              <div class="flex items-center gap-2">
+                <input type="number" id="wtt-${day}" value="${data.dailyHours[day]}" min="0" max="24" step="0.5"
+                  class="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+                <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg mb-6">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-gray-900 dark:text-white">${ui.t('wttWeeklyTotal')}:</span>
+            <span id="weekly-total" class="text-lg font-bold text-primary">0 ${ui.t('hoursShort')}</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="wtt-step1-next" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${ui.t('onboardingNext')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    // Update weekly total
+    const updateTotal = () => {
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const total = days.reduce((sum, day) => {
+        const value = parseFloat(document.getElementById(`wtt-${day}`).value) || 0;
+        return sum + value;
+      }, 0);
+      document.getElementById('weekly-total').textContent = `${total} ${ui.t('hoursShort')}`;
+    };
+
+    // Add event listeners to all inputs
+    ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+      const input = document.getElementById(`wtt-${day}`);
+      input.addEventListener('input', updateTotal);
+    });
+
+    updateTotal();
+
+    document.getElementById('wtt-step1-next').addEventListener('click', () => {
+      // Save data
+      ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+        data.dailyHours[day] = parseFloat(document.getElementById(`wtt-${day}`).value) || 0;
+      });
+      onNext();
+    });
+  }
+
+  showWTTOnboardingStep2(data, onNext, onBack) {
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white">${ui.t('wttOnboardingTitle')}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">${ui.t('wttOnboardingWelcome')}</p>
+
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-xs text-gray-500">${ui.t('onboardingStep').replace('{current}', '2').replace('{total}', '3')}</span>
+          </div>
+          <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div class="bg-primary h-2 rounded-full transition-all" style="width: 67%"></div>
+          </div>
+        </div>
+
+        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">${ui.t('wttOnboardingStep2Title')}</h4>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${ui.t('wttOnboardingStep2Desc')}</p>
+
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttCurrentBalance')}</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="wtt-balance" value="${data.timeAccountBalance}" step="0.5"
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">z.B. +12,5 oder -8,0</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttRemainingVacation')}</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="wtt-vacation-remaining" value="${data.remainingVacation}" min="0" step="0.5"
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <span class="text-sm text-gray-500">${ui.t('days')}</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttAnnualVacation')}</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="wtt-vacation-annual" value="${data.annualVacation}" min="0"
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <span class="text-sm text-gray-500">${ui.t('days')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="wtt-step2-back" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('back')}
+          </button>
+          <button id="wtt-step2-next" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${ui.t('onboardingNext')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('wtt-step2-back').addEventListener('click', () => {
+      onBack();
+    });
+
+    document.getElementById('wtt-step2-next').addEventListener('click', () => {
+      // Save data
+      data.timeAccountBalance = parseFloat(document.getElementById('wtt-balance').value) || 0;
+      data.remainingVacation = parseFloat(document.getElementById('wtt-vacation-remaining').value) || 25;
+      data.annualVacation = parseFloat(document.getElementById('wtt-vacation-annual').value) || 25;
+      onNext();
+    });
+  }
+
+  async showWTTOnboardingStep3(data, onBack) {
+    const weeklyTotal = Object.values(data.dailyHours).reduce((sum, h) => sum + h, 0);
+
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white">${ui.t('wttOnboardingTitle')}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">${ui.t('wttOnboardingWelcome')}</p>
+
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-xs text-gray-500">${ui.t('onboardingStep').replace('{current}', '3').replace('{total}', '3')}</span>
+          </div>
+          <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div class="bg-primary h-2 rounded-full transition-all" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">${ui.t('wttOnboardingStep3Title')}</h4>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${ui.t('wttOnboardingStep3Desc')}</p>
+
+        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-6 space-y-2">
+          <div class="flex justify-between">
+            <span class="text-gray-600 dark:text-gray-400">${ui.t('weeklyTarget')}:</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${weeklyTotal} ${ui.t('hoursShort')}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 dark:text-gray-400">${ui.t('timeAccount')}:</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${data.timeAccountBalance >= 0 ? '+' : ''}${data.timeAccountBalance} ${ui.t('hoursShort')}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 dark:text-gray-400">${ui.t('remainingVacation')}:</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${data.remainingVacation} ${ui.t('days')}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 dark:text-gray-400">${ui.t('annualVacation')}:</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${data.annualVacation} ${ui.t('days')}</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="wtt-step3-back" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('back')}
+          </button>
+          <button id="wtt-step3-finish" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+            ${ui.t('onboardingFinish')} ✓
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('wtt-step3-back').addEventListener('click', () => {
+      onBack();
+    });
+
+    document.getElementById('wtt-step3-finish').addEventListener('click', async () => {
+      // Save all settings
+      const settings = ui.settings;
+      settings.workTimeTracking = {
+        enabled: true,
+        onboardingCompleted: true,
+        weeklyTargetHours: weeklyTotal,
+        dailyTargetHours: data.dailyHours,
+        timeAccount: {
+          currentBalance: data.timeAccountBalance,
+          lastUpdated: new Date().toISOString(),
+          lastManualAdjustment: null
+        },
+        vacation: {
+          annualDays: data.annualVacation,
+          remainingDays: data.remainingVacation
+        }
+      };
+
+      await storage.saveSettings(settings);
+      ui.settings = settings;
+
+      ui.hideModal();
+      ui.showToast(ui.t('workTimeTracking') + ' aktiviert!', 'success');
+      await this.renderMainScreen();
+    });
   }
 }
 
