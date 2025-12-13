@@ -965,6 +965,64 @@ class UI {
     overlay.classList.add('modal-backdrop');
   }
 
+  /**
+   * Shows modal with sticky header (and optional sticky footer)
+   * @param {Object} config - Configuration object
+   * @param {string} config.title - Modal title
+   * @param {string} config.icon - Icon name from ui.icon()
+   * @param {string} config.content - HTML content for scrollable body
+   * @param {string} config.footer - Optional HTML for sticky footer
+   * @param {Function} config.onClose - Optional callback when X is clicked
+   * @param {boolean} config.hasChanges - Optional function to check if there are unsaved changes
+   */
+  showModalWithHeader(config) {
+    const { title, icon, content, footer, onClose, hasChanges } = config;
+
+    const iconHtml = icon ? this.icon(icon) : '';
+    const footerHtml = footer ? `
+      <div class="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+        ${footer}
+      </div>
+    ` : '';
+
+    const modalHtml = `
+      <div class="flex flex-col max-h-[80vh]">
+        <!-- Sticky Header -->
+        <div class="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            ${iconHtml}
+            <span>${title}</span>
+          </h3>
+          <button id="modal-close-x" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors" title="${this.t('close')}">
+            ${this.icon('x')}
+          </button>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="overflow-y-auto px-6 py-4 flex-1">
+          ${content}
+        </div>
+
+        <!-- Optional Sticky Footer -->
+        ${footerHtml}
+      </div>
+    `;
+
+    this.showModal(modalHtml);
+
+    // Attach close handler
+    const closeBtn = document.getElementById('modal-close-x');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        if (onClose) {
+          onClose();
+        } else {
+          this.hideModal();
+        }
+      });
+    }
+  }
+
   hideModal() {
     const overlay = document.getElementById('modal-overlay');
     overlay.classList.add('hidden');

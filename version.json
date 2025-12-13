@@ -1,18 +1,14 @@
 {
-  "version": "1.12.0",
+  "version": "1.13.0",
   "releaseDate": "2025-12-13",
   "changelog": [
-    "Feature: Arbeitszeitkonto & Urlaubsverwaltung (ZA & Urlaub)",
-    "Feature: Flexible Sollzeit-Konfiguration pro Wochentag (z.B. Mo-Do 8.5h, Fr 4h)",
-    "Feature: Zeitkonto zeigt Plus/Minus-Stunden gegenüber Sollzeit an",
-    "Feature: Urlaubsverwaltung mit Jahresanspruch und Resturlaub-Tracking",
-    "Feature: 3-stufiger Onboarding-Assistent für initiale Einrichtung",
-    "Feature: Zeitkonto-Widget in History-Ansicht mit aktuellen Ständen",
-    "Feature: Manuelle Zeitkonto-Anpassung zur Synchronisation mit Lohnabrechnung",
-    "Feature: Urlaub-, Krankenstand- und unbezahlte Einträge in Worklog",
-    "Feature: Feiertage zählen automatisch als Sollzeit erfüllt",
-    "Feature: Urlaub und Krankenstand zählen als Sollzeit erfüllt",
-    "Improve: Berechnungslogik für IST vs. SOLL Stunden mit automatischem Balance-Tracking"
+    "UI: Moderne Dialog-Struktur mit sticky Headers",
+    "UI: X-Button oben rechts statt Schließen/Abbrechen-Buttons",
+    "UI: Settings mit Auto-Save beim Schließen",
+    "UI: Edit-Dialoge mit Smart Save (nur bei Änderungen)",
+    "UI: Scrollbare Dialog-Inhalte mit fixierten Headern",
+    "UI: Platzsparende Button-Layouts in allen Dialogen",
+    "Improve: Bessere UX durch konsistente Close-Buttons"
   ],
   "critical": false
 }
