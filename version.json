@@ -1,11 +1,13 @@
 {
-  "version": "1.10.0",
-  "releaseDate": "2025-12-12",
+  "version": "1.11.0",
+  "releaseDate": "2025-12-13",
   "changelog": [
-    "Feature: Inbox-Dialog bleibt nach Accept/Decline offen für weitere Shares",
-    "Feature: Dialog schließt automatisch wenn alle Shares verarbeitet sind",
-    "Feature: Alte Shares werden automatisch aus Firestore gelöscht (Cleanup)",
-    "Improve: Bessere UX beim Verarbeiten mehrerer geteilter Einträge"
+    "Feature: Österreichische Feiertage werden automatisch erkannt und markiert",
+    "Feature: Feiertage werden in der Kalenderansicht rot hervorgehoben",
+    "Feature: Feiertage werden in der History-Ansicht mit Badge angezeigt",
+    "Feature: Feiertage werden in CSV/Excel-Exporten automatisch eingetragen",
+    "Feature: Tooltip zeigt Feiertags-Namen beim Hover (Kalender)",
+    "Improve: Gauß'sche Osterformel für präzise Berechnung beweglicher Feiertage"
   ],
   "critical": false
 }

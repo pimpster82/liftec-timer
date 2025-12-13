@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.11.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1238,6 +1238,11 @@ class App {
       const dayOfWeek = date.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
+      // Check if it's a holiday
+      const holidayInfo = austrianHolidays.isHoliday(dateStr);
+      const isHoliday = holidayInfo.isHoliday;
+      const holidayName = isHoliday ? holidayInfo.name : null;
+
       // Check if it's today
       const today = new Date();
       const isToday = date.getDate() === today.getDate() &&
@@ -1250,6 +1255,8 @@ class App {
         hasEntry,
         entryType,
         isWeekend,
+        isHoliday,
+        holidayName,
         isToday,
         dateObj: date
       });
@@ -1291,6 +1298,7 @@ class App {
 
             let bgClass = 'bg-gray-100 dark:bg-gray-800';
             let textClass = 'text-gray-900 dark:text-white';
+            let title = '';
 
             // Set colors based on entry type
             if (dayInfo.hasEntry && dayInfo.entryType) {
@@ -1319,6 +1327,11 @@ class App {
                   bgClass = 'bg-green-100 dark:bg-green-900';
                   textClass = 'text-green-900 dark:text-green-100';
               }
+            } else if (dayInfo.isHoliday) {
+              // Highlight holidays even without entry
+              bgClass = 'bg-red-100 dark:bg-red-900';
+              textClass = 'text-red-900 dark:text-red-100';
+              title = dayInfo.holidayName[ui.settings.language || 'de'];
             } else if (dayInfo.isWeekend) {
               bgClass = 'bg-gray-200 dark:bg-gray-700';
               textClass = 'text-gray-600 dark:text-gray-400';
@@ -1331,6 +1344,7 @@ class App {
             return `
               <button class="calendar-day aspect-square ${bgClass} ${textClass} rounded-lg flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity btn-press"
                       data-date="${dayInfo.date}"
+                      ${title ? `title="${title}"` : ''}
                       ${!dayInfo.hasEntry ? 'disabled' : ''}>
                 ${dayInfo.day}
               </button>
@@ -3759,6 +3773,12 @@ class App {
       const date = new Date(year, month - 1, day);
       const dateStr = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
 
+      // Check if this date is a holiday
+      const holidayInfo = austrianHolidays.isHoliday(entry.date);
+      const holidayBadge = holidayInfo.isHoliday
+        ? `<span class="ml-2 px-2 py-0.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs rounded-full" title="${holidayInfo.name[ui.settings.language || 'de']}">${ui.t('holiday')}</span>`
+        : '';
+
       const taskList = entry.tasks && entry.tasks.length > 0
         ? entry.tasks.map(t => `${t.type}: ${t.description}`).join('<br>')
         : '';
@@ -3768,7 +3788,7 @@ class App {
       return `
         <div class="border-b border-gray-200 dark:border-gray-700 py-3 last:border-0" data-entry-id="${entry.id}">
           <div class="flex justify-between items-start mb-1">
-            <span class="font-medium text-gray-900 dark:text-white">${dateStr}</span>
+            <span class="font-medium text-gray-900 dark:text-white">${dateStr}${holidayBadge}</span>
             <div class="flex items-center gap-2">
               <span class="font-semibold text-primary">${workHours.toFixed(1)}h</span>
               <button class="history-share-btn text-green-500 hover:text-green-700 dark:hover:text-green-400 p-1" data-id="${entry.id}" title="${ui.t('shareEntry')}">
