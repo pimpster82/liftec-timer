@@ -1,13 +1,18 @@
 {
-  "version": "1.11.0",
+  "version": "1.12.0",
   "releaseDate": "2025-12-13",
   "changelog": [
-    "Feature: Österreichische Feiertage werden automatisch erkannt und markiert",
-    "Feature: Feiertage werden in der Kalenderansicht rot hervorgehoben",
-    "Feature: Feiertage werden in der History-Ansicht mit Badge angezeigt",
-    "Feature: Feiertage werden in CSV/Excel-Exporten automatisch eingetragen",
-    "Feature: Tooltip zeigt Feiertags-Namen beim Hover (Kalender)",
-    "Improve: Gauß'sche Osterformel für präzise Berechnung beweglicher Feiertage"
+    "Feature: Arbeitszeitkonto & Urlaubsverwaltung (ZA & Urlaub)",
+    "Feature: Flexible Sollzeit-Konfiguration pro Wochentag (z.B. Mo-Do 8.5h, Fr 4h)",
+    "Feature: Zeitkonto zeigt Plus/Minus-Stunden gegenüber Sollzeit an",
+    "Feature: Urlaubsverwaltung mit Jahresanspruch und Resturlaub-Tracking",
+    "Feature: 3-stufiger Onboarding-Assistent für initiale Einrichtung",
+    "Feature: Zeitkonto-Widget in History-Ansicht mit aktuellen Ständen",
+    "Feature: Manuelle Zeitkonto-Anpassung zur Synchronisation mit Lohnabrechnung",
+    "Feature: Urlaub-, Krankenstand- und unbezahlte Einträge in Worklog",
+    "Feature: Feiertage zählen automatisch als Sollzeit erfüllt",
+    "Feature: Urlaub und Krankenstand zählen als Sollzeit erfüllt",
+    "Improve: Berechnungslogik für IST vs. SOLL Stunden mit automatischem Balance-Tracking"
   ],
   "critical": false
 }
