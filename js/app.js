@@ -3774,9 +3774,38 @@ class App {
       }
     }
 
+    // Work Time Tracking Widget (if enabled)
+    let wttWidgetHtml = '';
+    if (ui.settings.workTimeTracking?.enabled) {
+      const timeAccount = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
+      const vacationDays = ui.settings.workTimeTracking.vacation.remainingDays || 0;
+      const timeAccountColor = timeAccount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+      const timeAccountSign = timeAccount >= 0 ? '+' : '';
+
+      wttWidgetHtml = `
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-4 mb-4 border border-blue-200 dark:border-gray-600">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('timeAccount')}</div>
+              <div class="text-2xl font-bold ${timeAccountColor}">${timeAccountSign}${timeAccount.toFixed(1)} ${ui.t('hoursShort')}</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('remainingVacation')}</div>
+              <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">${vacationDays} ${ui.t('days')}</div>
+            </div>
+          </div>
+          <button id="wtt-adjust-btn" class="mt-3 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1">
+            ${ui.icon('settings', 'w-3 h-3')}
+            <span>${ui.t('adjustTimeAccount')}</span>
+          </button>
+        </div>
+      `;
+    }
+
     // Statistics HTML
     const liveIndicator = isSessionActive ? `<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse ml-1"></span>` : '';
     const statsHtml = `
+      ${wttWidgetHtml}
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="bg-primary bg-opacity-20 rounded-lg p-4">
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Diese Woche</div>
@@ -3905,6 +3934,15 @@ class App {
         }
       });
     });
+
+    // Add event listener for time account adjustment button (if exists)
+    const wttAdjustBtn = document.getElementById('wtt-adjust-btn');
+    if (wttAdjustBtn) {
+      wttAdjustBtn.addEventListener('click', () => {
+        ui.hideModal();
+        this.showTimeAccountAdjustment();
+      });
+    }
 
     // Add event listener for import button
     document.getElementById('import-entry-open').addEventListener('click', () => {
@@ -6142,6 +6180,105 @@ class App {
       ui.hideModal();
       ui.showToast(ui.t('workTimeTracking') + ' aktiviert!', 'success');
       await this.renderMainScreen();
+    });
+  }
+
+  // ===== Time Account Manual Adjustment =====
+
+  async showTimeAccountAdjustment() {
+    const currentBalance = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
+
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${ui.t('adjustTimeAccount')}</h3>
+
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('currentCalculated')}</label>
+            <div class="text-2xl font-bold ${currentBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
+              ${currentBalance >= 0 ? '+' : ''}${currentBalance.toFixed(1)} ${ui.t('hoursShort')}
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('accordingToPayroll')}</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="payroll-balance" value="${currentBalance}" step="0.5"
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">z.B. +12,5 oder -8,0</p>
+          </div>
+
+          <div id="difference-display" class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <div class="flex justify-between items-center">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${ui.t('difference')}:</span>
+              <span id="diff-value" class="font-bold text-gray-900 dark:text-white">±0,0 ${ui.t('hoursShort')}</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('adjustmentReason')} (optional)</label>
+            <input type="text" id="adjustment-reason" placeholder="z.B. Lohnzettel Dezember 2024"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="adjustment-cancel" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('cancel')}
+          </button>
+          <button id="adjustment-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${ui.t('adjust')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    // Update difference display
+    const updateDifference = () => {
+      const payrollBalance = parseFloat(document.getElementById('payroll-balance').value) || 0;
+      const diff = payrollBalance - currentBalance;
+      const diffEl = document.getElementById('diff-value');
+
+      if (diff === 0) {
+        diffEl.textContent = `±0,0 ${ui.t('hoursShort')}`;
+        diffEl.className = 'font-bold text-gray-900 dark:text-white';
+      } else if (diff > 0) {
+        diffEl.textContent = `+${diff.toFixed(1)} ${ui.t('hoursShort')}`;
+        diffEl.className = 'font-bold text-green-600 dark:text-green-400';
+      } else {
+        diffEl.textContent = `${diff.toFixed(1)} ${ui.t('hoursShort')}`;
+        diffEl.className = 'font-bold text-red-600 dark:text-red-400';
+      }
+    };
+
+    document.getElementById('payroll-balance').addEventListener('input', updateDifference);
+    updateDifference();
+
+    document.getElementById('adjustment-cancel').addEventListener('click', () => {
+      ui.hideModal();
+    });
+
+    document.getElementById('adjustment-save').addEventListener('click', async () => {
+      const newBalance = parseFloat(document.getElementById('payroll-balance').value) || 0;
+      const reason = document.getElementById('adjustment-reason').value || null;
+
+      // Update settings
+      const settings = ui.settings;
+      settings.workTimeTracking.timeAccount.currentBalance = newBalance;
+      settings.workTimeTracking.timeAccount.lastManualAdjustment = new Date().toISOString();
+
+      await storage.saveSettings(settings);
+      ui.settings = settings;
+
+      ui.hideModal();
+      ui.showToast(ui.t('adjustmentSaved'), 'success');
+
+      // Refresh history to show new balance
+      await this.showHistory();
     });
   }
 }
