@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.12.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2833,6 +2833,18 @@ class App {
             </label>
           </div>
 
+          <!-- Work Time Tracking Feature Toggle -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" id="setting-worktime-enabled" ${settings.workTimeTracking?.enabled ? 'checked' : ''}
+                class="w-4 h-4 text-primary focus:ring-primary rounded">
+              <div>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${ui.t('workTimeTrackingShort')}</span>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${ui.t('workTimeTrackingDesc')}</p>
+              </div>
+            </label>
+          </div>
+
           <!-- Email Export Settings -->
           <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
             <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="email-content">
@@ -3109,13 +3121,20 @@ class App {
     }
 
     document.getElementById('settings-save').addEventListener('click', async () => {
+      const workTimeTrackingEnabled = document.getElementById('setting-worktime-enabled').checked;
+      const wasEnabled = ui.settings.workTimeTracking?.enabled || false;
+
       const newSettings = {
         username: document.getElementById('setting-username').value,
         language: document.getElementById('setting-language').value,
         surchargePercent: parseInt(document.getElementById('setting-surcharge').value),
         emailSubject: document.getElementById('setting-email-subject').value,
         emailBody: document.getElementById('setting-email-body').value,
-        onCallEnabled: document.getElementById('setting-oncall-enabled').checked
+        onCallEnabled: document.getElementById('setting-oncall-enabled').checked,
+        workTimeTracking: {
+          ...(ui.settings.workTimeTracking || {}),
+          enabled: workTimeTrackingEnabled
+        }
       };
 
       await storage.saveSettings(newSettings);
@@ -3123,8 +3142,14 @@ class App {
       ui.i18n = ui.getI18N();
 
       ui.hideModal();
-      ui.showToast('Einstellungen gespeichert', 'success');
-      await this.renderMainScreen();
+
+      // If workTimeTracking was just enabled for the first time, show onboarding
+      if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
+        this.showWorkTimeTrackingOnboarding();
+      } else {
+        ui.showToast('Einstellungen gespeichert', 'success');
+        await this.renderMainScreen();
+      }
     });
 
     document.getElementById('settings-backups').addEventListener('click', () => {
@@ -3749,9 +3774,38 @@ class App {
       }
     }
 
+    // Work Time Tracking Widget (if enabled)
+    let wttWidgetHtml = '';
+    if (ui.settings.workTimeTracking?.enabled) {
+      const timeAccount = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
+      const vacationDays = ui.settings.workTimeTracking.vacation.remainingDays || 0;
+      const timeAccountColor = timeAccount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+      const timeAccountSign = timeAccount >= 0 ? '+' : '';
+
+      wttWidgetHtml = `
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-4 mb-4 border border-blue-200 dark:border-gray-600">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('timeAccount')}</div>
+              <div class="text-2xl font-bold ${timeAccountColor}">${timeAccountSign}${timeAccount.toFixed(1)} ${ui.t('hoursShort')}</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('remainingVacation')}</div>
+              <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">${vacationDays} ${ui.t('days')}</div>
+            </div>
+          </div>
+          <button id="wtt-adjust-btn" class="mt-3 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1">
+            ${ui.icon('settings', 'w-3 h-3')}
+            <span>${ui.t('adjustTimeAccount')}</span>
+          </button>
+        </div>
+      `;
+    }
+
     // Statistics HTML
     const liveIndicator = isSessionActive ? `<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse ml-1"></span>` : '';
     const statsHtml = `
+      ${wttWidgetHtml}
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="bg-primary bg-opacity-20 rounded-lg p-4">
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Diese Woche</div>
@@ -3881,6 +3935,15 @@ class App {
       });
     });
 
+    // Add event listener for time account adjustment button (if exists)
+    const wttAdjustBtn = document.getElementById('wtt-adjust-btn');
+    if (wttAdjustBtn) {
+      wttAdjustBtn.addEventListener('click', () => {
+        ui.hideModal();
+        this.showTimeAccountAdjustment();
+      });
+    }
+
     // Add event listener for import button
     document.getElementById('import-entry-open').addEventListener('click', () => {
       ui.hideModal();
@@ -3894,6 +3957,9 @@ class App {
 
   async editWorklogEntry(entry) {
     return new Promise((resolve) => {
+      const isWTTEnabled = ui.settings.workTimeTracking?.enabled || false;
+      const currentEntryType = entry.entryType || 'work';
+
       const content = `
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
@@ -3902,12 +3968,26 @@ class App {
           </h3>
 
           <div class="space-y-3">
+            ${isWTTEnabled ? `
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Art des Eintrags</label>
+                <select id="edit-entry-type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                  <option value="work" ${currentEntryType === 'work' ? 'selected' : ''}>${ui.t('entryTypeWork')}</option>
+                  <option value="vacation" ${currentEntryType === 'vacation' ? 'selected' : ''}>${ui.t('entryTypeVacation')}</option>
+                  <option value="sick" ${currentEntryType === 'sick' ? 'selected' : ''}>${ui.t('entryTypeSick')}</option>
+                  <option value="unpaid" ${currentEntryType === 'unpaid' ? 'selected' : ''}>${ui.t('entryTypeUnpaid')}</option>
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Urlaub und Krankenstand zählen als Sollzeit erfüllt</p>
+              </div>
+            ` : ''}
+
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Datum</label>
               <input type="date" id="edit-date" value="${entry.date.split('.').reverse().join('-')}"
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
             </div>
 
+            <div id="edit-time-fields" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startzeit</label>
@@ -3938,6 +4018,7 @@ class App {
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Zuschlag (HH:MM)</label>
               <input type="time" id="edit-surcharge" value="${entry.surcharge || '00:00'}"
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+            </div>
             </div>
 
             <div>
@@ -3972,6 +4053,24 @@ class App {
       `;
 
       ui.showModal(content);
+
+      // Entry type change handler (show/hide time fields)
+      if (isWTTEnabled) {
+        const entryTypeSelect = document.getElementById('edit-entry-type');
+        const timeFields = document.getElementById('edit-time-fields');
+
+        const toggleTimeFields = () => {
+          const entryType = entryTypeSelect.value;
+          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'unpaid') {
+            timeFields.style.display = 'none';
+          } else {
+            timeFields.style.display = 'block';
+          }
+        };
+
+        entryTypeSelect.addEventListener('change', toggleTimeFields);
+        toggleTimeFields(); // Initial state
+      }
 
       // Add task button
       document.getElementById('add-task-to-entry').addEventListener('click', () => {
@@ -4029,16 +4128,76 @@ class App {
           description: el.querySelector('.task-desc').value.trim()
         })).filter(t => t.description); // Only keep tasks with descriptions
 
+        // Get entry type if WTT is enabled
+        const entryType = isWTTEnabled ? document.getElementById('edit-entry-type').value : 'work';
+        const oldEntryType = entry.entryType || 'work';
+
+        // Base updated entry
         const updatedEntry = {
           ...entry,
           date: formattedDate,
-          startTime: document.getElementById('edit-start').value,
-          endTime: document.getElementById('edit-end').value,
-          pause: document.getElementById('edit-pause').value,
-          travelTime: document.getElementById('edit-travel').value,
-          surcharge: document.getElementById('edit-surcharge').value,
-          tasks: tasks
+          tasks: tasks,
+          entryType: entryType
         };
+
+        // Handle work time tracking calculations
+        if (isWTTEnabled && ui.settings.workTimeTracking) {
+          const [d, m, y] = formattedDate.split('.');
+          const entryDate = new Date(y, m - 1, d);
+
+          // Calculate target hours for this day
+          updatedEntry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+
+          if (entryType === 'vacation' || entryType === 'sick') {
+            // Vacation/sick days: no work time, counts as fulfilled
+            updatedEntry.startTime = '';
+            updatedEntry.endTime = '';
+            updatedEntry.pause = '';
+            updatedEntry.travelTime = '';
+            updatedEntry.surcharge = '';
+            updatedEntry.actualHours = updatedEntry.targetHours;
+            updatedEntry.vacationDays = (entryType === 'vacation') ? 1 : 0;
+          } else if (entryType === 'unpaid') {
+            // Unpaid leave: no work time, doesn't count as fulfilled
+            updatedEntry.startTime = '';
+            updatedEntry.endTime = '';
+            updatedEntry.pause = '';
+            updatedEntry.travelTime = '';
+            updatedEntry.surcharge = '';
+            updatedEntry.actualHours = 0;
+            updatedEntry.vacationDays = 0;
+          } else {
+            // Normal work entry
+            updatedEntry.startTime = document.getElementById('edit-start').value;
+            updatedEntry.endTime = document.getElementById('edit-end').value;
+            updatedEntry.pause = document.getElementById('edit-pause').value;
+            updatedEntry.travelTime = document.getElementById('edit-travel').value;
+            updatedEntry.surcharge = document.getElementById('edit-surcharge').value;
+            updatedEntry.actualHours = timeAccount.getActualHours(updatedEntry, ui.settings);
+            updatedEntry.vacationDays = 0;
+          }
+
+          // Update vacation balance if needed
+          const oldWasVacation = oldEntryType === 'vacation';
+          const newIsVacation = entryType === 'vacation';
+
+          if (newIsVacation && !oldWasVacation) {
+            // Changed to vacation: reduce remaining days
+            ui.settings.workTimeTracking.vacation.remainingDays -= 1;
+            await storage.saveSettings(ui.settings);
+          } else if (!newIsVacation && oldWasVacation) {
+            // Changed from vacation: restore remaining days
+            ui.settings.workTimeTracking.vacation.remainingDays += 1;
+            await storage.saveSettings(ui.settings);
+          }
+        } else {
+          // No WTT: keep original time fields
+          updatedEntry.startTime = document.getElementById('edit-start').value;
+          updatedEntry.endTime = document.getElementById('edit-end').value;
+          updatedEntry.pause = document.getElementById('edit-pause').value;
+          updatedEntry.travelTime = document.getElementById('edit-travel').value;
+          updatedEntry.surcharge = document.getElementById('edit-surcharge').value;
+        }
 
         await storage.updateWorklogEntry(updatedEntry);
         ui.hideModal();
@@ -5858,6 +6017,365 @@ class App {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // ===== Work Time Tracking & Vacation Onboarding =====
+
+  async showWorkTimeTrackingOnboarding() {
+    let currentStep = 1;
+    const totalSteps = 3;
+
+    // Temporary storage for onboarding data
+    let onboardingData = {
+      dailyHours: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 },
+      timeAccountBalance: 0,
+      remainingVacation: 25,
+      annualVacation: 25
+    };
+
+    const showStep = (step) => {
+      if (step === 1) {
+        this.showWTTOnboardingStep1(onboardingData, () => showStep(2));
+      } else if (step === 2) {
+        this.showWTTOnboardingStep2(onboardingData, () => showStep(3), () => showStep(1));
+      } else if (step === 3) {
+        this.showWTTOnboardingStep3(onboardingData, () => showStep(2));
+      }
+    };
+
+    showStep(1);
+  }
+
+  showWTTOnboardingStep1(data, onNext) {
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white">${ui.t('wttOnboardingTitle')}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">${ui.t('wttOnboardingWelcome')}</p>
+
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-xs text-gray-500">${ui.t('onboardingStep').replace('{current}', '1').replace('{total}', '3')}</span>
+          </div>
+          <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div class="bg-primary h-2 rounded-full transition-all" style="width: 33%"></div>
+          </div>
+        </div>
+
+        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">${ui.t('wttOnboardingStep1Title')}</h4>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${ui.t('wttOnboardingStep1Desc')}</p>
+
+        <div class="space-y-3 mb-6">
+          ${['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => `
+            <div class="flex items-center justify-between">
+              <label class="text-sm text-gray-700 dark:text-gray-300 w-32">${ui.t(day)}</label>
+              <div class="flex items-center gap-2">
+                <input type="number" id="wtt-${day}" value="${data.dailyHours[day]}" min="0" max="24" step="0.5"
+                  class="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+                <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg mb-6">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-gray-900 dark:text-white">${ui.t('wttWeeklyTotal')}:</span>
+            <span id="weekly-total" class="text-lg font-bold text-primary">0 ${ui.t('hoursShort')}</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="wtt-step1-next" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${ui.t('onboardingNext')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    // Update weekly total
+    const updateTotal = () => {
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const total = days.reduce((sum, day) => {
+        const value = parseFloat(document.getElementById(`wtt-${day}`).value) || 0;
+        return sum + value;
+      }, 0);
+      document.getElementById('weekly-total').textContent = `${total} ${ui.t('hoursShort')}`;
+    };
+
+    // Add event listeners to all inputs
+    ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+      const input = document.getElementById(`wtt-${day}`);
+      input.addEventListener('input', updateTotal);
+    });
+
+    updateTotal();
+
+    document.getElementById('wtt-step1-next').addEventListener('click', () => {
+      // Save data
+      ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+        data.dailyHours[day] = parseFloat(document.getElementById(`wtt-${day}`).value) || 0;
+      });
+      onNext();
+    });
+  }
+
+  showWTTOnboardingStep2(data, onNext, onBack) {
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white">${ui.t('wttOnboardingTitle')}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">${ui.t('wttOnboardingWelcome')}</p>
+
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-xs text-gray-500">${ui.t('onboardingStep').replace('{current}', '2').replace('{total}', '3')}</span>
+          </div>
+          <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div class="bg-primary h-2 rounded-full transition-all" style="width: 67%"></div>
+          </div>
+        </div>
+
+        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">${ui.t('wttOnboardingStep2Title')}</h4>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${ui.t('wttOnboardingStep2Desc')}</p>
+
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttCurrentBalance')}</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="wtt-balance" value="${data.timeAccountBalance}" step="0.5"
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">z.B. +12,5 oder -8,0</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttRemainingVacation')}</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="wtt-vacation-remaining" value="${data.remainingVacation}" min="0" step="0.5"
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <span class="text-sm text-gray-500">${ui.t('days')}</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttAnnualVacation')}</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="wtt-vacation-annual" value="${data.annualVacation}" min="0"
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <span class="text-sm text-gray-500">${ui.t('days')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="wtt-step2-back" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('back')}
+          </button>
+          <button id="wtt-step2-next" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${ui.t('onboardingNext')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('wtt-step2-back').addEventListener('click', () => {
+      onBack();
+    });
+
+    document.getElementById('wtt-step2-next').addEventListener('click', () => {
+      // Save data
+      data.timeAccountBalance = parseFloat(document.getElementById('wtt-balance').value) || 0;
+      data.remainingVacation = parseFloat(document.getElementById('wtt-vacation-remaining').value) || 25;
+      data.annualVacation = parseFloat(document.getElementById('wtt-vacation-annual').value) || 25;
+      onNext();
+    });
+  }
+
+  async showWTTOnboardingStep3(data, onBack) {
+    const weeklyTotal = Object.values(data.dailyHours).reduce((sum, h) => sum + h, 0);
+
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white">${ui.t('wttOnboardingTitle')}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">${ui.t('wttOnboardingWelcome')}</p>
+
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-xs text-gray-500">${ui.t('onboardingStep').replace('{current}', '3').replace('{total}', '3')}</span>
+          </div>
+          <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div class="bg-primary h-2 rounded-full transition-all" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">${ui.t('wttOnboardingStep3Title')}</h4>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${ui.t('wttOnboardingStep3Desc')}</p>
+
+        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-6 space-y-2">
+          <div class="flex justify-between">
+            <span class="text-gray-600 dark:text-gray-400">${ui.t('weeklyTarget')}:</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${weeklyTotal} ${ui.t('hoursShort')}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 dark:text-gray-400">${ui.t('timeAccount')}:</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${data.timeAccountBalance >= 0 ? '+' : ''}${data.timeAccountBalance} ${ui.t('hoursShort')}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 dark:text-gray-400">${ui.t('remainingVacation')}:</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${data.remainingVacation} ${ui.t('days')}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 dark:text-gray-400">${ui.t('annualVacation')}:</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${data.annualVacation} ${ui.t('days')}</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="wtt-step3-back" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('back')}
+          </button>
+          <button id="wtt-step3-finish" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+            ${ui.t('onboardingFinish')} ✓
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    document.getElementById('wtt-step3-back').addEventListener('click', () => {
+      onBack();
+    });
+
+    document.getElementById('wtt-step3-finish').addEventListener('click', async () => {
+      // Save all settings
+      const settings = ui.settings;
+      settings.workTimeTracking = {
+        enabled: true,
+        onboardingCompleted: true,
+        weeklyTargetHours: weeklyTotal,
+        dailyTargetHours: data.dailyHours,
+        timeAccount: {
+          currentBalance: data.timeAccountBalance,
+          lastUpdated: new Date().toISOString(),
+          lastManualAdjustment: null
+        },
+        vacation: {
+          annualDays: data.annualVacation,
+          remainingDays: data.remainingVacation
+        }
+      };
+
+      await storage.saveSettings(settings);
+      ui.settings = settings;
+
+      ui.hideModal();
+      ui.showToast(ui.t('workTimeTracking') + ' aktiviert!', 'success');
+      await this.renderMainScreen();
+    });
+  }
+
+  // ===== Time Account Manual Adjustment =====
+
+  async showTimeAccountAdjustment() {
+    const currentBalance = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
+
+    const content = `
+      <div class="p-6">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${ui.t('adjustTimeAccount')}</h3>
+
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('currentCalculated')}</label>
+            <div class="text-2xl font-bold ${currentBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
+              ${currentBalance >= 0 ? '+' : ''}${currentBalance.toFixed(1)} ${ui.t('hoursShort')}
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('accordingToPayroll')}</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="payroll-balance" value="${currentBalance}" step="0.5"
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">z.B. +12,5 oder -8,0</p>
+          </div>
+
+          <div id="difference-display" class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <div class="flex justify-between items-center">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${ui.t('difference')}:</span>
+              <span id="diff-value" class="font-bold text-gray-900 dark:text-white">±0,0 ${ui.t('hoursShort')}</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('adjustmentReason')} (optional)</label>
+            <input type="text" id="adjustment-reason" placeholder="z.B. Lohnzettel Dezember 2024"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="adjustment-cancel" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('cancel')}
+          </button>
+          <button id="adjustment-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
+            ${ui.t('adjust')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    ui.showModal(content);
+
+    // Update difference display
+    const updateDifference = () => {
+      const payrollBalance = parseFloat(document.getElementById('payroll-balance').value) || 0;
+      const diff = payrollBalance - currentBalance;
+      const diffEl = document.getElementById('diff-value');
+
+      if (diff === 0) {
+        diffEl.textContent = `±0,0 ${ui.t('hoursShort')}`;
+        diffEl.className = 'font-bold text-gray-900 dark:text-white';
+      } else if (diff > 0) {
+        diffEl.textContent = `+${diff.toFixed(1)} ${ui.t('hoursShort')}`;
+        diffEl.className = 'font-bold text-green-600 dark:text-green-400';
+      } else {
+        diffEl.textContent = `${diff.toFixed(1)} ${ui.t('hoursShort')}`;
+        diffEl.className = 'font-bold text-red-600 dark:text-red-400';
+      }
+    };
+
+    document.getElementById('payroll-balance').addEventListener('input', updateDifference);
+    updateDifference();
+
+    document.getElementById('adjustment-cancel').addEventListener('click', () => {
+      ui.hideModal();
+    });
+
+    document.getElementById('adjustment-save').addEventListener('click', async () => {
+      const newBalance = parseFloat(document.getElementById('payroll-balance').value) || 0;
+      const reason = document.getElementById('adjustment-reason').value || null;
+
+      // Update settings
+      const settings = ui.settings;
+      settings.workTimeTracking.timeAccount.currentBalance = newBalance;
+      settings.workTimeTracking.timeAccount.lastManualAdjustment = new Date().toISOString();
+
+      await storage.saveSettings(settings);
+      ui.settings = settings;
+
+      ui.hideModal();
+      ui.showToast(ui.t('adjustmentSaved'), 'success');
+
+      // Refresh history to show new balance
+      await this.showHistory();
+    });
   }
 }
 

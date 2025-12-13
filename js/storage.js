@@ -4,7 +4,7 @@
 class Storage {
   constructor() {
     this.dbName = 'LiftecTimerDB';
-    this.version = 3;  // Incremented for notes stores
+    this.version = 4;  // Incremented for work time tracking feature
     this.db = null;
   }
 
@@ -272,7 +272,38 @@ class Storage {
       emailBody: 'Hi Stefan. Anbei meine Arbeitszeit für {month}.',
       cloudSync: false,  // Cloud sync disabled by default
       onboardingCompleted: false,  // Show onboarding on first launch
-      onCallEnabled: false  // On-call feature disabled by default
+      onCallEnabled: false,  // On-call feature disabled by default
+
+      // Work time tracking & vacation (v1.12.0)
+      workTimeTracking: {
+        enabled: false,  // Feature disabled by default
+        onboardingCompleted: false,  // Show onboarding when first enabled
+
+        // Weekly target hours and daily breakdown
+        weeklyTargetHours: 0,
+        dailyTargetHours: {
+          monday: 0,
+          tuesday: 0,
+          wednesday: 0,
+          thursday: 0,
+          friday: 0,
+          saturday: 0,
+          sunday: 0
+        },
+
+        // Time account (Zeitkonto)
+        timeAccount: {
+          currentBalance: 0,  // Current balance in hours
+          lastUpdated: null,  // Last calculation date
+          lastManualAdjustment: null  // Last manual adjustment date
+        },
+
+        // Vacation tracking
+        vacation: {
+          annualDays: 25,  // Annual vacation days
+          remainingDays: 25  // Remaining vacation days for current year
+        }
+      }
     };
   }
 
