@@ -27,31 +27,28 @@ class TimeAccount {
     // Get target hours for this weekday
     const targetHours = wtSettings.dailyTargetHours[dayKey] || 0;
 
-    // Holiday check: If it's a holiday AND the day has target hours, REDUCE target to 0
-    // This means the weekly target is automatically reduced on holidays
-    // If target hours = 0 (e.g., weekend), holiday doesn't matter
-    if (this.isAustrianHoliday(date)) {
-      return 0;  // Holiday = no target hours (reduces weekly target)
-    }
-
+    // Holidays: Keep the normal target (will be counted as fulfilled in getActualHours)
+    // If target hours = 0 (e.g., weekend), holiday doesn't change anything
     return targetHours;
   }
 
   /**
    * Calculate actual hours worked from a worklog entry
    * @param {Object} entry - Worklog entry
-   * @param {Object} settings - Settings (for target hours on vacation/sick)
+   * @param {Object} settings - Settings (for target hours on vacation/sick/holiday)
    * @returns {number} Actual hours worked
    */
   getActualHours(entry, settings) {
-    // Vacation and sick days count as target fulfilled (they had a target before the day off)
-    if (entry.entryType === 'vacation' || entry.entryType === 'sick') {
+    // Vacation, sick days, and holidays count as target fulfilled
+    if (entry.entryType === 'vacation' ||
+        entry.entryType === 'sick' ||
+        entry.entryType === 'holiday') {
       // Return the target hours for this day (what would have been worked)
       return entry.targetHours || 0;
     }
 
-    // Holidays and unpaid leave don't count as hours worked
-    if (entry.entryType === 'holiday' || entry.entryType === 'unpaid') {
+    // Unpaid leave doesn't count as hours worked
+    if (entry.entryType === 'unpaid') {
       return 0;
     }
 
