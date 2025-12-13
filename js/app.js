@@ -3957,6 +3957,9 @@ class App {
 
   async editWorklogEntry(entry) {
     return new Promise((resolve) => {
+      const isWTTEnabled = ui.settings.workTimeTracking?.enabled || false;
+      const currentEntryType = entry.entryType || 'work';
+
       const content = `
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
@@ -3965,12 +3968,26 @@ class App {
           </h3>
 
           <div class="space-y-3">
+            ${isWTTEnabled ? `
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Art des Eintrags</label>
+                <select id="edit-entry-type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                  <option value="work" ${currentEntryType === 'work' ? 'selected' : ''}>${ui.t('entryTypeWork')}</option>
+                  <option value="vacation" ${currentEntryType === 'vacation' ? 'selected' : ''}>${ui.t('entryTypeVacation')}</option>
+                  <option value="sick" ${currentEntryType === 'sick' ? 'selected' : ''}>${ui.t('entryTypeSick')}</option>
+                  <option value="unpaid" ${currentEntryType === 'unpaid' ? 'selected' : ''}>${ui.t('entryTypeUnpaid')}</option>
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Urlaub und Krankenstand zählen als Sollzeit erfüllt</p>
+              </div>
+            ` : ''}
+
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Datum</label>
               <input type="date" id="edit-date" value="${entry.date.split('.').reverse().join('-')}"
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
             </div>
 
+            <div id="edit-time-fields" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startzeit</label>
@@ -4001,6 +4018,7 @@ class App {
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Zuschlag (HH:MM)</label>
               <input type="time" id="edit-surcharge" value="${entry.surcharge || '00:00'}"
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+            </div>
             </div>
 
             <div>
@@ -4035,6 +4053,24 @@ class App {
       `;
 
       ui.showModal(content);
+
+      // Entry type change handler (show/hide time fields)
+      if (isWTTEnabled) {
+        const entryTypeSelect = document.getElementById('edit-entry-type');
+        const timeFields = document.getElementById('edit-time-fields');
+
+        const toggleTimeFields = () => {
+          const entryType = entryTypeSelect.value;
+          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'unpaid') {
+            timeFields.style.display = 'none';
+          } else {
+            timeFields.style.display = 'block';
+          }
+        };
+
+        entryTypeSelect.addEventListener('change', toggleTimeFields);
+        toggleTimeFields(); // Initial state
+      }
 
       // Add task button
       document.getElementById('add-task-to-entry').addEventListener('click', () => {
@@ -4092,16 +4128,76 @@ class App {
           description: el.querySelector('.task-desc').value.trim()
         })).filter(t => t.description); // Only keep tasks with descriptions
 
+        // Get entry type if WTT is enabled
+        const entryType = isWTTEnabled ? document.getElementById('edit-entry-type').value : 'work';
+        const oldEntryType = entry.entryType || 'work';
+
+        // Base updated entry
         const updatedEntry = {
           ...entry,
           date: formattedDate,
-          startTime: document.getElementById('edit-start').value,
-          endTime: document.getElementById('edit-end').value,
-          pause: document.getElementById('edit-pause').value,
-          travelTime: document.getElementById('edit-travel').value,
-          surcharge: document.getElementById('edit-surcharge').value,
-          tasks: tasks
+          tasks: tasks,
+          entryType: entryType
         };
+
+        // Handle work time tracking calculations
+        if (isWTTEnabled && ui.settings.workTimeTracking) {
+          const [d, m, y] = formattedDate.split('.');
+          const entryDate = new Date(y, m - 1, d);
+
+          // Calculate target hours for this day
+          updatedEntry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+
+          if (entryType === 'vacation' || entryType === 'sick') {
+            // Vacation/sick days: no work time, counts as fulfilled
+            updatedEntry.startTime = '';
+            updatedEntry.endTime = '';
+            updatedEntry.pause = '';
+            updatedEntry.travelTime = '';
+            updatedEntry.surcharge = '';
+            updatedEntry.actualHours = updatedEntry.targetHours;
+            updatedEntry.vacationDays = (entryType === 'vacation') ? 1 : 0;
+          } else if (entryType === 'unpaid') {
+            // Unpaid leave: no work time, doesn't count as fulfilled
+            updatedEntry.startTime = '';
+            updatedEntry.endTime = '';
+            updatedEntry.pause = '';
+            updatedEntry.travelTime = '';
+            updatedEntry.surcharge = '';
+            updatedEntry.actualHours = 0;
+            updatedEntry.vacationDays = 0;
+          } else {
+            // Normal work entry
+            updatedEntry.startTime = document.getElementById('edit-start').value;
+            updatedEntry.endTime = document.getElementById('edit-end').value;
+            updatedEntry.pause = document.getElementById('edit-pause').value;
+            updatedEntry.travelTime = document.getElementById('edit-travel').value;
+            updatedEntry.surcharge = document.getElementById('edit-surcharge').value;
+            updatedEntry.actualHours = timeAccount.getActualHours(updatedEntry, ui.settings);
+            updatedEntry.vacationDays = 0;
+          }
+
+          // Update vacation balance if needed
+          const oldWasVacation = oldEntryType === 'vacation';
+          const newIsVacation = entryType === 'vacation';
+
+          if (newIsVacation && !oldWasVacation) {
+            // Changed to vacation: reduce remaining days
+            ui.settings.workTimeTracking.vacation.remainingDays -= 1;
+            await storage.saveSettings(ui.settings);
+          } else if (!newIsVacation && oldWasVacation) {
+            // Changed from vacation: restore remaining days
+            ui.settings.workTimeTracking.vacation.remainingDays += 1;
+            await storage.saveSettings(ui.settings);
+          }
+        } else {
+          // No WTT: keep original time fields
+          updatedEntry.startTime = document.getElementById('edit-start').value;
+          updatedEntry.endTime = document.getElementById('edit-end').value;
+          updatedEntry.pause = document.getElementById('edit-pause').value;
+          updatedEntry.travelTime = document.getElementById('edit-travel').value;
+          updatedEntry.surcharge = document.getElementById('edit-surcharge').value;
+        }
 
         await storage.updateWorklogEntry(updatedEntry);
         ui.hideModal();
