@@ -152,6 +152,7 @@ class UI {
         showList: 'Liste anzeigen',
         hasEntry: 'Mit Eintrag',
         weekend: 'Wochenende',
+        holiday: 'Feiertag',
         today: 'Heute',
         monthNames: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
         // Share Entry Feature
@@ -368,6 +369,7 @@ class UI {
         showList: 'Show List',
         hasEntry: 'Has Entry',
         weekend: 'Weekend',
+        holiday: 'Public Holiday',
         today: 'Today',
         monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
         // Share Entry Feature
@@ -584,6 +586,7 @@ class UI {
         showList: 'Prikaži listu',
         hasEntry: 'Sa unosom',
         weekend: 'Vikend',
+        holiday: 'Praznik',
         today: 'Danas',
         monthNames: ['Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipanj', 'Srpanj', 'Kolovoz', 'Rujan', 'Listopad', 'Studeni', 'Prosinac'],
         // Share Entry Feature

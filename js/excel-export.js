@@ -166,6 +166,11 @@ class ExcelExport {
 
       const entry = entriesMap.get(dateStr);
 
+      // Check if this date is a holiday
+      const holidayInfo = austrianHolidays.isHoliday(dateStr);
+      const isHoliday = holidayInfo.isHoliday;
+      const holidayName = isHoliday ? holidayInfo.name.de : '';
+
       let startTime = '';
       let endTime = '';
       let pause = '';
@@ -192,6 +197,11 @@ class ExcelExport {
         tasksDescription = entry.tasks && entry.tasks.length > 0
           ? entry.tasks.map(t => t.type ? `${t.description} [${t.type}]` : t.description).join(', ')
           : '';
+      }
+
+      // Add holiday name to description if it's a holiday (even without entry)
+      if (isHoliday && !tasksDescription) {
+        tasksDescription = holidayName + ' (Feiertag)';
       }
 
       const row = worksheet.getRow(currentRow);
@@ -250,8 +260,16 @@ class ExcelExport {
 
         cell.font = { size: 10 };
 
+        // Highlight holidays with red background
+        if (isHoliday) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFCCCC' }  // Light red for holidays
+          };
+        }
         // FIXED weekend coloring: 0 = Sunday, 6 = Saturday
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
+        else if (dayOfWeek === 0 || dayOfWeek === 6) {
           cell.fill = {
             type: 'pattern',
             pattern: 'solid',

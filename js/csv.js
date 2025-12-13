@@ -66,6 +66,13 @@ class CSVExport {
 
   // Create empty row for a specific date
   createEmptyRow(dateStr) {
+    // Check if date is a holiday
+    const holidayInfo = austrianHolidays.isHoliday(dateStr);
+    if (holidayInfo.isHoliday) {
+      // Mark as holiday in the tasks column
+      const holidayName = holidayInfo.name.de;
+      return `"${dateStr}";"";"";"";"";"";"";"";"";"";${this.quote(holidayName + ' (Feiertag)')}`;
+    }
     return `"${dateStr}";"";"";"";"";"";"";"";"";"";""`;;
   }
 
