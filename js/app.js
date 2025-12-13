@@ -3869,10 +3869,15 @@ class App {
 
     const content = `
       <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-          ${ui.icon('history')}
-          <span>${ui.t('recordings')}</span>
-        </h3>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('history')}
+            <span>${ui.t('recordings')}</span>
+          </h3>
+          <button id="history-close-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1" title="${ui.t('close')}">
+            ${ui.icon('x')}
+          </button>
+        </div>
 
         ${statsHtml}
 
@@ -3882,16 +3887,6 @@ class App {
 
         <div class="max-h-64 overflow-y-auto border-t border-gray-200 dark:border-gray-700">
           ${entriesHtml}
-        </div>
-
-        <!-- Actions -->
-        <div class="flex gap-2 mt-4">
-          <button id="import-entry-open" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600">
-            ${ui.icon('download')} ${ui.t('importEntry')}
-          </button>
-          <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
-            ${ui.t('close')}
-          </button>
         </div>
       </div>
     `;
@@ -3944,13 +3939,8 @@ class App {
       });
     }
 
-    // Add event listener for import button
-    document.getElementById('import-entry-open').addEventListener('click', () => {
-      ui.hideModal();
-      this.showImportEntryDialog();
-    });
-
-    document.getElementById('dialog-ok').addEventListener('click', () => {
+    // Add event listener for close button
+    document.getElementById('history-close-btn').addEventListener('click', () => {
       ui.hideModal();
     });
   }
