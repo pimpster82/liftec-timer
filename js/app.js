@@ -2285,6 +2285,51 @@ class App {
     });
   }
 
+  /**
+   * Shows save dialog with 3 options: Save, Discard, Back
+   * @returns {Promise<string>} 'save', 'discard', or 'back'
+   */
+  showSaveDialog() {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Änderungen speichern?</h3>
+          <p class="text-gray-600 dark:text-gray-400 mb-6">Du hast nicht gespeicherte Änderungen. Was möchtest du tun?</p>
+          <div class="flex flex-col gap-3">
+            <button id="dialog-save" class="w-full px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
+              ${ui.icon('check')}
+              <span>Speichern</span>
+            </button>
+            <button id="dialog-discard" class="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center justify-center gap-2">
+              ${ui.icon('trash')}
+              <span>Verwerfen</span>
+            </button>
+            <button id="dialog-back" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              Zurück
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      document.getElementById('dialog-save').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('save');
+      });
+
+      document.getElementById('dialog-discard').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('discard');
+      });
+
+      document.getElementById('dialog-back').addEventListener('click', () => {
+        ui.hideModal();
+        resolve('back');
+      });
+    });
+  }
+
   showInputDialog(title, defaultValue = '', multiline = false) {
     return new Promise((resolve) => {
       const inputField = multiline
@@ -2502,9 +2547,7 @@ class App {
   // ===== Menu =====
 
   async showMenu() {
-    const content = `
-      <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${ui.t('menu')}</h3>
+    const contentHtml = `
         <div class="space-y-2">
           <button id="menu-settings" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
             ${ui.icon('settings')}
@@ -2527,13 +2570,13 @@ class App {
             <span>Info</span>
           </button>
         </div>
-        <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">
-          ${ui.t('cancel')}
-        </button>
-      </div>
     `;
 
-    ui.showModal(content);
+    ui.showModalWithHeader({
+      title: ui.t('menu'),
+      icon: 'menu',
+      content: contentHtml
+    });
 
     document.getElementById('menu-settings').addEventListener('click', () => {
       ui.hideModal();
@@ -2558,10 +2601,6 @@ class App {
     document.getElementById('menu-about').addEventListener('click', () => {
       ui.hideModal();
       this.showAbout();
-    });
-
-    document.getElementById('dialog-cancel').addEventListener('click', () => {
-      ui.hideModal();
     });
   }
 
@@ -2613,13 +2652,40 @@ class App {
       }
     }
 
-    const content = `
-      <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-          ${ui.icon('settings')}
-          <span>${ui.t('settings')}</span>
-        </h3>
+    // Auto-save function
+    const saveSettings = async () => {
+      const workTimeTrackingEnabled = document.getElementById('setting-worktime-enabled')?.checked || false;
+      const wasEnabled = ui.settings.workTimeTracking?.enabled || false;
 
+      const newSettings = {
+        username: document.getElementById('setting-username')?.value || '',
+        language: document.getElementById('setting-language')?.value || 'de',
+        surchargePercent: parseInt(document.getElementById('setting-surcharge')?.value || 0),
+        emailSubject: document.getElementById('setting-email-subject')?.value || '',
+        emailBody: document.getElementById('setting-email-body')?.value || '',
+        onCallEnabled: document.getElementById('setting-oncall-enabled')?.checked || false,
+        workTimeTracking: {
+          ...(ui.settings.workTimeTracking || {}),
+          enabled: workTimeTrackingEnabled
+        }
+      };
+
+      await storage.saveSettings(newSettings);
+      ui.settings = newSettings;
+      ui.i18n = ui.getI18N();
+
+      ui.hideModal();
+
+      // If workTimeTracking was just enabled for the first time, show onboarding
+      if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
+        this.showWorkTimeTrackingOnboarding();
+      } else {
+        ui.showToast('Einstellungen gespeichert', 'success');
+        await this.renderMainScreen();
+      }
+    };
+
+    const contentHtml = `
         <div class="space-y-4">
           <!-- Cloud Sync Section -->
           ${firebaseService && firebaseService.isInitialized ? `
@@ -2879,18 +2945,14 @@ class App {
         <button id="settings-backups" class="w-full px-4 py-3 mt-6 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700">
           ${ui.t('backupTitle')}
         </button>
-        <div class="flex gap-2 mt-4">
-          <button id="settings-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
-            ${ui.t('save')}
-          </button>
-          <button id="settings-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-            ${ui.t('cancel')}
-          </button>
-        </div>
-      </div>
     `;
 
-    ui.showModal(content);
+    ui.showModalWithHeader({
+      title: ui.t('settings'),
+      icon: 'settings',
+      content: contentHtml,
+      onClose: saveSettings
+    });
 
     // ===== Firebase Event Listeners =====
     if (firebaseService && firebaseService.isInitialized) {
@@ -3153,13 +3215,10 @@ class App {
       }
     });
 
+
     document.getElementById('settings-backups').addEventListener('click', () => {
       ui.hideModal();
       this.showBackupManager();
-    });
-
-    document.getElementById('settings-cancel').addEventListener('click', () => {
-      ui.hideModal();
     });
   }
 
@@ -3868,36 +3927,23 @@ class App {
       `;
     }).join('');
 
-    const content = `
-      <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-          ${ui.icon('history')}
-          <span>${ui.t('recordings')}</span>
-        </h3>
+    const contentHtml = `
+      ${statsHtml}
 
-        ${statsHtml}
+      <div class="mb-3">
+        <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Alle Einträge (${entries.length})</div>
+      </div>
 
-        <div class="mb-3">
-          <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Alle Einträge (${entries.length})</div>
-        </div>
-
-        <div class="max-h-64 overflow-y-auto border-t border-gray-200 dark:border-gray-700">
-          ${entriesHtml}
-        </div>
-
-        <!-- Actions -->
-        <div class="flex gap-2 mt-4">
-          <button id="import-entry-open" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600">
-            ${ui.icon('download')} ${ui.t('importEntry')}
-          </button>
-          <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
-            ${ui.t('close')}
-          </button>
-        </div>
+      <div class="border-t border-gray-200 dark:border-gray-700">
+        ${entriesHtml}
       </div>
     `;
 
-    ui.showModal(content);
+    ui.showModalWithHeader({
+      title: ui.t('recordings'),
+      icon: 'history',
+      content: contentHtml
+    });
 
     // Add event listeners for share buttons
     document.querySelectorAll('.history-share-btn').forEach(btn => {
@@ -3944,16 +3990,6 @@ class App {
         this.showTimeAccountAdjustment();
       });
     }
-
-    // Add event listener for import button
-    document.getElementById('import-entry-open').addEventListener('click', () => {
-      ui.hideModal();
-      this.showImportEntryDialog();
-    });
-
-    document.getElementById('dialog-ok').addEventListener('click', () => {
-      ui.hideModal();
-    });
   }
 
   async editWorklogEntry(entry) {
@@ -3961,13 +3997,21 @@ class App {
       const isWTTEnabled = ui.settings.workTimeTracking?.enabled || false;
       const currentEntryType = entry.entryType || 'work';
 
-      const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-            ${ui.icon('edit')}
-            <span>Eintrag bearbeiten</span>
-          </h3>
+      // Store original values for change detection
+      const originalValues = {
+        entryType: currentEntryType,
+        date: entry.date,
+        startTime: entry.startTime || '',
+        endTime: entry.endTime || '',
+        pause: entry.pause || '00:00',
+        travelTime: entry.travelTime || '00:00',
+        surcharge: entry.surcharge || '00:00',
+        tasks: JSON.stringify(entry.tasks || [])
+      };
 
+      let hasChanges = false;
+
+      const contentHtml = `
           <div class="space-y-3">
             ${isWTTEnabled ? `
               <div>
@@ -4041,19 +4085,76 @@ class App {
               </button>
             </div>
           </div>
-
-          <div class="flex gap-2 mt-6">
-            <button id="edit-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
-              Speichern
-            </button>
-            <button id="edit-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-              Abbrechen
-            </button>
-          </div>
-        </div>
       `;
 
-      ui.showModal(content);
+      const footerHtml = `
+        <button id="edit-save" class="w-full px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
+          ${ui.icon('check')}
+          <span>Speichern</span>
+        </button>
+      `;
+
+      // Check for changes function
+      const checkForChanges = () => {
+        const currentTasks = Array.from(document.querySelectorAll('#edit-tasks-list .flex'))
+          .map(el => ({
+            type: el.querySelector('.task-type')?.value.trim() || '',
+            description: el.querySelector('.task-desc')?.value.trim() || ''
+          }))
+          .filter(t => t.description);
+
+        const currentEntryType = isWTTEnabled ? document.getElementById('edit-entry-type')?.value : 'work';
+        const currentDate = document.getElementById('edit-date')?.value.split('-').reverse().join('.') || originalValues.date;
+        const currentStartTime = document.getElementById('edit-start')?.value || '';
+        const currentEndTime = document.getElementById('edit-end')?.value || '';
+        const currentPause = document.getElementById('edit-pause')?.value || '00:00';
+        const currentTravelTime = document.getElementById('edit-travel')?.value || '00:00';
+        const currentSurcharge = document.getElementById('edit-surcharge')?.value || '00:00';
+
+        hasChanges = (
+          currentEntryType !== originalValues.entryType ||
+          currentDate !== originalValues.date ||
+          currentStartTime !== originalValues.startTime ||
+          currentEndTime !== originalValues.endTime ||
+          currentPause !== originalValues.pause ||
+          currentTravelTime !== originalValues.travelTime ||
+          currentSurcharge !== originalValues.surcharge ||
+          JSON.stringify(currentTasks) !== originalValues.tasks
+        );
+      };
+
+      // Handle close with smart save
+      const handleClose = async () => {
+        checkForChanges();
+
+        if (!hasChanges) {
+          ui.hideModal();
+          resolve(false);
+          return;
+        }
+
+        const action = await this.showSaveDialog();
+
+        if (action === 'save') {
+          // Trigger save
+          document.getElementById('edit-save').click();
+        } else if (action === 'discard') {
+          ui.hideModal();
+          resolve(false);
+        } else {
+          // 'back' - reopen the edit dialog
+          await this.editWorklogEntry(entry);
+          resolve(false);
+        }
+      };
+
+      ui.showModalWithHeader({
+        title: 'Eintrag bearbeiten',
+        icon: 'edit',
+        content: contentHtml,
+        footer: footerHtml,
+        onClose: handleClose
+      });
 
       // Entry type change handler (show/hide time fields)
       if (isWTTEnabled) {
@@ -4204,12 +4305,6 @@ class App {
         ui.hideModal();
         ui.showToast('Eintrag aktualisiert', 'success');
         resolve(true);
-      });
-
-      // Cancel button
-      document.getElementById('edit-cancel').addEventListener('click', () => {
-        ui.hideModal();
-        resolve(false);
       });
     });
   }
@@ -4926,7 +5021,7 @@ class App {
                 <p class="text-xs text-gray-600 dark:text-gray-400">${friend.displayName}</p>
               </div>
               <button class="remove-friend-btn text-red-500 hover:text-red-700 text-sm" data-friend-id="${friend.uid}" data-friend-nickname="${friend.nickname}">
-                ${ui.icon('trash-2', 'w-5 h-5')}
+                ${ui.icon('trash', 'w-5 h-5')}
               </button>
             </div>
           `).join('')
@@ -4935,7 +5030,7 @@ class App {
       const content = `
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-            ${ui.icon('users')}
+            ${ui.icon('share')}
             <span>${ui.t('myFriends')}</span>
           </h3>
 

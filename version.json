@@ -8,7 +8,9 @@
     "Feature: Zeitkonto und Urlaub werden ab Stichtag neu berechnet",
     "Feature: Automatische Berechnung der Änderungen seit Referenzdatum",
     "Improve: Manuelle Anpassung unterstützt jetzt gleichzeitige Eingabe von Zeitkonto und Urlaub",
-    "Improve: Bessere UX mit klarer Zusammenfassung des gewählten Stichtags"
+    "Improve: Bessere UX mit klarer Zusammenfassung des gewählten Stichtags",
+    "Fix: Friends-Löschen-Button wird jetzt korrekt angezeigt (aus v1.13.1)",
+    "Fix: Korrektur fehlender Icons - trash-2 → trash, users → share (aus v1.13.1)"
   ],
   "critical": false
 }
