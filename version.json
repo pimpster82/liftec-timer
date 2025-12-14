@@ -1,5 +1,5 @@
 {
-  "version": "1.14.1",
+  "version": "1.14.2",
   "releaseDate": "2025-12-14",
   "changelog": [
     "Fix: Zeit-Eingabe jetzt mit hh:mm Format vom Lohnzettel (z.B. 08:30)",
