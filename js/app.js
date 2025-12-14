@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.9';
+const APP_VERSION = '1.14.10';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -4008,12 +4008,12 @@ class App {
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startzeit</label>
-                <input type="time" id="edit-start" value="${entry.startTime}"
+                <input type="time" id="edit-start" value="${entry.startTime || ''}"
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endzeit</label>
-                <input type="time" id="edit-end" value="${entry.endTime}"
+                <input type="time" id="edit-end" value="${entry.endTime || ''}"
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               </div>
             </div>
