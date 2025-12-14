@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.16';
+const APP_VERSION = '1.14.17';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -3988,6 +3988,10 @@ class App {
     return new Promise((resolve) => {
       const isWTTEnabled = ui.settings.workTimeTracking?.enabled || false;
 
+      // Check if this date is a holiday
+      const holidayInfo = austrianHolidays.isHoliday(entry.date);
+      const isHoliday = holidayInfo.isHoliday;
+
       // Check if this is an absence entry (Urlaub, Krankenstand, Feiertag, Zeitausgleich)
       // These are stored as tasks with type='' and description contains the absence type
       const isAbsenceEntry = entry.tasks && entry.tasks.length > 0 &&
@@ -4001,7 +4005,7 @@ class App {
         const absenceMapping = {
           'Urlaub': 'vacation',
           'Krankenstand': 'sick',
-          'Feiertag': 'vacation',
+          'Feiertag': 'holiday',
           'Zeitausgleich': 'unpaid'
         };
         mappedEntryType = absenceMapping[absenceType] || 'vacation';
@@ -4041,6 +4045,7 @@ class App {
                   <option value="vacation" ${currentEntryType === 'vacation' ? 'selected' : ''}>${ui.t('entryTypeVacation')}</option>
                   <option value="sick" ${currentEntryType === 'sick' ? 'selected' : ''}>${ui.t('entryTypeSick')}</option>
                   <option value="unpaid" ${currentEntryType === 'unpaid' ? 'selected' : ''}>${ui.t('entryTypeUnpaid')}</option>
+                  ${isHoliday ? `<option value="holiday" ${currentEntryType === 'holiday' ? 'selected' : ''}>${ui.t('entryTypeHoliday')}</option>` : ''}
                 </select>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Urlaub und Krankenstand zählen als Sollzeit erfüllt</p>
               </div>
@@ -4185,7 +4190,7 @@ class App {
 
         const toggleTimeFields = () => {
           const entryType = entryTypeSelect.value;
-          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'unpaid') {
+          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'unpaid' || entryType === 'holiday') {
             timeFields.style.display = 'none';
           } else {
             timeFields.style.display = 'block';
@@ -4277,8 +4282,8 @@ class App {
           // Calculate target hours for this day
           updatedEntry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
 
-          if (entryType === 'vacation' || entryType === 'sick') {
-            // Vacation/sick days: no work time, counts as fulfilled
+          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'holiday') {
+            // Vacation/sick/holiday days: no work time, counts as fulfilled
             updatedEntry.startTime = '';
             updatedEntry.endTime = '';
             updatedEntry.pause = '';

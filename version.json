@@ -1,11 +1,11 @@
 {
-  "version": "1.14.16",
+  "version": "1.14.17",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Feature: Dynamisches 'Art des Eintrags' Dropdown - wechselt zwischen Arbeitstag/Urlaub/Krankenstand/Unbezahlt",
-    "Feature: Zeit-Felder werden automatisch ein/ausgeblendet basierend auf Eintragsart",
-    "Feature: Default-Zeiten (8:00-17:00) beim Wechsel von Urlaub zu Arbeitstag",
-    "Improve: Absence Entries werden korrekt zu WTT entryTypes gemappt (Urlaub→vacation, etc.)"
+    "Feature: Feiertag als eigene Option im Dropdown - erscheint nur an Feiertagen",
+    "Feature: Feiertag verhält sich wie Urlaub (keine Zeit-Felder, zählt als erfüllt)",
+    "Improve: Feiertag wird als 'holiday' entryType gespeichert (nicht vacation)",
+    "Fix: toggleTimeFields versteckt Zeit-Felder auch bei Feiertag"
   ],
   "critical": false
 }
