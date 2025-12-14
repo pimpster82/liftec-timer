@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.14';
+const APP_VERSION = '1.14.15';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -3987,6 +3987,13 @@ class App {
   async editWorklogEntry(entry) {
     return new Promise((resolve) => {
       const isWTTEnabled = ui.settings.workTimeTracking?.enabled || false;
+
+      // Check if this is an absence entry (Urlaub, Krankenstand, Feiertag, Zeitausgleich)
+      // These are stored as tasks with type='' and description contains the absence type
+      const isAbsenceEntry = entry.tasks && entry.tasks.length > 0 &&
+                             entry.tasks[0].type === '' &&
+                             ['Urlaub', 'Krankenstand', 'Feiertag', 'Zeitausgleich'].includes(entry.tasks[0].description);
+
       const currentEntryType = entry.entryType || 'work';
 
       // Store original values for change detection
@@ -4013,7 +4020,7 @@ class App {
 
       const contentHtml = `
           <div class="space-y-3">
-            ${isWTTEnabled ? `
+            ${isWTTEnabled && !isAbsenceEntry ? `
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Art des Eintrags</label>
                 <select id="edit-entry-type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
@@ -4032,7 +4039,7 @@ class App {
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
             </div>
 
-            <div id="edit-time-fields" class="space-y-3">
+            ${!isAbsenceEntry ? `<div id="edit-time-fields" class="space-y-3">` : ''}
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startzeit</label>
@@ -4064,7 +4071,7 @@ class App {
               <input type="time" id="edit-surcharge" value="${entry.surcharge || '00:00'}"
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
             </div>
-            </div>
+            ${!isAbsenceEntry ? `</div>` : ''}
 
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Aufgaben</label>
