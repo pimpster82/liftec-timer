@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.2';
+const APP_VERSION = '1.14.3';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -161,7 +161,7 @@ class App {
 
     const firstChangelog = updateInfo.changelog && updateInfo.changelog.length > 0
       ? updateInfo.changelog[0]
-      : 'Neue Version verfügbar';
+      : ui.t('newVersionAvailable');
 
     banner.innerHTML = `
       <div class="p-3">
@@ -194,15 +194,15 @@ class App {
           <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">${firstChangelog}</p>
           <div class="flex flex-col gap-2">
             <button id="update-now-btn" class="w-full px-3 py-2 bg-blue-500 text-white rounded text-sm font-semibold hover:bg-blue-600">
-              Installieren
+              ${ui.t('install')}
             </button>
             <div class="flex gap-2">
               <button id="update-info-btn" class="flex-1 text-xs text-blue-500 hover:underline">
-                Mehr Info
+                ${ui.t('moreInfo')}
               </button>
               ${!updateInfo.critical ? `
                 <button id="update-skip-btn" class="flex-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                  Überspringen
+                  ${ui.t('skip')}
                 </button>
               ` : ''}
             </div>
@@ -245,7 +245,7 @@ class App {
   showUpdateDetails(updateInfo) {
     const changelogHtml = updateInfo.changelog && updateInfo.changelog.length > 0
       ? updateInfo.changelog.map(item => `<li class="text-sm text-gray-700 dark:text-gray-300">• ${item}</li>`).join('')
-      : '<li class="text-sm text-gray-500">Keine Details verfügbar</li>';
+      : `<li class="text-sm text-gray-500">${ui.t('noDetailsAvailable')}</li>`;
 
     const content = `
       <div class="p-6">
@@ -2178,7 +2178,7 @@ class App {
             <div class="flex items-center space-x-4">
               <button id="pause-minus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">−</button>
               <div class="flex-1 text-center">
-                <span id="pause-display" class="text-3xl font-bold text-gray-900 dark:text-white">${pauseValue.toFixed(1)}</span>
+                <span id="pause-display" class="text-3xl font-bold text-gray-900 dark:text-white">${ui.formatHours(pauseValue)}</span>
                 <span class="text-lg text-gray-600 dark:text-gray-400 ml-1">h</span>
               </div>
               <button id="pause-plus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">+</button>
@@ -2191,7 +2191,7 @@ class App {
             <div class="flex items-center space-x-4">
               <button id="travel-minus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">−</button>
               <div class="flex-1 text-center">
-                <span id="travel-display" class="text-3xl font-bold text-gray-900 dark:text-white">${travelValue.toFixed(1)}</span>
+                <span id="travel-display" class="text-3xl font-bold text-gray-900 dark:text-white">${ui.formatHours(travelValue)}</span>
                 <span class="text-lg text-gray-600 dark:text-gray-400 ml-1">h</span>
               </div>
               <button id="travel-plus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">+</button>
@@ -2214,8 +2214,8 @@ class App {
 
       // Update display
       const updateDisplay = () => {
-        document.getElementById('pause-display').textContent = pauseValue.toFixed(1);
-        document.getElementById('travel-display').textContent = travelValue.toFixed(1);
+        document.getElementById('pause-display').textContent = ui.formatHours(pauseValue);
+        document.getElementById('travel-display').textContent = ui.formatHours(travelValue);
       };
 
       // Pause increment/decrement
@@ -2693,7 +2693,7 @@ class App {
               <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="cloud-sync-content">
                 <div class="flex items-center gap-2">
                   ${ui.icon('cloud')}
-                  <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Cloud Synchronisation</h4>
+                  <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${ui.t('cloudSyncTitle')}</h4>
                 </div>
                 ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
               </button>
@@ -2705,7 +2705,7 @@ class App {
               ${isSignedIn ? `
                 <div class="mt-3 space-y-2">
                   <button id="firebase-manual-sync" class="w-full px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
-                    <span id="sync-button-text">Jetzt syncen</span>
+                    <span id="sync-button-text">${ui.t('syncNow')}</span>
                     <span id="sync-button-spinner" class="hidden">
                       <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -2714,7 +2714,7 @@ class App {
                     </span>
                   </button>
                   <button id="firebase-hard-refresh" class="w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center justify-center gap-2">
-                    <span id="refresh-button-text">Daten neu laden (Cache leeren)</span>
+                    <span id="refresh-button-text">${ui.t('hardRefresh')}</span>
                     <span id="refresh-button-spinner" class="hidden">
                       <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -2723,10 +2723,10 @@ class App {
                     </span>
                   </button>
                   <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Automatischer Sync: alle 60 Minuten
+                    ${ui.t('autoSyncInfo')}
                   </p>
                   <p class="text-xs text-gray-500 dark:text-gray-400 italic">
-                    "Daten neu laden" löscht den Cache und holt aktuelle Daten vom Cloud. Nutze dies beim Gerätewechsel.
+                    ${ui.t('hardRefreshInfo')}
                   </p>
                 </div>
               ` : ''}
@@ -2734,21 +2734,21 @@ class App {
               <div class="mt-3 space-y-2">
                 ${!isSignedIn ? `
                   <button id="firebase-login-anon" class="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">
-                    Anonym anmelden
+                    ${ui.t('signInAnonymous')}
                   </button>
                   <button id="firebase-login-email" class="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600">
-                    Mit Email anmelden
+                    ${ui.t('signInWithEmail')}
                   </button>
                 ` : isAnonymous ? `
                   <button id="firebase-link-email" class="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600">
-                    Account mit Email verbinden
+                    ${ui.t('linkEmailToAccount')}
                   </button>
                   <button id="firebase-logout" class="w-full px-3 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600">
-                    Abmelden
+                    ${ui.t('signOut')}
                   </button>
                 ` : `
                   <button id="firebase-logout" class="w-full px-3 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600">
-                    Abmelden
+                    ${ui.t('signOut')}
                   </button>
                 `}
               </div>
@@ -2756,12 +2756,12 @@ class App {
               ${isSignedIn ? `
                 <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
                   ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
-                  <span>Deine Daten werden automatisch zwischen allen Geräten synchronisiert</span>
+                  <span>${ui.t('syncAutoInfo')}</span>
                 </p>
               ` : `
                 <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
                   ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
-                  <span>Melde dich an, um deine Daten zwischen Geräten zu synchronisieren</span>
+                  <span>${ui.t('syncSignInInfo')}</span>
                 </p>
               `}
               </div>
@@ -2773,7 +2773,7 @@ class App {
             <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="update-content">
               <div class="flex items-center gap-2">
                 ${ui.icon('arrow-down-circle')}
-                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">App-Updates</h4>
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${ui.t('appUpdates')}</h4>
               </div>
               ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
             </button>
@@ -2781,23 +2781,23 @@ class App {
 
             <div class="space-y-2">
               <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-600 dark:text-gray-400">Aktuelle Version:</span>
+                <span class="text-gray-600 dark:text-gray-400">${ui.t('currentVersion')}</span>
                 <span class="font-semibold text-gray-900 dark:text-white">v${APP_VERSION}</span>
               </div>
               <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-600 dark:text-gray-400">Verfügbare Version:</span>
+                <span class="text-gray-600 dark:text-gray-400">${ui.t('availableVersion')}</span>
                 <span id="remote-version-display" class="font-semibold text-gray-900 dark:text-white">-</span>
               </div>
             </div>
 
             <button id="check-update-btn" class="w-full mt-3 px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
               ${ui.icon('refresh')}
-              <span>Auf Updates prüfen</span>
+              <span>${ui.t('checkForUpdates')}</span>
             </button>
 
             <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
               ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
-              <span>Updates werden automatisch beim App-Start geprüft</span>
+              <span>${ui.t('autoUpdateCheckInfo')}</span>
             </p>
             </div>
           </div>
@@ -2807,19 +2807,19 @@ class App {
             <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="version-rollback-content">
               <div class="flex items-center gap-2">
                 ${ui.icon('clock')}
-                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Versionsverwaltung</h4>
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${ui.t('versionManagement')}</h4>
               </div>
               ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
             </button>
             <div id="version-rollback-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
 
             <div id="versions-list" class="space-y-2">
-              <p class="text-sm text-gray-600 dark:text-gray-400">Lade verfügbare Versionen...</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">${ui.t('loadingVersions')}</p>
             </div>
 
             <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
               ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
-              <span>Stable Versions können wiederhergestellt werden. Alle Daten werden automatisch gesichert.</span>
+              <span>${ui.t('versionRestoreInfo')}</span>
             </p>
             </div>
           </div>
@@ -2830,7 +2830,7 @@ class App {
               <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="sharing-content">
                 <div class="flex items-center gap-2">
                   ${ui.icon('users')}
-                  <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Teilen & Freunde</h4>
+                  <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${ui.t('sharingAndFriends')}</h4>
                 </div>
                 ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
               </button>
@@ -2839,28 +2839,28 @@ class App {
                 <div class="space-y-2">
                   <button id="manage-profile-btn" class="w-full px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
                     ${ui.icon('user')}
-                    <span>Mein Share-Profil</span>
+                    <span>${ui.t('myShareProfile')}</span>
                   </button>
 
                   <button id="show-qr-btn" class="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
                     ${ui.icon('qr-code')}
-                    <span>Mein QR-Code anzeigen</span>
+                    <span>${ui.t('showMyQRCode')}</span>
                   </button>
 
                   <button id="scan-qr-btn" class="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
                     ${ui.icon('camera')}
-                    <span>Friend QR scannen</span>
+                    <span>${ui.t('scanFriendQR')}</span>
                   </button>
 
                   <button id="manage-friends-btn" class="w-full px-3 py-2 bg-gray-600 text-white rounded-lg text-sm font-semibold hover:bg-gray-700 flex items-center justify-center gap-2">
                     ${ui.icon('users')}
-                    <span>Friends verwalten</span>
+                    <span>${ui.t('manageFriends')}</span>
                   </button>
                 </div>
 
                 <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
                   ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
-                  <span>Erstelle ein Profil, teile deinen QR-Code und füge Friends hinzu um Zeiteinträge zu teilen</span>
+                  <span>${ui.t('sharingInfo')}</span>
                 </p>
               </div>
             </div>
@@ -3847,7 +3847,7 @@ class App {
           <div class="grid grid-cols-2 gap-4">
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('timeAccount')}</div>
-              <div class="text-2xl font-bold ${timeAccountColor}">${timeAccountSign}${timeAccount.toFixed(1)} ${ui.t('hoursShort')}</div>
+              <div class="text-2xl font-bold ${timeAccountColor}">${timeAccountSign}${ui.formatHours(timeAccount)} ${ui.t('hoursShort')}</div>
             </div>
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('remainingVacation')}</div>
@@ -3869,12 +3869,12 @@ class App {
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="bg-primary bg-opacity-20 rounded-lg p-4">
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Diese Woche</div>
-          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${weekHours.toFixed(1)}h${liveIndicator}</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${ui.formatHours(weekHours)}h${liveIndicator}</div>
           <div class="text-xs text-gray-500 mt-1">${weekDays} ${weekDays === 1 ? 'Tag' : 'Tage'}</div>
         </div>
         <div class="bg-blue-100 dark:bg-blue-900 rounded-lg p-4">
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Dieser Monat</div>
-          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${monthHours.toFixed(1)}h${liveIndicator}</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${ui.formatHours(monthHours)}h${liveIndicator}</div>
           <div class="text-xs text-gray-500 mt-1">${monthDays} ${monthDays === 1 ? 'Tag' : 'Tage'}</div>
         </div>
       </div>
@@ -3904,7 +3904,7 @@ class App {
           <div class="flex justify-between items-start mb-1">
             <span class="font-medium text-gray-900 dark:text-white">${dateStr}${holidayBadge}</span>
             <div class="flex items-center gap-2">
-              <span class="font-semibold text-primary">${workHours.toFixed(1)}h</span>
+              <span class="font-semibold text-primary">${ui.formatHours(workHours)}h</span>
               <button class="history-share-btn text-green-500 hover:text-green-700 dark:hover:text-green-400 p-1" data-id="${entry.id}" title="${ui.t('shareEntry')}">
                 ${ui.icon('share')}
               </button>
@@ -5688,7 +5688,7 @@ class App {
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             ${ui.icon('notepad')}
-            <span>Meine Notizen</span>
+            <span>${ui.t('myNotes')}</span>
           </h3>
           <button id="close-notes" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
             ${ui.icon('x')}
@@ -5703,29 +5703,29 @@ class App {
           <div class="flex gap-2">
             <button id="add-category-btn" class="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm flex items-center justify-center gap-2">
               ${ui.icon('plus', 'w-4 h-4')}
-              <span>Kategorie</span>
+              <span>${ui.t('category')}</span>
             </button>
             <button id="manage-categories-btn" class="flex-1 px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm flex items-center justify-center gap-2">
               ${ui.icon('settings', 'w-4 h-4')}
-              <span>Verwalten</span>
+              <span>${ui.t('manage')}</span>
             </button>
           </div>
         </div>
 
         <!-- Notes List -->
         <div id="notes-list" class="space-y-3 mb-4 max-h-96 overflow-y-auto">
-          <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Lade Notizen...</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">${ui.t('loadingNotes')}</p>
         </div>
 
         <!-- Add Note Buttons -->
         <div class="flex gap-2">
           <button id="add-text-note-btn" class="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm flex items-center justify-center gap-2">
             ${ui.icon('text', 'w-4 h-4')}
-            <span>Text-Notiz</span>
+            <span>${ui.t('textNote')}</span>
           </button>
           <button id="add-checklist-note-btn" class="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm flex items-center justify-center gap-2">
             ${ui.icon('list', 'w-4 h-4')}
-            <span>Checkliste</span>
+            <span>${ui.t('checklist')}</span>
           </button>
         </div>
       </div>
@@ -5782,7 +5782,7 @@ class App {
     await this.loadNotesForCategory(currentCategoryId);
     } catch (error) {
       console.error('Error in showNotesManager:', error);
-      ui.showToast('Fehler beim Öffnen der Notizen: ' + error.message, 'error');
+      ui.showToast(ui.t('notesOpenError') + ' ' + error.message, 'error');
     }
   }
 
@@ -5793,7 +5793,7 @@ class App {
     const notes = await storage.getNotesByCategory(categoryId);
 
     if (notes.length === 0) {
-      notesList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Keine Notizen in dieser Kategorie</p>';
+      notesList.innerHTML = `<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">${ui.t('noNotesInCategory')}</p>`;
       return;
     }
 
@@ -5984,7 +5984,7 @@ class App {
   async deleteCategory(categoryId) {
     const confirmed = await this.showConfirmDialog(
       'Kategorie löschen?',
-      'Alle Notizen in dieser Kategorie werden ebenfalls gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.'
+      ui.t('deleteNotesWarning')
     );
 
     if (!confirmed) return;
@@ -5997,8 +5997,8 @@ class App {
   async showAddTextNoteDialog(categoryId) {
     const content = `
       <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Neue Text-Notiz</h3>
-        <textarea id="note-content" rows="6" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="Notiz schreiben..."></textarea>
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${ui.t('newTextNote')}</h3>
+        <textarea id="note-content" rows="6" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="${ui.t('writeNote')}"></textarea>
         <div class="flex gap-2 mt-4">
           <button id="save-text-note" class="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">
             Speichern
@@ -6025,7 +6025,7 @@ class App {
         content: noteContent
       });
 
-      ui.showToast('Notiz erstellt', 'success');
+      ui.showToast(ui.t('noteCreated'), 'success');
       await this.showNotesManager();
     });
 
@@ -6075,18 +6075,18 @@ class App {
     if (!note) return;
 
     if (note.type === 'text') {
-      const newContent = await this.showInputDialog('Notiz bearbeiten', note.content, true);
+      const newContent = await this.showInputDialog(ui.t('editNote'), note.content, true);
       if (newContent === null) return;
 
       await storage.updateNote(noteId, { content: newContent.trim() });
-      ui.showToast('Notiz aktualisiert', 'success');
+      ui.showToast(ui.t('noteUpdated'), 'success');
       await this.loadNotesForCategory(note.categoryId);
     }
   }
 
   async deleteNote(noteId) {
     const confirmed = await this.showConfirmDialog(
-      'Notiz löschen?',
+      ui.t('deleteNote'),
       'Diese Aktion kann nicht rückgängig gemacht werden.'
     );
 
@@ -6094,7 +6094,7 @@ class App {
 
     const note = await storage.getNote(noteId);
     await storage.deleteNote(noteId);
-    ui.showToast('Notiz gelöscht', 'success');
+    ui.showToast(ui.t('noteDeleted'), 'success');
     await this.loadNotesForCategory(note.categoryId);
   }
 
@@ -6214,7 +6214,7 @@ class App {
         const value = this.parseTimeInput(document.getElementById(`wtt-${day}`).value);
         return sum + value;
       }, 0);
-      document.getElementById('weekly-total').textContent = `${total.toFixed(1)} ${ui.t('hoursShort')}`;
+      document.getElementById('weekly-total').textContent = `${ui.formatHours(total)} ${ui.t('hoursShort')}`;
     };
 
     // Add event listeners to all inputs

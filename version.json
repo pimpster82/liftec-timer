@@ -1,18 +1,11 @@
 {
-  "version": "1.14.2",
+  "version": "1.14.3",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: Zeit-Eingabe jetzt mit hh:mm Format vom Lohnzettel (z.B. 08:30)",
-    "Fix: Komma-Support für europäisches Format (8,5 statt nur 8.5)",
-    "Fix: Monats-Picker fehlte in Onboarding Step 2 - jetzt hinzugefügt",
-    "Feature: Stichtag-System für manuelle Anpassung (Werte vom Lohnzettel)",
-    "Feature: Monatsauswahl-Dialog (letzten 12 Monate als anklickbares Grid)",
-    "Feature: Zeitkonto und Urlaub werden ab Stichtag neu berechnet",
-    "Feature: Automatische Berechnung der Änderungen seit Referenzdatum",
-    "Improve: Flexible Zeit-Eingabe - unterstützt 8,5 oder 8.5 oder 08:30",
-    "Improve: Manuelle Anpassung unterstützt jetzt gleichzeitige Eingabe von Zeitkonto und Urlaub",
-    "Fix: Settings-Bug behoben - ZA & Urlaub Einstellungen bleiben nach Update erhalten",
-    "Fix: Friends-Löschen-Button wird jetzt korrekt angezeigt (aus v1.13.1)"
+    "Fix: Settings-Persistenz - Sprache und ZA/Urlaub Einstellungen bleiben jetzt erhalten",
+    "Fix: Zeit-Anzeige - Kommastellen auf 1 Stelle begrenzt (71.1h statt 71.133333h)",
+    "Improve: Vollständige Übersetzungen für Cloud-Sync, App-Updates, Sharing und Notizen",
+    "Improve: Alle UI-Texte jetzt in Deutsch, English und Kroatisch verfügbar"
   ],
   "critical": false
 }
