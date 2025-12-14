@@ -1,14 +1,9 @@
 {
-  "version": "1.13.0",
-  "releaseDate": "2025-12-13",
+  "version": "1.13.1",
+  "releaseDate": "2025-12-14",
   "changelog": [
-    "UI: Moderne Dialog-Struktur mit sticky Headers",
-    "UI: X-Button oben rechts statt Schließen/Abbrechen-Buttons",
-    "UI: Settings mit Auto-Save beim Schließen",
-    "UI: Edit-Dialoge mit Smart Save (nur bei Änderungen)",
-    "UI: Scrollbare Dialog-Inhalte mit fixierten Headern",
-    "UI: Platzsparende Button-Layouts in allen Dialogen",
-    "Improve: Bessere UX durch konsistente Close-Buttons"
+    "Fix: Friends-Löschen-Button wird jetzt korrekt angezeigt",
+    "Fix: Korrektur fehlender Icons (trash-2 → trash, users → share)"
   ],
   "critical": false
 }

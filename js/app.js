@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.13.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -4987,7 +4987,7 @@ class App {
                 <p class="text-xs text-gray-600 dark:text-gray-400">${friend.displayName}</p>
               </div>
               <button class="remove-friend-btn text-red-500 hover:text-red-700 text-sm" data-friend-id="${friend.uid}" data-friend-nickname="${friend.nickname}">
-                ${ui.icon('trash-2', 'w-5 h-5')}
+                ${ui.icon('trash', 'w-5 h-5')}
               </button>
             </div>
           `).join('')
@@ -4996,7 +4996,7 @@ class App {
       const content = `
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-            ${ui.icon('users')}
+            ${ui.icon('share')}
             <span>${ui.t('myFriends')}</span>
           </h3>
 
