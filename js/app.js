@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.15';
+const APP_VERSION = '1.14.16';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -3994,7 +3994,20 @@ class App {
                              entry.tasks[0].type === '' &&
                              ['Urlaub', 'Krankenstand', 'Feiertag', 'Zeitausgleich'].includes(entry.tasks[0].description);
 
-      const currentEntryType = entry.entryType || 'work';
+      // Map absence type to WTT entryType
+      let mappedEntryType = entry.entryType || 'work';
+      if (isAbsenceEntry) {
+        const absenceType = entry.tasks[0].description;
+        const absenceMapping = {
+          'Urlaub': 'vacation',
+          'Krankenstand': 'sick',
+          'Feiertag': 'vacation',
+          'Zeitausgleich': 'unpaid'
+        };
+        mappedEntryType = absenceMapping[absenceType] || 'vacation';
+      }
+
+      const currentEntryType = mappedEntryType;
 
       // Store original values for change detection
       // Normalize tasks same way as checkForChanges does
@@ -4020,7 +4033,7 @@ class App {
 
       const contentHtml = `
           <div class="space-y-3">
-            ${isWTTEnabled && !isAbsenceEntry ? `
+            ${isWTTEnabled ? `
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Art des Eintrags</label>
                 <select id="edit-entry-type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
@@ -4039,7 +4052,7 @@ class App {
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
             </div>
 
-            ${!isAbsenceEntry ? `<div id="edit-time-fields" class="space-y-3">` : ''}
+            <div id="edit-time-fields" class="space-y-3" style="display: ${currentEntryType === 'work' ? 'block' : 'none'}">
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startzeit</label>
@@ -4071,7 +4084,7 @@ class App {
               <input type="time" id="edit-surcharge" value="${entry.surcharge || '00:00'}"
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
             </div>
-            ${!isAbsenceEntry ? `</div>` : ''}
+            </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Aufgaben</label>
@@ -4167,6 +4180,8 @@ class App {
       if (isWTTEnabled) {
         const entryTypeSelect = document.getElementById('edit-entry-type');
         const timeFields = document.getElementById('edit-time-fields');
+        const startTimeInput = document.getElementById('edit-start');
+        const endTimeInput = document.getElementById('edit-end');
 
         const toggleTimeFields = () => {
           const entryType = entryTypeSelect.value;
@@ -4174,6 +4189,11 @@ class App {
             timeFields.style.display = 'none';
           } else {
             timeFields.style.display = 'block';
+            // If changing to work and no times set, provide defaults
+            if (!startTimeInput.value && !endTimeInput.value) {
+              startTimeInput.value = '08:00';
+              endTimeInput.value = '17:00';
+            }
           }
         };
 

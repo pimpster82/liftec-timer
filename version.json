@@ -1,10 +1,11 @@
 {
-  "version": "1.14.15",
+  "version": "1.14.16",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: Absence Entries (Feiertag/Urlaub/Krankenstand/ZA) zeigen keine Zeit-Felder mehr",
-    "Fix: 'Art des Eintrags' Dropdown wird bei Absence Entries ausgeblendet",
-    "Improve: Edit-Dialog erkennt Absence Entries und passt UI entsprechend an"
+    "Feature: Dynamisches 'Art des Eintrags' Dropdown - wechselt zwischen Arbeitstag/Urlaub/Krankenstand/Unbezahlt",
+    "Feature: Zeit-Felder werden automatisch ein/ausgeblendet basierend auf Eintragsart",
+    "Feature: Default-Zeiten (8:00-17:00) beim Wechsel von Urlaub zu Arbeitstag",
+    "Improve: Absence Entries werden korrekt zu WTT entryTypes gemappt (Urlaub→vacation, etc.)"
   ],
   "critical": false
 }
