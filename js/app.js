@@ -3790,7 +3790,10 @@ class App {
     // Calculate statistics
     const now = new Date();
     const currentWeekStart = new Date(now);
-    currentWeekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+    // Get Monday of current week (handle Sunday correctly: 0 -> -6 days, not +1)
+    const dayOfWeek = now.getDay();
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    currentWeekStart.setDate(now.getDate() - daysToSubtract);
     currentWeekStart.setHours(0, 0, 0, 0);
 
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
