@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.5';
+const APP_VERSION = '1.14.6';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2620,7 +2620,7 @@ class App {
         const statusText = isAnonymous ? ui.t('signedInAnonymously') : `${ui.t('signedInAs')} ${userEmail}`;
         syncStatusHTML = `
           <div class="mt-2 text-sm text-green-600 dark:text-green-400">
-            ● ${statusText} (Sync aktiv)
+            ● ${statusText} (${ui.t('syncActive')})
           </div>
         `;
 
@@ -2628,12 +2628,12 @@ class App {
         const lastSync = firebaseService.getLastSyncTime();
         if (lastSync) {
           const timeSince = Math.floor((Date.now() - lastSync.getTime()) / 1000 / 60); // minutes
-          const timeText = timeSince < 1 ? 'gerade eben' :
-                         timeSince < 60 ? `vor ${timeSince} Min` :
-                         `vor ${Math.floor(timeSince / 60)} Std`;
+          const timeText = timeSince < 1 ? ui.t('justNow') :
+                         timeSince < 60 ? ui.t('minutesAgo').replace('{minutes}', timeSince) :
+                         ui.t('hoursAgo').replace('{hours}', Math.floor(timeSince / 60));
           lastSyncHTML = `
             <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Letzter Sync: ${timeText}
+              ${ui.t('lastSync')} ${timeText}
             </div>
           `;
         } else {
@@ -2646,7 +2646,7 @@ class App {
       } else {
         syncStatusHTML = `
           <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Nicht angemeldet
+            ${ui.t('notSignedIn')}
           </div>
         `;
       }
@@ -2680,7 +2680,7 @@ class App {
       if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
         this.showWorkTimeTrackingOnboarding();
       } else {
-        ui.showToast('Einstellungen gespeichert', 'success');
+        ui.showToast(ui.t('settingsSaved'), 'success');
         await this.renderMainScreen();
       }
     };
@@ -2981,7 +2981,7 @@ class App {
 
           try {
             // Show spinner
-            buttonText.textContent = 'Synchronisiere...';
+            buttonText.textContent = ui.t('syncing');
             buttonSpinner.classList.remove('hidden');
             manualSyncBtn.disabled = true;
 
@@ -2989,17 +2989,17 @@ class App {
             const success = await firebaseService.fullSync();
 
             if (success) {
-              ui.showToast('Sync erfolgreich abgeschlossen', 'success');
+              ui.showToast(ui.t('syncSuccess'), 'success');
               // Refresh settings to show new sync time
               await this.showSettings();
             } else {
-              ui.showToast('Sync fehlgeschlagen', 'error');
+              ui.showToast(ui.t('syncFailed'), 'error');
             }
           } catch (error) {
-            ui.showToast('Sync-Fehler: ' + error.message, 'error');
+            ui.showToast(ui.t('syncError') + ' ' + error.message, 'error');
           } finally {
             // Hide spinner
-            buttonText.textContent = 'Jetzt syncen';
+            buttonText.textContent = ui.t('syncNow');
             buttonSpinner.classList.add('hidden');
             manualSyncBtn.disabled = false;
           }
@@ -3210,7 +3210,7 @@ class App {
       if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
         this.showWorkTimeTrackingOnboarding();
       } else {
-        ui.showToast('Einstellungen gespeichert', 'success');
+        ui.showToast(ui.t('settingsSaved'), 'success');
         await this.renderMainScreen();
       }
     });
