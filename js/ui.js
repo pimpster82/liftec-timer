@@ -277,6 +277,11 @@ class UI {
         entryTypeSick: 'Krankenstand',
         entryTypeHoliday: 'Feiertag',
         entryTypeUnpaid: 'Unbezahlter Urlaub',
+        entryTypeTimeOff: 'Zeitausgleich',
+        // Period selection
+        choosePeriod: 'Zeitraum wählen',
+        singleDay: 'Einzelner Tag',
+        dateRange: 'Zeitraum (Von-Bis)',
         // Balance display
         weekBalance: 'Wochensaldo',
         monthBalance: 'Monatssaldo',
@@ -643,6 +648,11 @@ class UI {
         entryTypeSick: 'Sick Leave',
         entryTypeHoliday: 'Public Holiday',
         entryTypeUnpaid: 'Unpaid Leave',
+        entryTypeTimeOff: 'Time Off',
+        // Period selection
+        choosePeriod: 'Choose period',
+        singleDay: 'Single day',
+        dateRange: 'Date range (From-To)',
         // Balance display
         weekBalance: 'Week Balance',
         monthBalance: 'Month Balance',
@@ -1009,6 +1019,11 @@ class UI {
         entryTypeSick: 'Bolovanje',
         entryTypeHoliday: 'Praznik',
         entryTypeUnpaid: 'Neplaćeni dopust',
+        entryTypeTimeOff: 'Slobodni dan',
+        // Period selection
+        choosePeriod: 'Odaberi razdoblje',
+        singleDay: 'Pojedinačni dan',
+        dateRange: 'Razdoblje (Od-Do)',
         // Balance display
         weekBalance: 'Tjedni saldo',
         monthBalance: 'Mjesečni saldo',

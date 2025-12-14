@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.4';
+const APP_VERSION = '1.14.5';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1675,23 +1675,19 @@ class App {
           <div class="space-y-2">
             <button class="absence-type-btn w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2" data-type="Urlaub">
               ${ui.icon('sun')}
-              <span>Urlaub</span>
+              <span>${ui.t('entryTypeVacation')}</span>
             </button>
             <button class="absence-type-btn w-full px-4 py-3 bg-purple-500 text-white rounded-lg font-semibold hover:bg-purple-600 flex items-center justify-center gap-2" data-type="Zeitausgleich">
               ${ui.icon('clock')}
-              <span>Zeitausgleich</span>
+              <span>${ui.t('entryTypeTimeOff')}</span>
             </button>
             <button class="absence-type-btn w-full px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 flex items-center justify-center gap-2" data-type="Krankenstand">
               ${ui.icon('heart-pulse')}
-              <span>Krankenstand</span>
-            </button>
-            <button class="absence-type-btn w-full px-4 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 flex items-center justify-center gap-2" data-type="Feiertag">
-              ${ui.icon('star')}
-              <span>Feiertag</span>
+              <span>${ui.t('entryTypeSick')}</span>
             </button>
           </div>
           <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-            Abbrechen
+            ${ui.t('cancel')}
           </button>
         </div>
       `;
@@ -1719,20 +1715,20 @@ class App {
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
             ${ui.icon('calendar')}
-            <span>Zeitraum wählen</span>
+            <span>${ui.t('choosePeriod')}</span>
           </h3>
           <div class="space-y-2">
             <button id="period-single" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
               ${ui.icon('calendar-day')}
-              <span>Einzelner Tag</span>
+              <span>${ui.t('singleDay')}</span>
             </button>
             <button id="period-range" class="w-full px-4 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 flex items-center justify-center gap-2">
               ${ui.icon('calendar-range')}
-              <span>Zeitraum (Von-Bis)</span>
+              <span>${ui.t('dateRange')}</span>
             </button>
           </div>
           <button id="dialog-cancel" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-            Abbrechen
+            ${ui.t('cancel')}
           </button>
         </div>
       `;
@@ -3790,7 +3786,10 @@ class App {
     // Calculate statistics
     const now = new Date();
     const currentWeekStart = new Date(now);
-    currentWeekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+    // Get Monday of current week (handle Sunday correctly: 0 -> -6 days, not +1)
+    const dayOfWeek = now.getDay();
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    currentWeekStart.setDate(now.getDate() - daysToSubtract);
     currentWeekStart.setHours(0, 0, 0, 0);
 
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
