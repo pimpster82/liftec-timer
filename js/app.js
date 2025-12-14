@@ -6117,6 +6117,22 @@ class App {
 
   // ===== Work Time Tracking & Vacation Onboarding =====
 
+  // Helper: Parse time input (supports hh:mm, h,h, and h.h formats)
+  parseTimeInput(value) {
+    if (!value) return 0;
+    const str = String(value).trim();
+
+    // Check for hh:mm format (e.g., 08:30, 8:30)
+    if (str.includes(':')) {
+      const [hours, minutes] = str.split(':').map(s => parseInt(s) || 0);
+      return hours + (minutes / 60);
+    }
+
+    // Replace comma with dot for European format (8,5 → 8.5)
+    const normalized = str.replace(',', '.');
+    return parseFloat(normalized) || 0;
+  }
+
   async showWorkTimeTrackingOnboarding() {
     let currentStep = 1;
     const totalSteps = 3;
@@ -6165,13 +6181,14 @@ class App {
             <div class="flex items-center justify-between">
               <label class="text-sm text-gray-700 dark:text-gray-300 w-32">${ui.t(day)}</label>
               <div class="flex items-center gap-2">
-                <input type="number" id="wtt-${day}" value="${data.dailyHours[day]}" min="0" max="24" step="0.5"
-                  class="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+                <input type="text" id="wtt-${day}" value="${data.dailyHours[day]}" placeholder="8,5 oder 08:30"
+                  class="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
                 <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
               </div>
             </div>
           `).join('')}
         </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Eingabe: 8,5 oder 8.5 oder 08:30</p>
 
         <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg mb-6">
           <div class="flex justify-between items-center">
@@ -6194,10 +6211,10 @@ class App {
     const updateTotal = () => {
       const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
       const total = days.reduce((sum, day) => {
-        const value = parseFloat(document.getElementById(`wtt-${day}`).value) || 0;
+        const value = this.parseTimeInput(document.getElementById(`wtt-${day}`).value);
         return sum + value;
       }, 0);
-      document.getElementById('weekly-total').textContent = `${total} ${ui.t('hoursShort')}`;
+      document.getElementById('weekly-total').textContent = `${total.toFixed(1)} ${ui.t('hoursShort')}`;
     };
 
     // Add event listeners to all inputs
@@ -6211,13 +6228,28 @@ class App {
     document.getElementById('wtt-step1-next').addEventListener('click', () => {
       // Save data
       ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
-        data.dailyHours[day] = parseFloat(document.getElementById(`wtt-${day}`).value) || 0;
+        data.dailyHours[day] = this.parseTimeInput(document.getElementById(`wtt-${day}`).value);
       });
       onNext();
     });
   }
 
   showWTTOnboardingStep2(data, onNext, onBack) {
+    // Generate last 12 months for selection
+    const months = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        label: date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }),
+        value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      });
+    }
+
+    let selectedMonth = data.referenceMonth || months[0].value;
+
     const content = `
       <div class="p-6">
         <h3 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white">${ui.t('wttOnboardingTitle')}</h3>
@@ -6236,29 +6268,46 @@ class App {
         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${ui.t('wttOnboardingStep2Desc')}</p>
 
         <div class="space-y-4 mb-6">
+          <!-- Month Selection -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('payrollMonth')}</label>
+            <div class="grid grid-cols-3 gap-2" id="month-selector">
+              ${months.map((m, idx) => `
+                <button class="month-btn px-3 py-2 text-sm rounded-lg border transition-all ${idx === 0 ? 'bg-primary border-primary text-gray-900 font-semibold' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary'}"
+                  data-month="${m.value}">
+                  ${m.label}
+                </button>
+              `).join('')}
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${ui.t('payrollMonthHelp')}</p>
+          </div>
+
+          <!-- Time Account Balance -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttCurrentBalance')}</label>
             <div class="flex items-center gap-2">
-              <input type="number" id="wtt-balance" value="${data.timeAccountBalance}" step="0.5"
+              <input type="text" id="wtt-balance" value="${data.timeAccountBalance || '0'}" placeholder="8:30 oder 8,5"
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
             </div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">z.B. +12,5 oder -8,0</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Eingabe: +12,5 oder -8,5 oder 08:30</p>
           </div>
 
+          <!-- Remaining Vacation -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttRemainingVacation')}</label>
             <div class="flex items-center gap-2">
-              <input type="number" id="wtt-vacation-remaining" value="${data.remainingVacation}" min="0" step="0.5"
+              <input type="text" id="wtt-vacation-remaining" value="${data.remainingVacation || '25'}" placeholder="25 oder 25,5"
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               <span class="text-sm text-gray-500">${ui.t('days')}</span>
             </div>
           </div>
 
+          <!-- Annual Vacation -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttAnnualVacation')}</label>
             <div class="flex items-center gap-2">
-              <input type="number" id="wtt-vacation-annual" value="${data.annualVacation}" min="0"
+              <input type="text" id="wtt-vacation-annual" value="${data.annualVacation || '25'}" placeholder="25"
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               <span class="text-sm text-gray-500">${ui.t('days')}</span>
             </div>
@@ -6278,15 +6327,27 @@ class App {
 
     ui.showModal(content);
 
+    // Month selection handler
+    document.querySelectorAll('.month-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.month-btn').forEach(b => {
+          b.className = 'month-btn px-3 py-2 text-sm rounded-lg border transition-all bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary';
+        });
+        e.currentTarget.className = 'month-btn px-3 py-2 text-sm rounded-lg border transition-all bg-primary border-primary text-gray-900 font-semibold';
+        selectedMonth = e.currentTarget.dataset.month;
+      });
+    });
+
     document.getElementById('wtt-step2-back').addEventListener('click', () => {
       onBack();
     });
 
     document.getElementById('wtt-step2-next').addEventListener('click', () => {
-      // Save data
-      data.timeAccountBalance = parseFloat(document.getElementById('wtt-balance').value) || 0;
-      data.remainingVacation = parseFloat(document.getElementById('wtt-vacation-remaining').value) || 25;
-      data.annualVacation = parseFloat(document.getElementById('wtt-vacation-annual').value) || 25;
+      // Save data with parsing
+      data.timeAccountBalance = this.parseTimeInput(document.getElementById('wtt-balance').value);
+      data.remainingVacation = this.parseTimeInput(document.getElementById('wtt-vacation-remaining').value);
+      data.annualVacation = parseInt(document.getElementById('wtt-vacation-annual').value) || 25;
+      data.referenceMonth = selectedMonth;
       onNext();
     });
   }
@@ -6348,6 +6409,15 @@ class App {
     });
 
     document.getElementById('wtt-step3-finish').addEventListener('click', async () => {
+      // Calculate reference date from selected month
+      let referenceDate = null;
+      let referenceDateStr = null;
+      if (data.referenceMonth) {
+        const [year, month] = data.referenceMonth.split('-').map(Number);
+        referenceDate = new Date(year, month, 0); // Last day of month
+        referenceDateStr = referenceDate.toISOString().split('T')[0];
+      }
+
       // Save all settings
       const settings = ui.settings;
       settings.workTimeTracking = {
@@ -6358,11 +6428,15 @@ class App {
         timeAccount: {
           currentBalance: data.timeAccountBalance,
           lastUpdated: new Date().toISOString(),
-          lastManualAdjustment: null
+          lastManualAdjustment: new Date().toISOString(),
+          referenceDate: referenceDateStr,
+          referenceBalance: data.timeAccountBalance
         },
         vacation: {
           annualDays: data.annualVacation,
-          remainingDays: data.remainingVacation
+          remainingDays: data.remainingVacation,
+          referenceDate: referenceDateStr,
+          referenceRemaining: data.remainingVacation
         }
       };
 
@@ -6418,18 +6492,18 @@ class App {
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('timeAccountFromPayroll')}</label>
             <div class="flex items-center gap-2">
-              <input type="number" id="payroll-balance" value="0" step="0.5"
+              <input type="text" id="payroll-balance" value="0" placeholder="8:30 oder 8,5"
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
             </div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">z.B. +12,5 oder -8,0</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Eingabe: +12,5 oder -8,5 oder 08:30</p>
           </div>
 
           <!-- Vacation Days -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('vacationFromPayroll')}</label>
             <div class="flex items-center gap-2">
-              <input type="number" id="payroll-vacation" value="${currentVacation}" step="0.5" min="0"
+              <input type="text" id="payroll-vacation" value="${currentVacation}" placeholder="25 oder 25,5"
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               <span class="text-sm text-gray-500">${ui.t('days')}</span>
             </div>
@@ -6479,8 +6553,8 @@ class App {
     });
 
     document.getElementById('adjustment-save').addEventListener('click', async () => {
-      const balanceInput = parseFloat(document.getElementById('payroll-balance').value) || 0;
-      const vacationInput = parseFloat(document.getElementById('payroll-vacation').value) || 0;
+      const balanceInput = this.parseTimeInput(document.getElementById('payroll-balance').value);
+      const vacationInput = this.parseTimeInput(document.getElementById('payroll-vacation').value);
 
       // Calculate reference date (last day of selected month)
       const [year, month] = selectedMonth.split('-').map(Number);
