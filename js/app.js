@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.10';
+const APP_VERSION = '1.14.11';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -3970,6 +3970,14 @@ class App {
       const currentEntryType = entry.entryType || 'work';
 
       // Store original values for change detection
+      // Normalize tasks same way as checkForChanges does
+      const normalizedOriginalTasks = (entry.tasks || [])
+        .map(t => ({
+          type: (t.type || '').trim() || '',
+          description: (t.description || '').trim() || ''
+        }))
+        .filter(t => t.description);
+
       const originalValues = {
         entryType: currentEntryType,
         date: entry.date,
@@ -3978,7 +3986,7 @@ class App {
         pause: entry.pause || '00:00',
         travelTime: entry.travelTime || '00:00',
         surcharge: entry.surcharge || '00:00',
-        tasks: JSON.stringify(entry.tasks || [])
+        tasks: JSON.stringify(normalizedOriginalTasks)
       };
 
       let hasChanges = false;
@@ -4044,9 +4052,9 @@ class App {
                 ${entry.tasks && entry.tasks.length > 0 ? entry.tasks.map((task, idx) => `
                   <div class="flex gap-2">
                     <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      value="${task.type}" placeholder="Typ">
+                      value="${task.type || ''}" placeholder="Typ">
                     <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      value="${task.description}" placeholder="Beschreibung">
+                      value="${task.description || ''}" placeholder="Beschreibung">
                     <button class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${idx}">${ui.icon('x')}</button>
                   </div>
                 `).join('') : '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>'}
