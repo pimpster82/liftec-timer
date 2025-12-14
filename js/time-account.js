@@ -120,7 +120,8 @@ class TimeAccount {
       if (entry.entryType === 'work') {
         workDays++;
       } else if (entry.entryType === 'vacation') {
-        vacationDays += entry.vacationDays || 1;
+        // Use explicit vacationDays value (respects targetHours), or 1 for old entries
+        vacationDays += (entry.vacationDays !== undefined ? entry.vacationDays : 1);
       } else if (entry.entryType === 'sick') {
         sickDays++;
       } else if (entry.entryType === 'holiday') {

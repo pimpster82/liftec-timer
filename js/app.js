@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.17';
+const APP_VERSION = '1.14.18';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -4290,7 +4290,8 @@ class App {
             updatedEntry.travelTime = '';
             updatedEntry.surcharge = '';
             updatedEntry.actualHours = updatedEntry.targetHours;
-            updatedEntry.vacationDays = (entryType === 'vacation') ? 1 : 0;
+            // Vacation only counts if this day has target hours (not weekends)
+            updatedEntry.vacationDays = (entryType === 'vacation' && updatedEntry.targetHours > 0) ? 1 : 0;
           } else if (entryType === 'unpaid') {
             // Unpaid leave: no work time, doesn't count as fulfilled
             updatedEntry.startTime = '';
@@ -4311,16 +4312,17 @@ class App {
             updatedEntry.vacationDays = 0;
           }
 
-          // Update vacation balance if needed
+          // Update vacation balance if needed (only if this day has target hours)
+          const hasTargetHours = updatedEntry.targetHours > 0;
           const oldWasVacation = oldEntryType === 'vacation';
           const newIsVacation = entryType === 'vacation';
 
-          if (newIsVacation && !oldWasVacation) {
-            // Changed to vacation: reduce remaining days
+          if (hasTargetHours && newIsVacation && !oldWasVacation) {
+            // Changed to vacation on a work day: reduce remaining days
             ui.settings.workTimeTracking.vacation.remainingDays -= 1;
             await storage.saveSettings(ui.settings);
-          } else if (!newIsVacation && oldWasVacation) {
-            // Changed from vacation: restore remaining days
+          } else if (hasTargetHours && !newIsVacation && oldWasVacation) {
+            // Changed from vacation on a work day: restore remaining days
             ui.settings.workTimeTracking.vacation.remainingDays += 1;
             await storage.saveSettings(ui.settings);
           }
@@ -6632,8 +6634,9 @@ class App {
 
         balanceChange += (actualHours - targetHours);
 
-        if (entry.entryType === 'vacation' || entry.vacationDays > 0) {
-          vacationChange -= (entry.vacationDays || 1);
+        // Only count vacation days if explicitly set (respects targetHours check)
+        if (entry.vacationDays && entry.vacationDays > 0) {
+          vacationChange -= entry.vacationDays;
         }
       }
 

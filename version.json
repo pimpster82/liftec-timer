@@ -1,11 +1,11 @@
 {
-  "version": "1.14.17",
+  "version": "1.14.18",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Feature: Feiertag als eigene Option im Dropdown - erscheint nur an Feiertagen",
-    "Feature: Feiertag verhält sich wie Urlaub (keine Zeit-Felder, zählt als erfüllt)",
-    "Improve: Feiertag wird als 'holiday' entryType gespeichert (nicht vacation)",
-    "Fix: toggleTimeFields versteckt Zeit-Felder auch bei Feiertag"
+    "Fix: Urlaub zählt nur noch an Arbeitstagen (targetHours > 0), nicht mehr am Wochenende",
+    "Fix: vacationDays = 0 wenn Urlaub am Wochenende eingetragen wird",
+    "Fix: Vacation Balance wird nur bei Arbeitstagen angepasst",
+    "Improve: Backward compatibility für alte Einträge ohne vacationDays Feld"
   ],
   "critical": false
 }
