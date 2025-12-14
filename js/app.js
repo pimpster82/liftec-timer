@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.6';
+const APP_VERSION = '1.14.7';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -3181,40 +3181,6 @@ class App {
         this.showFriendsList();
       });
     }
-
-    document.getElementById('settings-save').addEventListener('click', async () => {
-      const workTimeTrackingEnabled = document.getElementById('setting-worktime-enabled').checked;
-      const wasEnabled = ui.settings.workTimeTracking?.enabled || false;
-
-      const newSettings = {
-        ...ui.settings, // Preserve all existing settings
-        username: document.getElementById('setting-username').value,
-        language: document.getElementById('setting-language').value,
-        surchargePercent: parseInt(document.getElementById('setting-surcharge').value),
-        emailSubject: document.getElementById('setting-email-subject').value,
-        emailBody: document.getElementById('setting-email-body').value,
-        onCallEnabled: document.getElementById('setting-oncall-enabled').checked,
-        workTimeTracking: {
-          ...(ui.settings.workTimeTracking || {}),
-          enabled: workTimeTrackingEnabled
-        }
-      };
-
-      await storage.saveSettings(newSettings);
-      ui.settings = newSettings;
-      ui.i18n = ui.getI18N();
-
-      ui.hideModal();
-
-      // If workTimeTracking was just enabled for the first time, show onboarding
-      if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
-        this.showWorkTimeTrackingOnboarding();
-      } else {
-        ui.showToast(ui.t('settingsSaved'), 'success');
-        await this.renderMainScreen();
-      }
-    });
-
 
     document.getElementById('settings-backups').addEventListener('click', () => {
       ui.hideModal();

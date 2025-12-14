@@ -1,9 +1,10 @@
 {
-  "version": "1.14.6",
+  "version": "1.14.7",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Improve: Cloud-Sync Nachrichten vollständig übersetzt (Sync-Status, Fehler, Erfolgsmeldungen)",
-    "Improve: Einstellungen-gespeichert Toast jetzt übersetzt in allen Sprachen"
+    "Fix: KRITISCH - Settings-Dialog Crash behoben (doppelter Event Listener entfernt)",
+    "Fix: Cloud-Sync standardmäßig aktiviert (war disabled trotz Login)",
+    "Improve: Cloud-Sync funktioniert jetzt automatisch nach dem Einloggen"
   ],
-  "critical": false
+  "critical": true
 }

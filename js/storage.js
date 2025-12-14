@@ -287,7 +287,7 @@ class Storage {
       email: 'daniel@liftec.at',
       emailSubject: 'Arbeitszeit {month} - {name}',
       emailBody: 'Hi Stefan. Anbei meine Arbeitszeit für {month}.',
-      cloudSync: false,  // Cloud sync disabled by default
+      cloudSync: true,  // Cloud sync enabled by default (user can sign out to disable)
       onboardingCompleted: false,  // Show onboarding on first launch
       onCallEnabled: false,  // On-call feature disabled by default
 
