@@ -295,13 +295,17 @@ class Storage {
         timeAccount: {
           currentBalance: 0,  // Current balance in hours
           lastUpdated: null,  // Last calculation date
-          lastManualAdjustment: null  // Last manual adjustment date
+          lastManualAdjustment: null,  // Last manual adjustment date
+          referenceDate: null,  // Reference date (e.g. end of month from payslip)
+          referenceBalance: 0  // Balance at reference date
         },
 
         // Vacation tracking
         vacation: {
           annualDays: 25,  // Annual vacation days
-          remainingDays: 25  // Remaining vacation days for current year
+          remainingDays: 25,  // Remaining vacation days for current year
+          referenceDate: null,  // Reference date (e.g. end of month from payslip)
+          referenceRemaining: 25  // Remaining days at reference date
         }
       }
     };
