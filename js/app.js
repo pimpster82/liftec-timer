@@ -853,7 +853,7 @@ class App {
         </button>
         <button id="absence-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg flex items-center justify-center space-x-2 btn-press mt-3">
           ${ui.icon('calendar', 'icon-lg')}
-          <span>Abwesenheit eintragen</span>
+          <span>${ui.t('recordAbsence')}</span>
         </button>
       `;
 
@@ -1656,7 +1656,7 @@ class App {
     }
 
     await this.renderMainScreen();
-    ui.showToast(`${entries.length} Abwesenheitseintrag/e gespeichert`, 'success');
+    ui.showToast(ui.t('absenceEntriesSaved').replace('{count}', entries.length), 'success');
   }
 
   async showAbsenceTypeDialog() {
@@ -1665,9 +1665,9 @@ class App {
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
             ${ui.icon('calendar')}
-            <span>Abwesenheit eintragen</span>
+            <span>${ui.t('recordAbsence')}</span>
           </h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Art wählen:</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${ui.t('chooseAbsenceType')}:</p>
           <div class="space-y-2">
             <button class="absence-type-btn w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2" data-type="Urlaub">
               ${ui.icon('sun')}
