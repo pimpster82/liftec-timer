@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.11';
+const APP_VERSION = '1.14.12';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1348,8 +1348,7 @@ class App {
             return `
               <button class="calendar-day aspect-square ${bgClass} ${textClass} rounded-lg flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity btn-press"
                       data-date="${dayInfo.date}"
-                      ${title ? `title="${title}"` : ''}
-                      ${!dayInfo.hasEntry ? 'disabled' : ''}>
+                      ${title ? `title="${title}"` : ''}>
                 ${dayInfo.day}
               </button>
             `;
@@ -1378,17 +1377,34 @@ class App {
       this.renderCalendarView(entries, source, nextMonth);
     });
 
-    // Click on day to show entry details
+    // Click on day to show entry details or create new entry
     document.querySelectorAll('.calendar-day').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const date = e.currentTarget.dataset.date;
         const entry = entries.find(e => e.date === date);
+
+        ui.hideModal();
+
         if (entry) {
-          ui.hideModal();
+          // Existing entry - edit it
           await this.editWorklogEntry(entry);
-          // Refresh calendar after editing
-          await this.showCalendarView(source);
+        } else {
+          // No entry - create new empty entry for this date
+          const newEntry = {
+            date: date,
+            startTime: '',
+            endTime: '',
+            pause: '00:00',
+            travelTime: '00:00',
+            surcharge: '00:00',
+            tasks: [],
+            entryType: 'work'
+          };
+          await this.editWorklogEntry(newEntry);
         }
+
+        // Refresh calendar after editing
+        await this.showCalendarView(source);
       });
     });
 
@@ -4281,9 +4297,18 @@ class App {
           updatedEntry.surcharge = document.getElementById('edit-surcharge').value;
         }
 
-        await storage.updateWorklogEntry(updatedEntry);
-        ui.hideModal();
-        ui.showToast('Eintrag aktualisiert', 'success');
+        // Check if this is a new entry (no ID) or existing entry (has ID)
+        if (entry.id) {
+          // Existing entry - update it
+          await storage.updateWorklogEntry(updatedEntry);
+          ui.hideModal();
+          ui.showToast('Eintrag aktualisiert', 'success');
+        } else {
+          // New entry - add it
+          await storage.addWorklogEntry(updatedEntry);
+          ui.hideModal();
+          ui.showToast('Eintrag erstellt', 'success');
+        }
         resolve(true);
       });
     });

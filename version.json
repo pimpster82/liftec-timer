@@ -1,10 +1,10 @@
 {
-  "version": "1.14.11",
+  "version": "1.14.12",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: Task-Felder (type/description) hatten auch undefined-Problem wie startTime/endTime",
-    "Fix: Kalender-Dialog sollte jetzt IMMER ohne Prompt schließen wenn nichts geändert wurde",
-    "Improve: Alle Input-Felder haben jetzt korrekte Fallbacks (|| '')"
+    "Feature: Kalender-Direkteingabe - leere Tage sind jetzt anklickbar",
+    "Feature: Klick auf leeren Tag öffnet Dialog zum Erstellen eines neuen Eintrags",
+    "Improve: Datum wird automatisch vom angeklickten Tag übernommen"
   ],
   "critical": false
 }
