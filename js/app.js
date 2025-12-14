@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.12';
+const APP_VERSION = '1.14.13';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1348,6 +1348,7 @@ class App {
             return `
               <button class="calendar-day aspect-square ${bgClass} ${textClass} rounded-lg flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity btn-press"
                       data-date="${dayInfo.date}"
+                      data-is-holiday="${dayInfo.isHoliday || false}"
                       ${title ? `title="${title}"` : ''}>
                 ${dayInfo.day}
               </button>
@@ -1381,6 +1382,7 @@ class App {
     document.querySelectorAll('.calendar-day').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const date = e.currentTarget.dataset.date;
+        const isHoliday = e.currentTarget.dataset.isHoliday === 'true';
         const entry = entries.find(e => e.date === date);
 
         ui.hideModal();
@@ -1390,6 +1392,7 @@ class App {
           await this.editWorklogEntry(entry);
         } else {
           // No entry - create new empty entry for this date
+          // If it's a holiday, create as 'Feiertag', otherwise as 'work'
           const newEntry = {
             date: date,
             startTime: '',
@@ -1398,7 +1401,7 @@ class App {
             travelTime: '00:00',
             surcharge: '00:00',
             tasks: [],
-            entryType: 'work'
+            entryType: isHoliday ? 'Feiertag' : 'work'
           };
           await this.editWorklogEntry(newEntry);
         }
