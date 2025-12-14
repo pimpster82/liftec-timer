@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.7';
+const APP_VERSION = '1.14.8';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2618,9 +2618,12 @@ class App {
     if (firebaseService && firebaseService.isInitialized) {
       if (isSignedIn) {
         const statusText = isAnonymous ? ui.t('signedInAnonymously') : `${ui.t('signedInAs')} ${userEmail}`;
+        const isSyncActive = firebaseService.syncEnabled && settings.cloudSync !== false;
+        const syncStatusText = isSyncActive ? ui.t('syncActive') : ui.t('syncDisabled');
+        const syncStatusColor = isSyncActive ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400';
         syncStatusHTML = `
-          <div class="mt-2 text-sm text-green-600 dark:text-green-400">
-            ● ${statusText} (${ui.t('syncActive')})
+          <div class="mt-2 text-sm ${syncStatusColor}">
+            ● ${statusText} (${syncStatusText})
           </div>
         `;
 

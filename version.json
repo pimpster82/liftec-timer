@@ -1,10 +1,10 @@
 {
-  "version": "1.14.7",
+  "version": "1.14.8",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: KRITISCH - Settings-Dialog Crash behoben (doppelter Event Listener entfernt)",
-    "Fix: Cloud-Sync standardmäßig aktiviert (war disabled trotz Login)",
-    "Improve: Cloud-Sync funktioniert jetzt automatisch nach dem Einloggen"
+    "Fix: KRITISCH - Auto-Migration für bestehende User mit deaktiviertem Cloud-Sync",
+    "Fix: Cloud-Sync wird jetzt automatisch aktiviert beim Login (auch für alte Accounts)",
+    "Improve: Einmalige Migration stellt sicher dass alle eingeloggten User Sync aktiviert haben"
   ],
   "critical": true
 }

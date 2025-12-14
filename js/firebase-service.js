@@ -419,6 +419,15 @@ class FirebaseService {
   async onUserSignedIn(user) {
     // Check if sync is enabled in settings
     const localSettings = await storage.getSettings();
+
+    // MIGRATION: Auto-enable cloudSync for signed-in users (v1.14.7+)
+    // If user is signed in but cloudSync is disabled, enable it automatically
+    if (localSettings.cloudSync === false) {
+      console.log('🔄 Migration: Auto-enabling cloudSync for signed-in user');
+      localSettings.cloudSync = true;
+      await storage.saveSettings(localSettings);
+    }
+
     this.syncEnabled = localSettings.cloudSync !== false;
 
     if (this.syncEnabled) {

@@ -383,6 +383,7 @@ class UI {
         dataReloadedSuccess: 'Daten erfolgreich neu geladen',
         // Sync Status
         syncActive: 'Sync aktiv',
+        syncDisabled: 'Sync deaktiviert',
         notSignedIn: 'Nicht angemeldet',
         lastSync: 'Letzter Sync:',
         justNow: 'gerade eben',
@@ -765,6 +766,7 @@ class UI {
         dataReloadedSuccess: 'Data successfully reloaded',
         // Sync Status
         syncActive: 'Sync active',
+        syncDisabled: 'Sync disabled',
         notSignedIn: 'Not signed in',
         lastSync: 'Last sync:',
         justNow: 'just now',
@@ -1147,6 +1149,7 @@ class UI {
         dataReloadedSuccess: 'Podaci uspješno ponovno učitani',
         // Sync Status
         syncActive: 'Sinkronizacija aktivna',
+        syncDisabled: 'Sinkronizacija deaktivirana',
         notSignedIn: 'Nije prijavljen',
         lastSync: 'Zadnja sinkronizacija:',
         justNow: 'upravo',
