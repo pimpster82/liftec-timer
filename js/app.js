@@ -6379,7 +6379,7 @@ class App {
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600 dark:text-gray-400">${ui.t('timeAccount')}:</span>
-            <span class="font-semibold text-gray-900 dark:text-white">${data.timeAccountBalance >= 0 ? '+' : ''}${data.timeAccountBalance} ${ui.t('hoursShort')}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${data.timeAccountBalance >= 0 ? '+' : ''}${ui.formatHours(data.timeAccountBalance)} ${ui.t('hoursShort')}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600 dark:text-gray-400">${ui.t('remainingVacation')}:</span>
