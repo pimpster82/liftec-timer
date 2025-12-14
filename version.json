@@ -1,12 +1,11 @@
 {
-  "version": "1.14.4",
+  "version": "1.14.5",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: Zeitkonto in Onboarding Step 3 nutzt jetzt formatHours() - keine langen Kommastellen mehr",
-    "Fix: 'Daten neu laden' funktioniert jetzt auch offline ohne Cloud-Login",
-    "Improve: 24 weitere Übersetzungen - History, Cloud-Status, Versionsverwaltung, Email-Settings",
-    "Improve: Alle Error-Messages jetzt mehrsprachig (DE/EN/HR)",
-    "Improve: Graceful degradation - App nutzt lokale Daten wenn Cloud nicht verfügbar"
+    "Fix: Wochenberechnung für Sonntag korrigiert - 'Diese Woche' zeigt jetzt korrekte Stunden",
+    "Improve: Feiertag-Button aus Abwesenheit-Eintragen entfernt (nicht mehr benötigt)",
+    "Improve: Abwesenheits-Dialoge vollständig übersetzt (Urlaub, Zeitausgleich, Krankenstand)",
+    "Improve: Zeitraum-Dialog übersetzt (Einzelner Tag, Von-Bis)"
   ],
   "critical": false
 }
