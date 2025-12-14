@@ -75,7 +75,7 @@ class App {
       console.log(`LIFTEC Timer v${APP_VERSION} initialized`);
     } catch (error) {
       console.error('Failed to initialize app:', error);
-      ui.showToast('Fehler beim Laden der App', 'error');
+      ui.showToast(ui.t('errorLoadingApp'), 'error');
     }
   }
 
@@ -631,8 +631,8 @@ class App {
         // Only enable if cloud sync is active
         if (firebaseService && firebaseService.currentUser && ui.settings && ui.settings.cloudSync) {
           const confirmed = await this.showConfirmDialog(
-            'Daten neu laden?',
-            'Dies löscht den lokalen Cache und lädt alle Daten vom Cloud neu. Die App wird danach neu geladen. Fortfahren?'
+            ui.t('hardRefreshTitle'),
+            ui.t('hardRefreshMessage')
           );
 
           if (!confirmed) return;
@@ -642,7 +642,7 @@ class App {
             await this.performHardRefresh();
           } catch (error) {
             console.error('Hard refresh error:', error);
-            ui.showToast('Fehler beim Aktualisieren', 'error');
+            ui.showToast(ui.t('errorUpdating'), 'error');
           }
         }
       });
@@ -726,7 +726,7 @@ class App {
           await this.performHardRefresh();
         } catch (error) {
           console.error('Pull-to-refresh error:', error);
-          ui.showToast('Fehler beim Aktualisieren', 'error');
+          ui.showToast(ui.t('errorUpdating'), 'error');
         }
 
         // Reset indicator
@@ -763,19 +763,23 @@ class App {
       console.log('✅ All caches cleared');
     }
 
-    // Step 3: Perform full sync from cloud
-    const success = await firebaseService.fullSync();
+    // Step 3: Perform full sync from cloud (if signed in)
+    if (firebaseService && firebaseService.isSignedIn()) {
+      const success = await firebaseService.fullSync();
 
-    if (success) {
-      ui.showToast('Daten erfolgreich neu geladen', 'success');
-
-      // Step 4: Force reload from server (not cache)
-      setTimeout(() => {
-        window.location.href = window.location.href;
-      }, 1000);
+      if (!success) {
+        console.warn('⚠️ Cloud sync failed, but continuing with local data');
+      }
     } else {
-      throw new Error('Sync failed');
+      console.log('ℹ️ Not signed in, skipping cloud sync');
     }
+
+    ui.showToast(ui.t('dataReloadedSuccess'), 'success');
+
+    // Step 4: Force reload from server (not cache)
+    setTimeout(() => {
+      window.location.href = window.location.href;
+    }, 1000);
   }
 
   // ===== Main Screen =====
@@ -2617,7 +2621,7 @@ class App {
     let lastSyncHTML = '';
     if (firebaseService && firebaseService.isInitialized) {
       if (isSignedIn) {
-        const statusText = isAnonymous ? 'Anonym angemeldet' : `Angemeldet als ${userEmail}`;
+        const statusText = isAnonymous ? ui.t('signedInAnonymously') : `${ui.t('signedInAs')} ${userEmail}`;
         syncStatusHTML = `
           <div class="mt-2 text-sm text-green-600 dark:text-green-400">
             ● ${statusText} (Sync aktiv)
@@ -2639,7 +2643,7 @@ class App {
         } else {
           lastSyncHTML = `
             <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Noch kein Sync durchgeführt
+              ${ui.t('noSyncYet')}
             </div>
           `;
         }
@@ -2927,7 +2931,7 @@ class App {
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-start gap-1">
                   ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
-                  <span>Platzhalter: {month}, {name}</span>
+                  <span>${ui.t('placeholderInfo')}</span>
                 </p>
               </div>
               <div>
@@ -2936,7 +2940,7 @@ class App {
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white">${settings.emailBody}</textarea>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-start gap-1">
                   ${ui.icon('info-circle', 'flex-shrink-0 mt-0.5')}
-                  <span>Platzhalter: {month}, {name}</span>
+                  <span>${ui.t('placeholderInfo')}</span>
                 </p>
               </div>
             </div>
@@ -3015,8 +3019,8 @@ class App {
 
           // Confirm action
           const confirmed = await this.showConfirmDialog(
-            'Daten neu laden?',
-            'Dies löscht den lokalen Cache und lädt alle Daten vom Cloud neu. Die App wird danach neu geladen. Fortfahren?'
+            ui.t('hardRefreshTitle'),
+            ui.t('hardRefreshMessage')
           );
 
           if (!confirmed) return;
@@ -3031,8 +3035,8 @@ class App {
             await this.performHardRefresh();
           } catch (error) {
             console.error('Hard refresh error:', error);
-            ui.showToast('Fehler beim Neu laden: ' + error.message, 'error');
-            buttonText.textContent = 'Daten neu laden (Cache leeren)';
+            ui.showToast(ui.t('errorReloading') + ' ' + error.message, 'error');
+            buttonText.textContent = ui.t('hardRefresh');
             buttonSpinner.classList.add('hidden');
             hardRefreshBtn.disabled = false;
           }
@@ -3137,7 +3141,7 @@ class App {
           ui.showToast('App ist aktuell', 'success');
         }
       } catch (error) {
-        ui.showToast('Fehler beim Prüfen', 'error');
+        ui.showToast(ui.t('errorChecking'), 'error');
         console.error(error);
       } finally {
         btnText.textContent = originalText;
@@ -3868,12 +3872,12 @@ class App {
       ${wttWidgetHtml}
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="bg-primary bg-opacity-20 rounded-lg p-4">
-          <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Diese Woche</div>
+          <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('thisWeek')}</div>
           <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${ui.formatHours(weekHours)}h${liveIndicator}</div>
           <div class="text-xs text-gray-500 mt-1">${weekDays} ${weekDays === 1 ? 'Tag' : 'Tage'}</div>
         </div>
         <div class="bg-blue-100 dark:bg-blue-900 rounded-lg p-4">
-          <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Dieser Monat</div>
+          <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('thisMonth')}</div>
           <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${ui.formatHours(monthHours)}h${liveIndicator}</div>
           <div class="text-xs text-gray-500 mt-1">${monthDays} ${monthDays === 1 ? 'Tag' : 'Tage'}</div>
         </div>
@@ -3931,7 +3935,7 @@ class App {
       ${statsHtml}
 
       <div class="mb-3">
-        <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Alle Einträge (${entries.length})</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">${ui.t('allEntries')} (${entries.length})</div>
       </div>
 
       <div class="border-t border-gray-200 dark:border-gray-700">
@@ -5556,7 +5560,7 @@ class App {
                 data-version="${version.version}"
                 data-tag="${version.tag}"
                 class="rollback-btn w-full px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors">
-                Zu dieser Version zurückkehren
+                ${ui.t('restoreThisVersion')}
               </button>
             ` : ''}
           </div>
@@ -5576,13 +5580,13 @@ class App {
 
     } catch (error) {
       console.error('Error loading versions:', error);
-      versionsList.innerHTML = '<p class="text-sm text-red-500">Fehler beim Laden der Versionen</p>';
+      versionsList.innerHTML = `<p class="text-sm text-red-500">${ui.t('errorLoadingVersions')}</p>`;
     }
   }
 
   async confirmAndRollback(version, tag) {
     const confirmed = await this.showConfirmDialog(
-      `Zu Version ${version} zurückkehren?`,
+      ui.t('restoreVersionConfirm').replace('{version}', version),
       `Dies wird die App auf Version ${version} zurücksetzen. Alle Ihre Daten werden automatisch gesichert. Möchten Sie fortfahren?`
     );
 
@@ -5667,7 +5671,7 @@ class App {
       // Double check - if still no categories, something went wrong
       if (categories.length === 0) {
         console.error('No categories found after initialization');
-        ui.showToast('Fehler beim Laden der Kategorien', 'error');
+        ui.showToast(ui.t('errorLoadingCategories'), 'error');
         return;
       }
 

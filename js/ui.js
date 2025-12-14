@@ -350,7 +350,32 @@ class UI {
         noteUpdated: 'Notiz aktualisiert',
         deleteNote: 'Notiz löschen?',
         noteDeleted: 'Notiz gelöscht',
-        notesOpenError: 'Fehler beim Öffnen der Notizen:'
+        notesOpenError: 'Fehler beim Öffnen der Notizen:',
+        // History View
+        thisWeek: 'Diese Woche',
+        thisMonth: 'Dieser Monat',
+        allEntries: 'Alle Einträge',
+        // Cloud Sync Status
+        signedInAnonymously: 'Anonym angemeldet',
+        signedInAs: 'Angemeldet als',
+        noSyncYet: 'Noch kein Sync durchgeführt',
+        // Version Rollback
+        restoreThisVersion: 'Zu dieser Version zurückkehren',
+        restoreVersionConfirm: 'Zu Version {version} zurückkehren?',
+        // Email Settings
+        placeholderInfo: 'Platzhalter: {month}, {name}',
+        // Hard Refresh Dialog
+        hardRefreshTitle: 'Daten neu laden?',
+        hardRefreshMessage: 'Dies löscht den lokalen Cache und lädt alle Daten vom Cloud neu. Die App wird danach neu geladen. Fortfahren?',
+        // Error Messages
+        errorLoadingApp: 'Fehler beim Laden der App',
+        errorUpdating: 'Fehler beim Aktualisieren',
+        errorReloading: 'Fehler beim Neu laden:',
+        errorChecking: 'Fehler beim Prüfen',
+        errorLoadingVersions: 'Fehler beim Laden der Versionen',
+        errorLoadingCategories: 'Fehler beim Laden der Kategorien',
+        syncFailed: 'Sync fehlgeschlagen',
+        dataReloadedSuccess: 'Daten erfolgreich neu geladen'
       },
       en: {
         appName: 'Time Tracking',
@@ -691,7 +716,32 @@ class UI {
         noteUpdated: 'Note updated',
         deleteNote: 'Delete note?',
         noteDeleted: 'Note deleted',
-        notesOpenError: 'Error opening notes:'
+        notesOpenError: 'Error opening notes:',
+        // History View
+        thisWeek: 'This Week',
+        thisMonth: 'This Month',
+        allEntries: 'All Entries',
+        // Cloud Sync Status
+        signedInAnonymously: 'Signed in anonymously',
+        signedInAs: 'Signed in as',
+        noSyncYet: 'No sync performed yet',
+        // Version Rollback
+        restoreThisVersion: 'Restore this version',
+        restoreVersionConfirm: 'Restore version {version}?',
+        // Email Settings
+        placeholderInfo: 'Placeholders: {month}, {name}',
+        // Hard Refresh Dialog
+        hardRefreshTitle: 'Reload data?',
+        hardRefreshMessage: 'This will clear the local cache and reload all data from the cloud. The app will restart afterwards. Continue?',
+        // Error Messages
+        errorLoadingApp: 'Error loading app',
+        errorUpdating: 'Error updating',
+        errorReloading: 'Error reloading:',
+        errorChecking: 'Error checking',
+        errorLoadingVersions: 'Error loading versions',
+        errorLoadingCategories: 'Error loading categories',
+        syncFailed: 'Sync failed',
+        dataReloadedSuccess: 'Data successfully reloaded'
       },
       hr: {
         appName: 'Evidencija vremena',
@@ -1032,7 +1082,32 @@ class UI {
         noteUpdated: 'Bilješka ažurirana',
         deleteNote: 'Obrisati bilješku?',
         noteDeleted: 'Bilješka obrisana',
-        notesOpenError: 'Greška pri otvaranju bilješki:'
+        notesOpenError: 'Greška pri otvaranju bilješki:',
+        // History View
+        thisWeek: 'Ovaj tjedan',
+        thisMonth: 'Ovaj mjesec',
+        allEntries: 'Svi unosi',
+        // Cloud Sync Status
+        signedInAnonymously: 'Prijavljen anonimno',
+        signedInAs: 'Prijavljen kao',
+        noSyncYet: 'Sinkronizacija još nije izvršena',
+        // Version Rollback
+        restoreThisVersion: 'Vrati ovu verziju',
+        restoreVersionConfirm: 'Vratiti verziju {version}?',
+        // Email Settings
+        placeholderInfo: 'Rezervirana mjesta: {month}, {name}',
+        // Hard Refresh Dialog
+        hardRefreshTitle: 'Ponovno učitati podatke?',
+        hardRefreshMessage: 'Ovo će očistiti lokalnu predmemoriju i ponovno učitati sve podatke iz oblaka. Aplikacija će se nakon toga ponovno pokrenuti. Nastaviti?',
+        // Error Messages
+        errorLoadingApp: 'Greška pri učitavanju aplikacije',
+        errorUpdating: 'Greška pri ažuriranju',
+        errorReloading: 'Greška pri ponovnom učitavanju:',
+        errorChecking: 'Greška pri provjeri',
+        errorLoadingVersions: 'Greška pri učitavanju verzija',
+        errorLoadingCategories: 'Greška pri učitavanju kategorija',
+        syncFailed: 'Sinkronizacija nije uspjela',
+        dataReloadedSuccess: 'Podaci uspješno ponovno učitani'
       }
     };
   }
