@@ -1,11 +1,10 @@
 {
-  "version": "1.14.18",
+  "version": "1.14.19",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: Urlaub zählt nur noch an Arbeitstagen (targetHours > 0), nicht mehr am Wochenende",
-    "Fix: vacationDays = 0 wenn Urlaub am Wochenende eingetragen wird",
-    "Fix: Vacation Balance wird nur bei Arbeitstagen angepasst",
-    "Improve: Backward compatibility für alte Einträge ohne vacationDays Feld"
+    "Feature: Urlaub/Krankenstand/Feiertag am Wochenende werden automatisch zu 'Unbezahlt' konvertiert",
+    "Fix: Keine blaue Markierung im Kalender für Urlaub am Wochenende",
+    "Improve: entryType wird automatisch angepasst wenn targetHours = 0"
   ],
   "critical": false
 }
