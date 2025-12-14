@@ -1,11 +1,11 @@
 {
-  "version": "1.14.5",
+  "version": "1.14.20",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: Wochenberechnung für Sonntag korrigiert - 'Diese Woche' zeigt jetzt korrekte Stunden",
-    "Improve: Feiertag-Button aus Abwesenheit-Eintragen entfernt (nicht mehr benötigt)",
-    "Improve: Abwesenheits-Dialoge vollständig übersetzt (Urlaub, Zeitausgleich, Krankenstand)",
-    "Improve: Zeitraum-Dialog übersetzt (Einzelner Tag, Von-Bis)"
+    "Fix: Urlaub bleibt Urlaub, zählt aber nicht am Wochenende (vacationDays = 0)",
+    "Fix: Keine Auto-Konvertierung zu 'Unbezahlt' - entryType bleibt erhalten",
+    "Fix: Vacation Balance wird nur bei Arbeitstagen (targetHours > 0) angepasst",
+    "Improve: Urlaub am Wochenende wird nicht im Kalender markiert"
   ],
   "critical": false
 }

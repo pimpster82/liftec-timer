@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.5';
+const APP_VERSION = '1.14.20';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1348,8 +1348,8 @@ class App {
             return `
               <button class="calendar-day aspect-square ${bgClass} ${textClass} rounded-lg flex items-center justify-center text-sm font-semibold hover:opacity-80 transition-opacity btn-press"
                       data-date="${dayInfo.date}"
-                      ${title ? `title="${title}"` : ''}
-                      ${!dayInfo.hasEntry ? 'disabled' : ''}>
+                      data-is-holiday="${dayInfo.isHoliday || false}"
+                      ${title ? `title="${title}"` : ''}>
                 ${dayInfo.day}
               </button>
             `;
@@ -1378,17 +1378,37 @@ class App {
       this.renderCalendarView(entries, source, nextMonth);
     });
 
-    // Click on day to show entry details
+    // Click on day to show entry details or create new entry
     document.querySelectorAll('.calendar-day').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const date = e.currentTarget.dataset.date;
+        const isHoliday = e.currentTarget.dataset.isHoliday === 'true';
         const entry = entries.find(e => e.date === date);
+
+        ui.hideModal();
+
         if (entry) {
-          ui.hideModal();
+          // Existing entry - edit it
           await this.editWorklogEntry(entry);
-          // Refresh calendar after editing
-          await this.showCalendarView(source);
+        } else {
+          // No entry - create new empty entry for this date
+          // If it's a holiday, create as absence entry with 'Feiertag' task
+          // Otherwise create as empty work entry
+          const newEntry = {
+            date: date,
+            startTime: '',
+            endTime: '',
+            pause: '00:00',
+            travelTime: '00:00',
+            surcharge: '00:00',
+            tasks: isHoliday ? [{ type: '', description: 'Feiertag' }] : [],
+            entryType: 'work'
+          };
+          await this.editWorklogEntry(newEntry);
         }
+
+        // Refresh calendar after editing
+        await this.showCalendarView(source);
       });
     });
 
@@ -2618,9 +2638,12 @@ class App {
     if (firebaseService && firebaseService.isInitialized) {
       if (isSignedIn) {
         const statusText = isAnonymous ? ui.t('signedInAnonymously') : `${ui.t('signedInAs')} ${userEmail}`;
+        const isSyncActive = firebaseService.syncEnabled && settings.cloudSync !== false;
+        const syncStatusText = isSyncActive ? ui.t('syncActive') : ui.t('syncDisabled');
+        const syncStatusColor = isSyncActive ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400';
         syncStatusHTML = `
-          <div class="mt-2 text-sm text-green-600 dark:text-green-400">
-            ● ${statusText} (Sync aktiv)
+          <div class="mt-2 text-sm ${syncStatusColor}">
+            ● ${statusText} (${syncStatusText})
           </div>
         `;
 
@@ -2628,12 +2651,12 @@ class App {
         const lastSync = firebaseService.getLastSyncTime();
         if (lastSync) {
           const timeSince = Math.floor((Date.now() - lastSync.getTime()) / 1000 / 60); // minutes
-          const timeText = timeSince < 1 ? 'gerade eben' :
-                         timeSince < 60 ? `vor ${timeSince} Min` :
-                         `vor ${Math.floor(timeSince / 60)} Std`;
+          const timeText = timeSince < 1 ? ui.t('justNow') :
+                         timeSince < 60 ? ui.t('minutesAgo').replace('{minutes}', timeSince) :
+                         ui.t('hoursAgo').replace('{hours}', Math.floor(timeSince / 60));
           lastSyncHTML = `
             <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Letzter Sync: ${timeText}
+              ${ui.t('lastSync')} ${timeText}
             </div>
           `;
         } else {
@@ -2646,7 +2669,7 @@ class App {
       } else {
         syncStatusHTML = `
           <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Nicht angemeldet
+            ${ui.t('notSignedIn')}
           </div>
         `;
       }
@@ -2680,7 +2703,7 @@ class App {
       if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
         this.showWorkTimeTrackingOnboarding();
       } else {
-        ui.showToast('Einstellungen gespeichert', 'success');
+        ui.showToast(ui.t('settingsSaved'), 'success');
         await this.renderMainScreen();
       }
     };
@@ -2981,7 +3004,7 @@ class App {
 
           try {
             // Show spinner
-            buttonText.textContent = 'Synchronisiere...';
+            buttonText.textContent = ui.t('syncing');
             buttonSpinner.classList.remove('hidden');
             manualSyncBtn.disabled = true;
 
@@ -2989,17 +3012,17 @@ class App {
             const success = await firebaseService.fullSync();
 
             if (success) {
-              ui.showToast('Sync erfolgreich abgeschlossen', 'success');
+              ui.showToast(ui.t('syncSuccess'), 'success');
               // Refresh settings to show new sync time
               await this.showSettings();
             } else {
-              ui.showToast('Sync fehlgeschlagen', 'error');
+              ui.showToast(ui.t('syncFailed'), 'error');
             }
           } catch (error) {
-            ui.showToast('Sync-Fehler: ' + error.message, 'error');
+            ui.showToast(ui.t('syncError') + ' ' + error.message, 'error');
           } finally {
             // Hide spinner
-            buttonText.textContent = 'Jetzt syncen';
+            buttonText.textContent = ui.t('syncNow');
             buttonSpinner.classList.add('hidden');
             manualSyncBtn.disabled = false;
           }
@@ -3181,40 +3204,6 @@ class App {
         this.showFriendsList();
       });
     }
-
-    document.getElementById('settings-save').addEventListener('click', async () => {
-      const workTimeTrackingEnabled = document.getElementById('setting-worktime-enabled').checked;
-      const wasEnabled = ui.settings.workTimeTracking?.enabled || false;
-
-      const newSettings = {
-        ...ui.settings, // Preserve all existing settings
-        username: document.getElementById('setting-username').value,
-        language: document.getElementById('setting-language').value,
-        surchargePercent: parseInt(document.getElementById('setting-surcharge').value),
-        emailSubject: document.getElementById('setting-email-subject').value,
-        emailBody: document.getElementById('setting-email-body').value,
-        onCallEnabled: document.getElementById('setting-oncall-enabled').checked,
-        workTimeTracking: {
-          ...(ui.settings.workTimeTracking || {}),
-          enabled: workTimeTrackingEnabled
-        }
-      };
-
-      await storage.saveSettings(newSettings);
-      ui.settings = newSettings;
-      ui.i18n = ui.getI18N();
-
-      ui.hideModal();
-
-      // If workTimeTracking was just enabled for the first time, show onboarding
-      if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
-        this.showWorkTimeTrackingOnboarding();
-      } else {
-        ui.showToast('Einstellungen gespeichert', 'success');
-        await this.renderMainScreen();
-      }
-    });
-
 
     document.getElementById('settings-backups').addEventListener('click', () => {
       ui.hideModal();
@@ -3998,9 +3987,41 @@ class App {
   async editWorklogEntry(entry) {
     return new Promise((resolve) => {
       const isWTTEnabled = ui.settings.workTimeTracking?.enabled || false;
-      const currentEntryType = entry.entryType || 'work';
+
+      // Check if this date is a holiday
+      const holidayInfo = austrianHolidays.isHoliday(entry.date);
+      const isHoliday = holidayInfo.isHoliday;
+
+      // Check if this is an absence entry (Urlaub, Krankenstand, Feiertag, Zeitausgleich)
+      // These are stored as tasks with type='' and description contains the absence type
+      const isAbsenceEntry = entry.tasks && entry.tasks.length > 0 &&
+                             entry.tasks[0].type === '' &&
+                             ['Urlaub', 'Krankenstand', 'Feiertag', 'Zeitausgleich'].includes(entry.tasks[0].description);
+
+      // Map absence type to WTT entryType
+      let mappedEntryType = entry.entryType || 'work';
+      if (isAbsenceEntry) {
+        const absenceType = entry.tasks[0].description;
+        const absenceMapping = {
+          'Urlaub': 'vacation',
+          'Krankenstand': 'sick',
+          'Feiertag': 'holiday',
+          'Zeitausgleich': 'unpaid'
+        };
+        mappedEntryType = absenceMapping[absenceType] || 'vacation';
+      }
+
+      const currentEntryType = mappedEntryType;
 
       // Store original values for change detection
+      // Normalize tasks same way as checkForChanges does
+      const normalizedOriginalTasks = (entry.tasks || [])
+        .map(t => ({
+          type: (t.type || '').trim() || '',
+          description: (t.description || '').trim() || ''
+        }))
+        .filter(t => t.description);
+
       const originalValues = {
         entryType: currentEntryType,
         date: entry.date,
@@ -4009,7 +4030,7 @@ class App {
         pause: entry.pause || '00:00',
         travelTime: entry.travelTime || '00:00',
         surcharge: entry.surcharge || '00:00',
-        tasks: JSON.stringify(entry.tasks || [])
+        tasks: JSON.stringify(normalizedOriginalTasks)
       };
 
       let hasChanges = false;
@@ -4024,6 +4045,7 @@ class App {
                   <option value="vacation" ${currentEntryType === 'vacation' ? 'selected' : ''}>${ui.t('entryTypeVacation')}</option>
                   <option value="sick" ${currentEntryType === 'sick' ? 'selected' : ''}>${ui.t('entryTypeSick')}</option>
                   <option value="unpaid" ${currentEntryType === 'unpaid' ? 'selected' : ''}>${ui.t('entryTypeUnpaid')}</option>
+                  ${isHoliday ? `<option value="holiday" ${currentEntryType === 'holiday' ? 'selected' : ''}>${ui.t('entryTypeHoliday')}</option>` : ''}
                 </select>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Urlaub und Krankenstand zählen als Sollzeit erfüllt</p>
               </div>
@@ -4035,16 +4057,16 @@ class App {
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
             </div>
 
-            <div id="edit-time-fields" class="space-y-3">
+            <div id="edit-time-fields" class="space-y-3" style="display: ${currentEntryType === 'work' ? 'block' : 'none'}">
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startzeit</label>
-                <input type="time" id="edit-start" value="${entry.startTime}"
+                <input type="time" id="edit-start" value="${entry.startTime || ''}"
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endzeit</label>
-                <input type="time" id="edit-end" value="${entry.endTime}"
+                <input type="time" id="edit-end" value="${entry.endTime || ''}"
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               </div>
             </div>
@@ -4075,9 +4097,9 @@ class App {
                 ${entry.tasks && entry.tasks.length > 0 ? entry.tasks.map((task, idx) => `
                   <div class="flex gap-2">
                     <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      value="${task.type}" placeholder="Typ">
+                      value="${task.type || ''}" placeholder="Typ">
                     <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      value="${task.description}" placeholder="Beschreibung">
+                      value="${task.description || ''}" placeholder="Beschreibung">
                     <button class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${idx}">${ui.icon('x')}</button>
                   </div>
                 `).join('') : '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>'}
@@ -4163,13 +4185,20 @@ class App {
       if (isWTTEnabled) {
         const entryTypeSelect = document.getElementById('edit-entry-type');
         const timeFields = document.getElementById('edit-time-fields');
+        const startTimeInput = document.getElementById('edit-start');
+        const endTimeInput = document.getElementById('edit-end');
 
         const toggleTimeFields = () => {
           const entryType = entryTypeSelect.value;
-          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'unpaid') {
+          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'unpaid' || entryType === 'holiday') {
             timeFields.style.display = 'none';
           } else {
             timeFields.style.display = 'block';
+            // If changing to work and no times set, provide defaults
+            if (!startTimeInput.value && !endTimeInput.value) {
+              startTimeInput.value = '08:00';
+              endTimeInput.value = '17:00';
+            }
           }
         };
 
@@ -4252,16 +4281,18 @@ class App {
 
           // Calculate target hours for this day
           updatedEntry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+          updatedEntry.entryType = entryType;
 
-          if (entryType === 'vacation' || entryType === 'sick') {
-            // Vacation/sick days: no work time, counts as fulfilled
+          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'holiday') {
+            // Vacation/sick/holiday days: no work time, counts as fulfilled
             updatedEntry.startTime = '';
             updatedEntry.endTime = '';
             updatedEntry.pause = '';
             updatedEntry.travelTime = '';
             updatedEntry.surcharge = '';
             updatedEntry.actualHours = updatedEntry.targetHours;
-            updatedEntry.vacationDays = (entryType === 'vacation') ? 1 : 0;
+            // Vacation only counts if this day has target hours (not weekends)
+            updatedEntry.vacationDays = (entryType === 'vacation' && updatedEntry.targetHours > 0) ? 1 : 0;
           } else if (entryType === 'unpaid') {
             // Unpaid leave: no work time, doesn't count as fulfilled
             updatedEntry.startTime = '';
@@ -4282,16 +4313,17 @@ class App {
             updatedEntry.vacationDays = 0;
           }
 
-          // Update vacation balance if needed
+          // Update vacation balance if needed (only if this day has target hours)
+          const hasTargetHours = updatedEntry.targetHours > 0;
           const oldWasVacation = oldEntryType === 'vacation';
           const newIsVacation = entryType === 'vacation';
 
-          if (newIsVacation && !oldWasVacation) {
-            // Changed to vacation: reduce remaining days
+          if (hasTargetHours && newIsVacation && !oldWasVacation) {
+            // Changed to vacation on a work day: reduce remaining days
             ui.settings.workTimeTracking.vacation.remainingDays -= 1;
             await storage.saveSettings(ui.settings);
-          } else if (!newIsVacation && oldWasVacation) {
-            // Changed from vacation: restore remaining days
+          } else if (hasTargetHours && !newIsVacation && oldWasVacation) {
+            // Changed from vacation on a work day: restore remaining days
             ui.settings.workTimeTracking.vacation.remainingDays += 1;
             await storage.saveSettings(ui.settings);
           }
@@ -4304,9 +4336,18 @@ class App {
           updatedEntry.surcharge = document.getElementById('edit-surcharge').value;
         }
 
-        await storage.updateWorklogEntry(updatedEntry);
-        ui.hideModal();
-        ui.showToast('Eintrag aktualisiert', 'success');
+        // Check if this is a new entry (no ID) or existing entry (has ID)
+        if (entry.id) {
+          // Existing entry - update it
+          await storage.updateWorklogEntry(updatedEntry);
+          ui.hideModal();
+          ui.showToast('Eintrag aktualisiert', 'success');
+        } else {
+          // New entry - add it
+          await storage.addWorklogEntry(updatedEntry);
+          ui.hideModal();
+          ui.showToast('Eintrag erstellt', 'success');
+        }
         resolve(true);
       });
     });
@@ -6594,8 +6635,9 @@ class App {
 
         balanceChange += (actualHours - targetHours);
 
-        if (entry.entryType === 'vacation' || entry.vacationDays > 0) {
-          vacationChange -= (entry.vacationDays || 1);
+        // Only count vacation days if explicitly set (respects targetHours check)
+        if (entry.vacationDays && entry.vacationDays > 0) {
+          vacationChange -= entry.vacationDays;
         }
       }
 

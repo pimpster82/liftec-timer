@@ -380,7 +380,19 @@ class UI {
         errorLoadingVersions: 'Fehler beim Laden der Versionen',
         errorLoadingCategories: 'Fehler beim Laden der Kategorien',
         syncFailed: 'Sync fehlgeschlagen',
-        dataReloadedSuccess: 'Daten erfolgreich neu geladen'
+        dataReloadedSuccess: 'Daten erfolgreich neu geladen',
+        // Sync Status
+        syncActive: 'Sync aktiv',
+        syncDisabled: 'Sync deaktiviert',
+        notSignedIn: 'Nicht angemeldet',
+        lastSync: 'Letzter Sync:',
+        justNow: 'gerade eben',
+        minutesAgo: 'vor {minutes} Min',
+        hoursAgo: 'vor {hours} Std',
+        settingsSaved: 'Einstellungen gespeichert',
+        syncing: 'Synchronisiere...',
+        syncSuccess: 'Sync erfolgreich abgeschlossen',
+        syncError: 'Sync-Fehler:'
       },
       en: {
         appName: 'Time Tracking',
@@ -751,7 +763,19 @@ class UI {
         errorLoadingVersions: 'Error loading versions',
         errorLoadingCategories: 'Error loading categories',
         syncFailed: 'Sync failed',
-        dataReloadedSuccess: 'Data successfully reloaded'
+        dataReloadedSuccess: 'Data successfully reloaded',
+        // Sync Status
+        syncActive: 'Sync active',
+        syncDisabled: 'Sync disabled',
+        notSignedIn: 'Not signed in',
+        lastSync: 'Last sync:',
+        justNow: 'just now',
+        minutesAgo: '{minutes} min ago',
+        hoursAgo: '{hours} hrs ago',
+        settingsSaved: 'Settings saved',
+        syncing: 'Synchronizing...',
+        syncSuccess: 'Sync completed successfully',
+        syncError: 'Sync error:'
       },
       hr: {
         appName: 'Evidencija vremena',
@@ -1122,7 +1146,19 @@ class UI {
         errorLoadingVersions: 'Greška pri učitavanju verzija',
         errorLoadingCategories: 'Greška pri učitavanju kategorija',
         syncFailed: 'Sinkronizacija nije uspjela',
-        dataReloadedSuccess: 'Podaci uspješno ponovno učitani'
+        dataReloadedSuccess: 'Podaci uspješno ponovno učitani',
+        // Sync Status
+        syncActive: 'Sinkronizacija aktivna',
+        syncDisabled: 'Sinkronizacija deaktivirana',
+        notSignedIn: 'Nije prijavljen',
+        lastSync: 'Zadnja sinkronizacija:',
+        justNow: 'upravo',
+        minutesAgo: 'prije {minutes} min',
+        hoursAgo: 'prije {hours} h',
+        settingsSaved: 'Postavke spremljene',
+        syncing: 'Sinkronizacija...',
+        syncSuccess: 'Sinkronizacija uspješna',
+        syncError: 'Greška sinkronizacije:'
       }
     };
   }
