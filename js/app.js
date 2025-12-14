@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.19';
+const APP_VERSION = '1.14.20';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -4281,16 +4281,9 @@ class App {
 
           // Calculate target hours for this day
           updatedEntry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+          updatedEntry.entryType = entryType;
 
-          // Auto-convert vacation/sick/holiday to unpaid if no target hours (weekend)
-          let finalEntryType = entryType;
-          if ((entryType === 'vacation' || entryType === 'sick' || entryType === 'holiday') && updatedEntry.targetHours === 0) {
-            finalEntryType = 'unpaid';
-          }
-
-          updatedEntry.entryType = finalEntryType;
-
-          if (finalEntryType === 'vacation' || finalEntryType === 'sick' || finalEntryType === 'holiday') {
+          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'holiday') {
             // Vacation/sick/holiday days: no work time, counts as fulfilled
             updatedEntry.startTime = '';
             updatedEntry.endTime = '';
@@ -4298,9 +4291,9 @@ class App {
             updatedEntry.travelTime = '';
             updatedEntry.surcharge = '';
             updatedEntry.actualHours = updatedEntry.targetHours;
-            // Vacation always counts 1 (targetHours > 0 guaranteed by auto-convert above)
-            updatedEntry.vacationDays = (finalEntryType === 'vacation') ? 1 : 0;
-          } else if (finalEntryType === 'unpaid') {
+            // Vacation only counts if this day has target hours (not weekends)
+            updatedEntry.vacationDays = (entryType === 'vacation' && updatedEntry.targetHours > 0) ? 1 : 0;
+          } else if (entryType === 'unpaid') {
             // Unpaid leave: no work time, doesn't count as fulfilled
             updatedEntry.startTime = '';
             updatedEntry.endTime = '';
@@ -4320,17 +4313,17 @@ class App {
             updatedEntry.vacationDays = 0;
           }
 
-          // Update vacation balance if needed
-          // Note: finalEntryType === 'vacation' only if targetHours > 0 (auto-converted above)
+          // Update vacation balance if needed (only if this day has target hours)
+          const hasTargetHours = updatedEntry.targetHours > 0;
           const oldWasVacation = oldEntryType === 'vacation';
-          const newIsVacation = finalEntryType === 'vacation';
+          const newIsVacation = entryType === 'vacation';
 
-          if (newIsVacation && !oldWasVacation) {
-            // Changed to vacation: reduce remaining days
+          if (hasTargetHours && newIsVacation && !oldWasVacation) {
+            // Changed to vacation on a work day: reduce remaining days
             ui.settings.workTimeTracking.vacation.remainingDays -= 1;
             await storage.saveSettings(ui.settings);
-          } else if (!newIsVacation && oldWasVacation) {
-            // Changed from vacation: restore remaining days
+          } else if (hasTargetHours && !newIsVacation && oldWasVacation) {
+            // Changed from vacation on a work day: restore remaining days
             ui.settings.workTimeTracking.vacation.remainingDays += 1;
             await storage.saveSettings(ui.settings);
           }

@@ -1,10 +1,11 @@
 {
-  "version": "1.14.19",
+  "version": "1.14.20",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Feature: Urlaub/Krankenstand/Feiertag am Wochenende werden automatisch zu 'Unbezahlt' konvertiert",
-    "Fix: Keine blaue Markierung im Kalender für Urlaub am Wochenende",
-    "Improve: entryType wird automatisch angepasst wenn targetHours = 0"
+    "Fix: Urlaub bleibt Urlaub, zählt aber nicht am Wochenende (vacationDays = 0)",
+    "Fix: Keine Auto-Konvertierung zu 'Unbezahlt' - entryType bleibt erhalten",
+    "Fix: Vacation Balance wird nur bei Arbeitstagen (targetHours > 0) angepasst",
+    "Improve: Urlaub am Wochenende wird nicht im Kalender markiert"
   ],
   "critical": false
 }
