@@ -1,11 +1,10 @@
 {
-  "version": "1.14.13",
+  "version": "1.14.14",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Feature: Intelligente Kalender-Direkteingabe basierend auf Tag-Typ",
-    "Feature: Leere Feiertage öffnen automatisch als Feiertag-Eintrag",
-    "Feature: Leere Arbeitstage öffnen automatisch als Arbeitstag-Eintrag",
-    "Improve: Bestehende Einträge (Urlaub, ZA, etc.) bleiben normal bearbeitbar"
+    "Fix: Feiertage werden jetzt korrekt als Absence-Entry erstellt",
+    "Fix: Leere Feiertage öffnen mit task {type:'', description:'Feiertag'}",
+    "Improve: Konsistenz mit Urlaub/Krankenstand/Zeitausgleich Format"
   ],
   "critical": false
 }

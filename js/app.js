@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.13';
+const APP_VERSION = '1.14.14';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1392,7 +1392,8 @@ class App {
           await this.editWorklogEntry(entry);
         } else {
           // No entry - create new empty entry for this date
-          // If it's a holiday, create as 'Feiertag', otherwise as 'work'
+          // If it's a holiday, create as absence entry with 'Feiertag' task
+          // Otherwise create as empty work entry
           const newEntry = {
             date: date,
             startTime: '',
@@ -1400,8 +1401,8 @@ class App {
             pause: '00:00',
             travelTime: '00:00',
             surcharge: '00:00',
-            tasks: [],
-            entryType: isHoliday ? 'Feiertag' : 'work'
+            tasks: isHoliday ? [{ type: '', description: 'Feiertag' }] : [],
+            entryType: 'work'
           };
           await this.editWorklogEntry(newEntry);
         }
