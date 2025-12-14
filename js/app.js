@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.13.1';
+const APP_VERSION = '1.14.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -3182,6 +3182,40 @@ class App {
       });
     }
 
+    document.getElementById('settings-save').addEventListener('click', async () => {
+      const workTimeTrackingEnabled = document.getElementById('setting-worktime-enabled').checked;
+      const wasEnabled = ui.settings.workTimeTracking?.enabled || false;
+
+      const newSettings = {
+        ...ui.settings, // Preserve all existing settings
+        username: document.getElementById('setting-username').value,
+        language: document.getElementById('setting-language').value,
+        surchargePercent: parseInt(document.getElementById('setting-surcharge').value),
+        emailSubject: document.getElementById('setting-email-subject').value,
+        emailBody: document.getElementById('setting-email-body').value,
+        onCallEnabled: document.getElementById('setting-oncall-enabled').checked,
+        workTimeTracking: {
+          ...(ui.settings.workTimeTracking || {}),
+          enabled: workTimeTrackingEnabled
+        }
+      };
+
+      await storage.saveSettings(newSettings);
+      ui.settings = newSettings;
+      ui.i18n = ui.getI18N();
+
+      ui.hideModal();
+
+      // If workTimeTracking was just enabled for the first time, show onboarding
+      if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
+        this.showWorkTimeTrackingOnboarding();
+      } else {
+        ui.showToast('Einstellungen gespeichert', 'success');
+        await this.renderMainScreen();
+      }
+    });
+
+
     document.getElementById('settings-backups').addEventListener('click', () => {
       ui.hideModal();
       this.showBackupManager();
@@ -6344,41 +6378,71 @@ class App {
   // ===== Time Account Manual Adjustment =====
 
   async showTimeAccountAdjustment() {
-    const currentBalance = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
+    // Generate last 12 months for selection
+    const months = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        label: date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }),
+        value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      });
+    }
+
+    const currentVacation = ui.settings.workTimeTracking.vacation.remainingDays || 0;
+    let selectedMonth = months[0].value; // Current month by default
 
     const content = `
       <div class="p-6">
         <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${ui.t('adjustTimeAccount')}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${ui.t('adjustmentDescription')}</p>
 
         <div class="space-y-4 mb-6">
+          <!-- Month Selection -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('currentCalculated')}</label>
-            <div class="text-2xl font-bold ${currentBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
-              ${currentBalance >= 0 ? '+' : ''}${currentBalance.toFixed(1)} ${ui.t('hoursShort')}
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('payrollMonth')}</label>
+            <div class="grid grid-cols-3 gap-2" id="month-selector">
+              ${months.map((m, idx) => `
+                <button class="month-btn px-3 py-2 text-sm rounded-lg border transition-all ${idx === 0 ? 'bg-primary border-primary text-gray-900 font-semibold' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary'}"
+                  data-month="${m.value}">
+                  ${m.label}
+                </button>
+              `).join('')}
             </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${ui.t('payrollMonthHelp')}</p>
           </div>
 
+          <!-- Time Account Balance -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('accordingToPayroll')}</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('timeAccountFromPayroll')}</label>
             <div class="flex items-center gap-2">
-              <input type="number" id="payroll-balance" value="${currentBalance}" step="0.5"
+              <input type="number" id="payroll-balance" value="0" step="0.5"
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
             </div>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">z.B. +12,5 oder -8,0</p>
           </div>
 
-          <div id="difference-display" class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-            <div class="flex justify-between items-center">
-              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${ui.t('difference')}:</span>
-              <span id="diff-value" class="font-bold text-gray-900 dark:text-white">±0,0 ${ui.t('hoursShort')}</span>
+          <!-- Vacation Days -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('vacationFromPayroll')}</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="payroll-vacation" value="${currentVacation}" step="0.5" min="0"
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <span class="text-sm text-gray-500">${ui.t('days')}</span>
             </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${ui.t('vacationHelp')}</p>
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('adjustmentReason')} (optional)</label>
-            <input type="text" id="adjustment-reason" placeholder="z.B. Lohnzettel Dezember 2024"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          <!-- Summary Box -->
+          <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div class="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">${ui.t('adjustmentSummary')}:</div>
+            <div class="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+              <div>${ui.t('referenceDateLabel')}: <span id="selected-month-display" class="font-semibold">${months[0].label}</span></div>
+              <div>${ui.t('calculationInfo')}</div>
+            </div>
           </div>
         </div>
 
@@ -6387,7 +6451,7 @@ class App {
             ${ui.t('cancel')}
           </button>
           <button id="adjustment-save" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
-            ${ui.t('adjust')}
+            ${ui.t('save')}
           </button>
         </div>
       </div>
@@ -6395,39 +6459,72 @@ class App {
 
     ui.showModal(content);
 
-    // Update difference display
-    const updateDifference = () => {
-      const payrollBalance = parseFloat(document.getElementById('payroll-balance').value) || 0;
-      const diff = payrollBalance - currentBalance;
-      const diffEl = document.getElementById('diff-value');
+    // Month selection handler
+    document.querySelectorAll('.month-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.month-btn').forEach(b => {
+          b.className = 'month-btn px-3 py-2 text-sm rounded-lg border transition-all bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary';
+        });
+        e.currentTarget.className = 'month-btn px-3 py-2 text-sm rounded-lg border transition-all bg-primary border-primary text-gray-900 font-semibold';
+        selectedMonth = e.currentTarget.dataset.month;
 
-      if (diff === 0) {
-        diffEl.textContent = `±0,0 ${ui.t('hoursShort')}`;
-        diffEl.className = 'font-bold text-gray-900 dark:text-white';
-      } else if (diff > 0) {
-        diffEl.textContent = `+${diff.toFixed(1)} ${ui.t('hoursShort')}`;
-        diffEl.className = 'font-bold text-green-600 dark:text-green-400';
-      } else {
-        diffEl.textContent = `${diff.toFixed(1)} ${ui.t('hoursShort')}`;
-        diffEl.className = 'font-bold text-red-600 dark:text-red-400';
-      }
-    };
-
-    document.getElementById('payroll-balance').addEventListener('input', updateDifference);
-    updateDifference();
+        // Update display
+        const monthObj = months.find(m => m.value === selectedMonth);
+        document.getElementById('selected-month-display').textContent = monthObj.label;
+      });
+    });
 
     document.getElementById('adjustment-cancel').addEventListener('click', () => {
       ui.hideModal();
     });
 
     document.getElementById('adjustment-save').addEventListener('click', async () => {
-      const newBalance = parseFloat(document.getElementById('payroll-balance').value) || 0;
-      const reason = document.getElementById('adjustment-reason').value || null;
+      const balanceInput = parseFloat(document.getElementById('payroll-balance').value) || 0;
+      const vacationInput = parseFloat(document.getElementById('payroll-vacation').value) || 0;
 
-      // Update settings
+      // Calculate reference date (last day of selected month)
+      const [year, month] = selectedMonth.split('-').map(Number);
+      const referenceDate = new Date(year, month, 0); // Last day of month
+      const referenceDateStr = referenceDate.toISOString().split('T')[0];
+
+      // Update settings with reference values
       const settings = ui.settings;
-      settings.workTimeTracking.timeAccount.currentBalance = newBalance;
+      settings.workTimeTracking.timeAccount.referenceDate = referenceDateStr;
+      settings.workTimeTracking.timeAccount.referenceBalance = balanceInput;
       settings.workTimeTracking.timeAccount.lastManualAdjustment = new Date().toISOString();
+
+      settings.workTimeTracking.vacation.referenceDate = referenceDateStr;
+      settings.workTimeTracking.vacation.referenceRemaining = vacationInput;
+
+      // Recalculate current balance based on reference date
+      const allEntries = await storage.getAllWorklogEntries();
+      const entriesAfterReference = allEntries.filter(entry => {
+        const [d, m, y] = entry.date.split('.');
+        const entryDate = new Date(y, m - 1, d);
+        return entryDate > referenceDate;
+      });
+
+      // Calculate changes since reference date
+      let balanceChange = 0;
+      let vacationChange = 0;
+
+      for (const entry of entriesAfterReference) {
+        const [d, m, y] = entry.date.split('.');
+        const entryDate = new Date(y, m - 1, d);
+
+        const targetHours = timeAccount.getDailyTargetHours(entryDate, settings);
+        const actualHours = timeAccount.getActualHours(entry, settings);
+
+        balanceChange += (actualHours - targetHours);
+
+        if (entry.entryType === 'vacation' || entry.vacationDays > 0) {
+          vacationChange -= (entry.vacationDays || 1);
+        }
+      }
+
+      // Set current values = reference + changes
+      settings.workTimeTracking.timeAccount.currentBalance = balanceInput + balanceChange;
+      settings.workTimeTracking.vacation.remainingDays = vacationInput + vacationChange;
 
       await storage.saveSettings(settings);
       ui.settings = settings;

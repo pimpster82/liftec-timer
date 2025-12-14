@@ -1,9 +1,16 @@
 {
-  "version": "1.13.1",
+  "version": "1.14.0",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: Friends-Löschen-Button wird jetzt korrekt angezeigt",
-    "Fix: Korrektur fehlender Icons (trash-2 → trash, users → share)"
+    "Fix: Settings-Bug behoben - ZA & Urlaub Einstellungen bleiben nach Update erhalten",
+    "Feature: Stichtag-System für manuelle Anpassung (Werte vom Lohnzettel)",
+    "Feature: Monatsauswahl-Dialog (letzten 12 Monate als anklickbares Grid)",
+    "Feature: Zeitkonto und Urlaub werden ab Stichtag neu berechnet",
+    "Feature: Automatische Berechnung der Änderungen seit Referenzdatum",
+    "Improve: Manuelle Anpassung unterstützt jetzt gleichzeitige Eingabe von Zeitkonto und Urlaub",
+    "Improve: Bessere UX mit klarer Zusammenfassung des gewählten Stichtags",
+    "Fix: Friends-Löschen-Button wird jetzt korrekt angezeigt (aus v1.13.1)",
+    "Fix: Korrektur fehlender Icons - trash-2 → trash, users → share (aus v1.13.1)"
   ],
   "critical": false
 }
