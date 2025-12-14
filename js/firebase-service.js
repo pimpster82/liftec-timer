@@ -461,6 +461,11 @@ class FirebaseService {
     if (cloudData.settings) {
       // cleanFirestoreData() already removed timestamps
       await storage.saveSettings(cloudData.settings);
+
+      // Update UI settings immediately so UI reflects cloud data
+      ui.settings = cloudData.settings;
+      ui.i18n = ui.getI18N();
+
       console.log('Merged settings from cloud');
     }
 

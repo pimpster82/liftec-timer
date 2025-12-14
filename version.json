@@ -1,10 +1,10 @@
 {
-  "version": "1.14.8",
+  "version": "1.14.9",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: KRITISCH - Auto-Migration für bestehende User mit deaktiviertem Cloud-Sync",
-    "Fix: Cloud-Sync wird jetzt automatisch aktiviert beim Login (auch für alte Accounts)",
-    "Improve: Einmalige Migration stellt sicher dass alle eingeloggten User Sync aktiviert haben"
+    "Fix: KRITISCH - UI aktualisiert sich jetzt nach Cloud-Sync",
+    "Fix: ZA-Checkbox und Einstellungen zeigen jetzt korrekte Werte nach Cloud-Sync",
+    "Fix: ui.settings wird sofort nach Cloud-Merge aktualisiert (Settings-Display Bug behoben)"
   ],
   "critical": true
 }
