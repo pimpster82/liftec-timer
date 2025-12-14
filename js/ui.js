@@ -889,6 +889,12 @@ class UI {
     return this.i18n[lang]?.[key] || this.i18n.de[key] || key;
   }
 
+  // Format hours (limit decimal places for display)
+  formatHours(hours) {
+    // Round to 1 decimal place to avoid long decimals like 71.133333...
+    return parseFloat(hours.toFixed(1));
+  }
+
   // ===== Icon Helper =====
 
   icon(name, className = 'icon') {

@@ -261,9 +261,26 @@ class Storage {
 
   // ===== Settings Methods =====
 
+  // Helper: Deep merge settings (preserves existing, adds new defaults)
+  _deepMerge(target, source) {
+    const output = { ...target };
+
+    for (const key in source) {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        // Recursive merge for objects
+        output[key] = this._deepMerge(target[key] || {}, source[key]);
+      } else if (!(key in target)) {
+        // Add new keys from source
+        output[key] = source[key];
+      }
+      // Else: keep target value (don't overwrite existing)
+    }
+
+    return output;
+  }
+
   async getSettings() {
-    const settings = await this.get('settings', 'app');
-    return settings ? settings.data : {
+    const defaults = {
       username: 'Benutzer',
       language: 'de',
       surchargePercent: 80,
@@ -309,6 +326,14 @@ class Storage {
         }
       }
     };
+
+    const saved = await this.get('settings', 'app');
+
+    // If no saved settings, return defaults
+    if (!saved) return defaults;
+
+    // Merge saved settings with defaults (preserves saved, adds new defaults)
+    return this._deepMerge(saved.data, defaults);
   }
 
   async saveSettings(settingsData) {
