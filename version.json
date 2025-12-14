@@ -1,11 +1,12 @@
 {
-  "version": "1.14.3",
+  "version": "1.14.4",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Fix: Settings-Persistenz - Sprache und ZA/Urlaub Einstellungen bleiben jetzt erhalten",
-    "Fix: Zeit-Anzeige - Kommastellen auf 1 Stelle begrenzt (71.1h statt 71.133333h)",
-    "Improve: Vollständige Übersetzungen für Cloud-Sync, App-Updates, Sharing und Notizen",
-    "Improve: Alle UI-Texte jetzt in Deutsch, English und Kroatisch verfügbar"
+    "Fix: Zeitkonto in Onboarding Step 3 nutzt jetzt formatHours() - keine langen Kommastellen mehr",
+    "Fix: 'Daten neu laden' funktioniert jetzt auch offline ohne Cloud-Login",
+    "Improve: 24 weitere Übersetzungen - History, Cloud-Status, Versionsverwaltung, Email-Settings",
+    "Improve: Alle Error-Messages jetzt mehrsprachig (DE/EN/HR)",
+    "Improve: Graceful degradation - App nutzt lokale Daten wenn Cloud nicht verfügbar"
   ],
   "critical": false
 }
