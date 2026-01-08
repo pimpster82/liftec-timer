@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.24';
+const APP_VERSION = '1.14.25';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1948,7 +1948,9 @@ class App {
 
                 return `
                   <button class="range-day aspect-square ${bgClass} ${textClass} rounded-lg flex items-center justify-center text-sm font-semibold transition-colors btn-press"
-                          data-date="${dayInfo.date.toISOString()}">
+                          data-year="${dayInfo.date.getFullYear()}"
+                          data-month="${dayInfo.date.getMonth()}"
+                          data-day="${dayInfo.date.getDate()}">
                     ${dayInfo.day}
                   </button>
                 `;
@@ -1997,7 +1999,11 @@ class App {
 
         document.querySelectorAll('.range-day').forEach(btn => {
           btn.addEventListener('click', () => {
-            const clickedDate = new Date(btn.dataset.date);
+            const clickedDate = new Date(
+              parseInt(btn.dataset.year),
+              parseInt(btn.dataset.month),
+              parseInt(btn.dataset.day)
+            );
 
             if (!startDate || (startDate && endDate)) {
               startDate = clickedDate;
