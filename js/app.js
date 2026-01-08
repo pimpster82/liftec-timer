@@ -1603,9 +1603,11 @@ class App {
 
     // Step 2: Choose date range (von-bis in one dialog)
     const dateRange = await this.showDateRangePicker();
+    console.log('1. DateRange from picker:', dateRange);
     if (!dateRange) return;
 
     const { startDate, endDate } = dateRange;
+    console.log('2. Start:', startDate, 'End:', endDate);
 
     // Format dates to DD.MM.YYYY
     const formatDate = (date) => {
@@ -1617,9 +1619,11 @@ class App {
 
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
+    console.log('3. Formatted:', startDateStr, 'to', endDateStr);
 
     // Step 4: Check for conflicts
     const conflicts = await storage.getEntriesByDateRange(startDateStr, endDateStr);
+    console.log('4. Conflicts found:', conflicts.length);
 
     if (conflicts.length > 0) {
       const action = await this.showConflictDialog(conflicts);
@@ -1669,6 +1673,7 @@ class App {
     // Step 5: Save absence entries (skip days with higher priority existing entries)
     const entries = [];
     const currentDate = new Date(startDate);
+    console.log('5. Starting loop - currentDate:', currentDate, 'endDate:', endDate);
 
     const getPriority = (entry) => {
       // Work entries with actual times have highest priority
@@ -1696,14 +1701,17 @@ class App {
 
     while (currentDate <= endDate) {
       const dateStr = formatDate(currentDate);
+      console.log('  Loop iteration - dateStr:', dateStr);
 
       // Check if this day already has an entry with higher priority
       const existing = await storage.getWorklogByDate(dateStr);
       if (existing) {
         const existingPriority = getPriority(existing);
+        console.log('    Existing entry found with priority:', existingPriority, 'vs new:', newPriority);
 
         if (existingPriority >= newPriority) {
           // Skip this day - higher or equal priority already exists
+          console.log('    Skipping (priority conflict)');
           currentDate.setDate(currentDate.getDate() + 1);
           continue;
         }
@@ -1719,12 +1727,14 @@ class App {
         tasks: [{ type: '', description: absenceType }]
       };
 
+      console.log('    Saving entry:', entry);
       entries.push(entry);
       await storage.addWorklogEntry(entry);
 
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
+    console.log('6. Loop finished - total entries:', entries.length);
     await this.renderMainScreen();
     ui.showToast(ui.t('absenceEntriesSaved').replace('{count}', entries.length), 'success');
   }
