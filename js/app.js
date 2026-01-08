@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.20';
+const APP_VERSION = '1.14.21';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1649,19 +1649,56 @@ class App {
         // Restart flow
         return this.showAbsenceEntry();
       } else if (action === 'overwrite') {
-        // Delete conflicting entries
+        // Define priority: Feiertag > Krankenstand > Urlaub > Zeitausgleich
+        const priority = {
+          'Feiertag': 4,
+          'Krankenstand': 3,
+          'Urlaub': 2,
+          'Zeitausgleich': 1
+        };
+
+        const newPriority = priority[absenceType] || 0;
+
+        // Only delete conflicting entries with LOWER priority
         for (const conflict of conflicts) {
-          await storage.deleteWorklogEntry(conflict.id);
+          const conflictType = conflict.tasks?.[0]?.description;
+          const conflictPriority = priority[conflictType] || 0;
+
+          if (conflictPriority < newPriority) {
+            await storage.deleteWorklogEntry(conflict.id);
+          }
         }
       }
     }
 
-    // Step 5: Save absence entries
+    // Step 5: Save absence entries (skip days with higher priority existing entries)
     const entries = [];
     const currentDate = new Date(startDate);
 
+    // Define priority again for skip check
+    const priority = {
+      'Feiertag': 4,
+      'Krankenstand': 3,
+      'Urlaub': 2,
+      'Zeitausgleich': 1
+    };
+    const newPriority = priority[absenceType] || 0;
+
     while (currentDate <= endDate) {
       const dateStr = formatDate(currentDate);
+
+      // Check if this day already has an entry with higher priority
+      const existing = await storage.getWorklogByDate(dateStr);
+      if (existing) {
+        const existingType = existing.tasks?.[0]?.description;
+        const existingPriority = priority[existingType] || 0;
+
+        if (existingPriority >= newPriority) {
+          // Skip this day - higher or equal priority already exists
+          currentDate.setDate(currentDate.getDate() + 1);
+          continue;
+        }
+      }
 
       const entry = {
         date: dateStr,
