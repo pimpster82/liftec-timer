@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.21';
+const APP_VERSION = '1.14.22';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1649,20 +1649,34 @@ class App {
         // Restart flow
         return this.showAbsenceEntry();
       } else if (action === 'overwrite') {
-        // Define priority: Feiertag > Krankenstand > Urlaub > Zeitausgleich
-        const priority = {
+        // Define priority: Work > Feiertag > Krankenstand > Urlaub > Zeitausgleich
+        const getPriority = (entry) => {
+          // Work entries with actual times have highest priority
+          if (entry.startTime && entry.endTime) {
+            return 100; // Arbeitszeit has highest priority
+          }
+
+          // Absence types
+          const absenceType = entry.tasks?.[0]?.description;
+          const priorities = {
+            'Feiertag': 4,
+            'Krankenstand': 3,
+            'Urlaub': 2,
+            'Zeitausgleich': 1
+          };
+          return priorities[absenceType] || 0;
+        };
+
+        const newPriority = {
           'Feiertag': 4,
           'Krankenstand': 3,
           'Urlaub': 2,
           'Zeitausgleich': 1
-        };
-
-        const newPriority = priority[absenceType] || 0;
+        }[absenceType] || 0;
 
         // Only delete conflicting entries with LOWER priority
         for (const conflict of conflicts) {
-          const conflictType = conflict.tasks?.[0]?.description;
-          const conflictPriority = priority[conflictType] || 0;
+          const conflictPriority = getPriority(conflict);
 
           if (conflictPriority < newPriority) {
             await storage.deleteWorklogEntry(conflict.id);
@@ -1675,14 +1689,29 @@ class App {
     const entries = [];
     const currentDate = new Date(startDate);
 
-    // Define priority again for skip check
-    const priority = {
+    const getPriority = (entry) => {
+      // Work entries with actual times have highest priority
+      if (entry.startTime && entry.endTime) {
+        return 100; // Arbeitszeit has highest priority
+      }
+
+      // Absence types
+      const absenceType = entry.tasks?.[0]?.description;
+      const priorities = {
+        'Feiertag': 4,
+        'Krankenstand': 3,
+        'Urlaub': 2,
+        'Zeitausgleich': 1
+      };
+      return priorities[absenceType] || 0;
+    };
+
+    const newPriority = {
       'Feiertag': 4,
       'Krankenstand': 3,
       'Urlaub': 2,
       'Zeitausgleich': 1
-    };
-    const newPriority = priority[absenceType] || 0;
+    }[absenceType] || 0;
 
     while (currentDate <= endDate) {
       const dateStr = formatDate(currentDate);
@@ -1690,8 +1719,7 @@ class App {
       // Check if this day already has an entry with higher priority
       const existing = await storage.getWorklogByDate(dateStr);
       if (existing) {
-        const existingType = existing.tasks?.[0]?.description;
-        const existingPriority = priority[existingType] || 0;
+        const existingPriority = getPriority(existing);
 
         if (existingPriority >= newPriority) {
           // Skip this day - higher or equal priority already exists

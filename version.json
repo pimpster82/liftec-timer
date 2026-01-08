@@ -1,11 +1,11 @@
 {
-  "version": "1.14.21",
+  "version": "1.14.22",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Feature: Prioritätssystem für Abwesenheiten - Feiertag > Krankenstand > Urlaub > Zeitausgleich",
-    "Fix: Urlaub überschreibt keine Feiertage/Krankenstand mehr",
-    "Fix: Beim Overwrite nur Einträge mit niedrigerer Priorität löschen",
-    "Improve: Skip Tage mit höherer/gleicher Priorität beim Speichern"
+    "Feature: Arbeitszeit hat höchste Priorität (100) - überschreibt keine Arbeitstage",
+    "Improve: Neue Prioritäten - Arbeit > Feiertag > Krankenstand > Urlaub > Zeitausgleich",
+    "Fix: Abwesenheiten überschreiben keine echten Arbeitseinträge mehr",
+    "Improve: getPriority() Funktion prüft ob Eintrag Arbeit (mit Zeiten) oder Abwesenheit ist"
   ],
   "critical": false
 }
