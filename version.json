@@ -1,11 +1,11 @@
 {
-  "version": "1.14.23",
+  "version": "1.14.24",
   "releaseDate": "2025-12-14",
   "changelog": [
-    "Feature: Von-Bis Datepicker für Abwesenheiten - beide Daten in einem Dialog",
-    "Improve: Überspringt Single/Range Auswahl - direkt Range-Picker",
-    "Feature: Dynamische min/max Validierung - Bis kann nicht vor Von liegen",
-    "Improve: Tooltip erklärt dass für einzelnen Tag dasselbe Datum gewählt wird"
+    "Feature: Visueller Range-Datepicker wie bei Booking.com/Airbnb",
+    "Feature: 1. Klick = Start, 2. Klick = End, Range wird farbig angezeigt",
+    "Feature: 3. Klick startet von vorne - intuitiver Workflow",
+    "Improve: Kalender-Grid mit Monats-Navigation, Range-Highlighting"
   ],
   "critical": false
 }

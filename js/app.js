@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.23';
+const APP_VERSION = '1.14.24';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1855,87 +1855,180 @@ class App {
 
   showDateRangePicker() {
     return new Promise((resolve) => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date();
+      let startDate = null;
+      let endDate = null;
+      let currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-      const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-            ${ui.icon('calendar')}
-            <span>${ui.t('choosePeriod')}</span>
-          </h3>
-          <div class="space-y-4">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Von</label>
-                <input type="date" id="date-range-start" value="${today}"
-                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bis</label>
-                <input type="date" id="date-range-end" value="${today}"
-                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-              </div>
+      const renderCalendar = () => {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startDayOfWeek = (firstDay.getDay() + 6) % 7;
+
+        const monthNames = ui.t('monthNames');
+        const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+        let calendarDays = [];
+
+        for (let i = 0; i < startDayOfWeek; i++) {
+          calendarDays.push({ empty: true });
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const date = new Date(year, month, day);
+          const isToday = date.toDateString() === today.toDateString();
+
+          let isStart = false;
+          let isEnd = false;
+          let inRange = false;
+
+          if (startDate) {
+            isStart = date.toDateString() === startDate.toDateString();
+            if (endDate) {
+              isEnd = date.toDateString() === endDate.toDateString();
+              inRange = date >= startDate && date <= endDate;
+            }
+          }
+
+          calendarDays.push({
+            day,
+            date,
+            isToday,
+            isStart,
+            isEnd,
+            inRange
+          });
+        }
+
+        const calendarHTML = `
+          <div class="p-6">
+            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+              ${ui.icon('calendar')}
+              <span>${ui.t('choosePeriod')}</span>
+            </h3>
+
+            <div class="flex items-center justify-between mb-4">
+              <button id="prev-month" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
+                ${ui.icon('chevron-left', 'w-6 h-6')}
+              </button>
+              <h4 class="text-base font-semibold text-gray-900 dark:text-white">
+                ${monthNames[month]} ${year}
+              </h4>
+              <button id="next-month" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
+                ${ui.icon('chevron-right', 'w-6 h-6')}
+              </button>
             </div>
-            <p class="text-xs text-gray-500 dark:text-gray-400">
-              Für einen einzelnen Tag wähle dasselbe Datum für Von und Bis.
-            </p>
+
+            <div class="grid grid-cols-7 gap-1 mb-2">
+              ${weekdayNames.map(d => `<div class="text-center text-xs font-semibold text-gray-600 dark:text-gray-400 py-1">${d}</div>`).join('')}
+            </div>
+
+            <div class="grid grid-cols-7 gap-1 mb-4">
+              ${calendarDays.map(dayInfo => {
+                if (dayInfo.empty) {
+                  return '<div class="aspect-square"></div>';
+                }
+
+                let bgClass = 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700';
+                let textClass = 'text-gray-900 dark:text-white';
+
+                if (dayInfo.isStart || dayInfo.isEnd) {
+                  bgClass = 'bg-primary text-gray-900 font-bold';
+                  textClass = 'text-gray-900';
+                } else if (dayInfo.inRange) {
+                  bgClass = 'bg-primary/30 dark:bg-primary/20';
+                }
+
+                if (dayInfo.isToday) {
+                  bgClass += ' ring-2 ring-blue-500';
+                }
+
+                return `
+                  <button class="range-day aspect-square ${bgClass} ${textClass} rounded-lg flex items-center justify-center text-sm font-semibold transition-colors btn-press"
+                          data-date="${dayInfo.date.toISOString()}">
+                    ${dayInfo.day}
+                  </button>
+                `;
+              }).join('')}
+            </div>
+
+            <div class="mb-4 min-h-6">
+              ${startDate && !endDate ? `
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Von: <strong>${ui.formatDate(startDate)}</strong> - Wähle End-Datum
+                </p>
+              ` : startDate && endDate ? `
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  <strong>${ui.formatDate(startDate)}</strong> bis <strong>${ui.formatDate(endDate)}</strong>
+                </p>
+              ` : `
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Wähle Start-Datum
+                </p>
+              `}
+            </div>
+
+            <div class="flex space-x-3">
+              <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+                ${ui.t('cancel')}
+              </button>
+              <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg hover:bg-primary-dark ${!startDate || !endDate ? 'opacity-50 cursor-not-allowed' : ''}"
+                      ${!startDate || !endDate ? 'disabled' : ''}>
+                ${ui.t('ok')}
+              </button>
+            </div>
           </div>
-          <div class="flex space-x-3 mt-4">
-            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-              ${ui.t('cancel')}
-            </button>
-            <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg hover:bg-primary-dark">
-              ${ui.t('ok')}
-            </button>
-          </div>
-        </div>
-      `;
+        `;
 
-      ui.showModal(content);
+        ui.showModal(calendarHTML);
 
-      // Update min/max dynamically
-      const startInput = document.getElementById('date-range-start');
-      const endInput = document.getElementById('date-range-end');
+        document.getElementById('prev-month').addEventListener('click', () => {
+          currentMonth.setMonth(currentMonth.getMonth() - 1);
+          renderCalendar();
+        });
 
-      startInput.addEventListener('change', () => {
-        endInput.min = startInput.value;
-        if (endInput.value && endInput.value < startInput.value) {
-          endInput.value = startInput.value;
-        }
-      });
+        document.getElementById('next-month').addEventListener('click', () => {
+          currentMonth.setMonth(currentMonth.getMonth() + 1);
+          renderCalendar();
+        });
 
-      endInput.addEventListener('change', () => {
-        startInput.max = endInput.value;
-        if (startInput.value && startInput.value > endInput.value) {
-          startInput.value = endInput.value;
-        }
-      });
+        document.querySelectorAll('.range-day').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const clickedDate = new Date(btn.dataset.date);
 
-      document.getElementById('dialog-ok').addEventListener('click', () => {
-        const startValue = startInput.value;
-        const endValue = endInput.value;
+            if (!startDate || (startDate && endDate)) {
+              startDate = clickedDate;
+              endDate = null;
+            } else {
+              if (clickedDate >= startDate) {
+                endDate = clickedDate;
+              } else {
+                endDate = startDate;
+                startDate = clickedDate;
+              }
+            }
 
-        if (!startValue || !endValue) {
-          ui.showToast('Bitte beide Daten auswählen', 'error');
-          return;
-        }
+            renderCalendar();
+          });
+        });
 
-        const startDate = new Date(startValue);
-        const endDate = new Date(endValue);
+        document.getElementById('dialog-ok').addEventListener('click', () => {
+          if (startDate && endDate) {
+            ui.hideModal();
+            resolve({ startDate, endDate });
+          }
+        });
 
-        if (endDate < startDate) {
-          ui.showToast('End-Datum muss nach Start-Datum liegen', 'error');
-          return;
-        }
+        document.getElementById('dialog-cancel').addEventListener('click', () => {
+          ui.hideModal();
+          resolve(null);
+        });
+      };
 
-        ui.hideModal();
-        resolve({ startDate, endDate });
-      });
-
-      document.getElementById('dialog-cancel').addEventListener('click', () => {
-        ui.hideModal();
-        resolve(null);
-      });
+      renderCalendar();
     });
   }
 
