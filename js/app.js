@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.22';
+const APP_VERSION = '1.14.23';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1601,30 +1601,11 @@ class App {
     const absenceType = await this.showAbsenceTypeDialog();
     if (!absenceType) return;
 
-    // Step 2: Choose period type (single day or range)
-    const periodType = await this.showPeriodTypeDialog();
-    if (!periodType) return;
+    // Step 2: Choose date range (von-bis in one dialog)
+    const dateRange = await this.showDateRangePicker();
+    if (!dateRange) return;
 
-    // Step 3: Choose date(s)
-    let startDate, endDate;
-
-    if (periodType === 'single') {
-      startDate = await this.showDatePicker('Datum wählen');
-      if (!startDate) return;
-      endDate = startDate;
-    } else {
-      startDate = await this.showDatePicker('Von (Datum)');
-      if (!startDate) return;
-
-      endDate = await this.showDatePicker('Bis (Datum)');
-      if (!endDate) return;
-
-      // Validate date range
-      if (endDate < startDate) {
-        ui.showToast('End-Datum muss nach Start-Datum liegen', 'error');
-        return;
-      }
-    }
+    const { startDate, endDate } = dateRange;
 
     // Format dates to DD.MM.YYYY
     const formatDate = (date) => {
@@ -1863,6 +1844,92 @@ class App {
         const value = document.getElementById('date-input').value;
         ui.hideModal();
         resolve(value ? new Date(value) : null);
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        resolve(null);
+      });
+    });
+  }
+
+  showDateRangePicker() {
+    return new Promise((resolve) => {
+      const today = new Date().toISOString().split('T')[0];
+
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('calendar')}
+            <span>${ui.t('choosePeriod')}</span>
+          </h3>
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Von</label>
+                <input type="date" id="date-range-start" value="${today}"
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bis</label>
+                <input type="date" id="date-range-end" value="${today}"
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              </div>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+              Für einen einzelnen Tag wähle dasselbe Datum für Von und Bis.
+            </p>
+          </div>
+          <div class="flex space-x-3 mt-4">
+            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+            <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg hover:bg-primary-dark">
+              ${ui.t('ok')}
+            </button>
+          </div>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      // Update min/max dynamically
+      const startInput = document.getElementById('date-range-start');
+      const endInput = document.getElementById('date-range-end');
+
+      startInput.addEventListener('change', () => {
+        endInput.min = startInput.value;
+        if (endInput.value && endInput.value < startInput.value) {
+          endInput.value = startInput.value;
+        }
+      });
+
+      endInput.addEventListener('change', () => {
+        startInput.max = endInput.value;
+        if (startInput.value && startInput.value > endInput.value) {
+          startInput.value = endInput.value;
+        }
+      });
+
+      document.getElementById('dialog-ok').addEventListener('click', () => {
+        const startValue = startInput.value;
+        const endValue = endInput.value;
+
+        if (!startValue || !endValue) {
+          ui.showToast('Bitte beide Daten auswählen', 'error');
+          return;
+        }
+
+        const startDate = new Date(startValue);
+        const endDate = new Date(endValue);
+
+        if (endDate < startDate) {
+          ui.showToast('End-Datum muss nach Start-Datum liegen', 'error');
+          return;
+        }
+
+        ui.hideModal();
+        resolve({ startDate, endDate });
       });
 
       document.getElementById('dialog-cancel').addEventListener('click', () => {
