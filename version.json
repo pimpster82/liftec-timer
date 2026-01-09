@@ -1,10 +1,11 @@
 {
-  "version": "1.14.29",
+  "version": "1.14.30",
   "releaseDate": "2025-01-09",
   "changelog": [
-    "Fix: Wochenend-Check funktioniert jetzt auch ohne Work Time Tracking",
-    "Fix: Direkter dayOfWeek-Check statt targetHours-Abhängigkeit",
-    "Fix: Urlaub wird nur Mo-Fr gespeichert (außer Feiertage)"
+    "Fix: Feiertags-Check nutzt jetzt austrianHolidays Modul",
+    "Fix: Urlaub an Feiertagen wird jetzt gespeichert (auch auf Wochenende)",
+    "Fix: Wochenenden ohne Feiertag werden übersprungen",
+    "Improve: Korrekte Feiertags-Erkennung statt nur absenceType-Check"
   ],
   "critical": true
 }
