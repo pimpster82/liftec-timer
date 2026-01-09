@@ -1,11 +1,10 @@
 {
-  "version": "1.14.27",
+  "version": "1.14.28",
   "releaseDate": "2025-01-09",
   "changelog": [
-    "Fix: Prioritätssystem korrigiert - Wochenenden werden übersprungen",
-    "Fix: Urlaub wird nicht mehr an Wochenenden gespeichert (targetHours = 0)",
-    "Fix: Feiertage behalten ihre Priorität und werden nicht überschrieben",
-    "Improve: Target Hours Check vor Speichern"
+    "Fix: Kritischer Bug - Settings fehlten bei getDailyTargetHours()",
+    "Fix: Urlaub wird jetzt nur an Arbeitstagen gespeichert",
+    "Fix: Wochenenden werden korrekt erkannt und übersprungen"
   ],
   "critical": true
 }

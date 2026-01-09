@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.27';
+const APP_VERSION = '1.14.28';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1713,7 +1713,7 @@ class App {
       console.log('  Loop iteration - dateStr:', dateStr);
 
       // Check target hours for this day (skip weekends/holidays if targetHours = 0)
-      const targetHours = timeAccount.getDailyTargetHours(currentDate);
+      const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
       console.log('    Target hours:', targetHours);
 
       // Skip days with no target hours (weekends) unless it's a Feiertag
