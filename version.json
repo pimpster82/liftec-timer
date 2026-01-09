@@ -1,10 +1,11 @@
 {
-  "version": "1.14.26",
+  "version": "1.14.27",
   "releaseDate": "2025-01-09",
   "changelog": [
-    "Fix: Kritischer Bug - Falsche Storage-Methode korrigiert",
-    "Fix: getWorklogByDate → getWorklogEntryByDate",
-    "Fix: Abwesenheitseinträge werden jetzt korrekt gespeichert"
+    "Fix: Prioritätssystem korrigiert - Wochenenden werden übersprungen",
+    "Fix: Urlaub wird nicht mehr an Wochenenden gespeichert (targetHours = 0)",
+    "Fix: Feiertage behalten ihre Priorität und werden nicht überschrieben",
+    "Improve: Target Hours Check vor Speichern"
   ],
   "critical": true
 }
