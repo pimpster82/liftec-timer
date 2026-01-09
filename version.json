@@ -1,11 +1,14 @@
 {
-  "version": "1.14.32",
+  "version": "1.15.0",
   "releaseDate": "2025-01-09",
   "changelog": [
-    "Fix: Email Betreff/Body zeigt jetzt 'Jänner' statt 'nner'",
-    "Fix: Umlaut-Problem beim Monatsnamen-Parsing behoben",
-    "Improve: Verwendet split() statt Regex für robuste Extraktion",
-    "Fix: März, Jänner und andere Umlaute funktionieren jetzt korrekt"
+    "Release: Production Version 1.15.0",
+    "Feature: Visueller Range-Datepicker für Abwesenheiten (Booking.com Style)",
+    "Feature: Automatische Feiertags-Erkennung mit Prioritätssystem",
+    "Feature: Intelligente Wochenend-Erkennung bei Urlaubseintragung",
+    "Fix: Urlaub überschreibt keine offiziellen Feiertage mehr",
+    "Fix: Email Umlaute (Jänner, März) werden korrekt angezeigt",
+    "Clean: Alle Debug-Logs entfernt für Production-Betrieb"
   ],
   "critical": false
 }

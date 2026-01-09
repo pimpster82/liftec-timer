@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.32';
+const APP_VERSION = '1.15.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1603,11 +1603,9 @@ class App {
 
     // Step 2: Choose date range (von-bis in one dialog)
     const dateRange = await this.showDateRangePicker();
-    console.log('1. DateRange from picker:', dateRange);
     if (!dateRange) return;
 
     const { startDate, endDate } = dateRange;
-    console.log('2. Start:', startDate, 'End:', endDate);
 
     // Format dates to DD.MM.YYYY
     const formatDate = (date) => {
@@ -1619,15 +1617,12 @@ class App {
 
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
-    console.log('3. Formatted:', startDateStr, 'to', endDateStr);
 
     // Step 4: Check for conflicts
     const conflicts = await storage.getEntriesByDateRange(startDateStr, endDateStr);
-    console.log('4. Conflicts found:', conflicts.length);
 
     if (conflicts.length > 0) {
       const action = await this.showConflictDialog(conflicts);
-      console.log('  Conflict action chosen:', action);
 
       if (action === 'cancel') {
         return;
@@ -1635,7 +1630,6 @@ class App {
         // Restart flow
         return this.showAbsenceEntry();
       } else if (action === 'overwrite') {
-        console.log('  Processing overwrite...');
         // Define priority: Work > Feiertag > Krankenstand > Urlaub > Zeitausgleich
         const getPriority = (entry) => {
           // Work entries with actual times have highest priority
@@ -1661,19 +1655,12 @@ class App {
           'Zeitausgleich': 1
         }[absenceType] || 0;
 
-        console.log('  New entry priority:', newPriority, '(' + absenceType + ')');
-
         // Only delete conflicting entries with LOWER priority
         for (const conflict of conflicts) {
           const conflictPriority = getPriority(conflict);
-          const conflictType = conflict.tasks?.[0]?.description || 'work';
-          console.log('    Conflict on', conflict.date, '- Type:', conflictType, '- Priority:', conflictPriority);
 
           if (conflictPriority < newPriority) {
-            console.log('      -> DELETING (lower priority)');
             await storage.deleteWorklogEntry(conflict.id);
-          } else {
-            console.log('      -> KEEPING (higher/equal priority)');
           }
         }
       }
@@ -1682,13 +1669,6 @@ class App {
     // Step 5: Save absence entries (skip days with higher priority existing entries)
     const entries = [];
     const currentDate = new Date(startDate);
-    console.log('5. Starting loop - currentDate:', currentDate, 'endDate:', endDate);
-    console.log('  Settings check:', {
-      hasSettings: !!ui.settings,
-      hasWorkTimeTracking: !!ui.settings?.workTimeTracking,
-      enabled: ui.settings?.workTimeTracking?.enabled,
-      dailyTargetHours: ui.settings?.workTimeTracking?.dailyTargetHours
-    });
 
     const getPriority = (entry) => {
       // Work entries with actual times have highest priority
@@ -1716,27 +1696,22 @@ class App {
 
     while (currentDate <= endDate) {
       const dateStr = formatDate(currentDate);
-      console.log('  Loop iteration - dateStr:', dateStr);
 
       // Check if this date is a holiday
       const holidayCheck = austrianHolidays.isHoliday(dateStr);
       const isHoliday = holidayCheck.isHoliday;
-      console.log('    Is holiday:', isHoliday, holidayCheck.name?.de || '');
 
       // Skip if this is an official holiday AND we're trying to enter Urlaub/Krankenstand/Zeitausgleich
       // (Only allow Feiertag entries on official holidays)
       if (isHoliday && absenceType !== 'Feiertag') {
-        console.log('    Skipping (official holiday, not entering Feiertag)');
         currentDate.setDate(currentDate.getDate() + 1);
         continue;
       }
 
       // Skip weekends (Saturday=6, Sunday=0) unless we're entering a Feiertag
       const dayOfWeek = currentDate.getDay();
-      console.log('    Day of week:', dayOfWeek, ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][dayOfWeek]);
 
       if ((dayOfWeek === 0 || dayOfWeek === 6) && absenceType !== 'Feiertag') {
-        console.log('    Skipping (weekend, not a Feiertag)');
         currentDate.setDate(currentDate.getDate() + 1);
         continue;
       }
@@ -1745,11 +1720,9 @@ class App {
       const existing = await storage.getWorklogEntryByDate(dateStr);
       if (existing) {
         const existingPriority = getPriority(existing);
-        console.log('    Existing entry found with priority:', existingPriority, 'vs new:', newPriority);
 
         if (existingPriority >= newPriority) {
           // Skip this day - higher or equal priority already exists
-          console.log('    Skipping (priority conflict)');
           currentDate.setDate(currentDate.getDate() + 1);
           continue;
         }
@@ -1765,14 +1738,12 @@ class App {
         tasks: [{ type: '', description: absenceType }]
       };
 
-      console.log('    Saving entry:', entry);
       entries.push(entry);
       await storage.addWorklogEntry(entry);
 
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    console.log('6. Loop finished - total entries:', entries.length);
     await this.renderMainScreen();
     ui.showToast(ui.t('absenceEntriesSaved').replace('{count}', entries.length), 'success');
   }
