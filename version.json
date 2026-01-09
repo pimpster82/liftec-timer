@@ -1,11 +1,11 @@
 {
-  "version": "1.14.30",
+  "version": "1.14.31",
   "releaseDate": "2025-01-09",
   "changelog": [
-    "Fix: Feiertags-Check nutzt jetzt austrianHolidays Modul",
-    "Fix: Urlaub an Feiertagen wird jetzt gespeichert (auch auf Wochenende)",
-    "Fix: Wochenenden ohne Feiertag werden übersprungen",
-    "Improve: Korrekte Feiertags-Erkennung statt nur absenceType-Check"
+    "Fix: KRITISCH - Urlaub überschreibt keine Feiertage mehr",
+    "Fix: Offizieller Feiertag (6.1., 25.12. etc.) = KEIN Urlaub gespeichert",
+    "Fix: Urlaub nur an Arbeitstagen ohne Feiertag",
+    "Logic: Feiertag erkannt UND Urlaub → Skip (kein Urlaubstag verbrauchen)"
   ],
   "critical": true
 }

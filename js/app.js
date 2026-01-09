@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.30';
+const APP_VERSION = '1.14.31';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1723,14 +1723,20 @@ class App {
       const isHoliday = holidayCheck.isHoliday;
       console.log('    Is holiday:', isHoliday, holidayCheck.name?.de || '');
 
-      // Skip weekends (Saturday=6, Sunday=0) UNLESS:
-      // 1. It's an actual holiday (Christmas on Saturday, etc.)
-      // 2. OR we're entering a Feiertag entry
+      // Skip if this is an official holiday AND we're trying to enter Urlaub/Krankenstand/Zeitausgleich
+      // (Only allow Feiertag entries on official holidays)
+      if (isHoliday && absenceType !== 'Feiertag') {
+        console.log('    Skipping (official holiday, not entering Feiertag)');
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+
+      // Skip weekends (Saturday=6, Sunday=0) unless we're entering a Feiertag
       const dayOfWeek = currentDate.getDay();
       console.log('    Day of week:', dayOfWeek, ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][dayOfWeek]);
 
-      if ((dayOfWeek === 0 || dayOfWeek === 6) && !isHoliday && absenceType !== 'Feiertag') {
-        console.log('    Skipping (weekend, not a holiday)');
+      if ((dayOfWeek === 0 || dayOfWeek === 6) && absenceType !== 'Feiertag') {
+        console.log('    Skipping (weekend, not a Feiertag)');
         currentDate.setDate(currentDate.getDate() + 1);
         continue;
       }
