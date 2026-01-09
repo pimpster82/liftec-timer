@@ -1,11 +1,11 @@
 {
-  "version": "1.14.31",
+  "version": "1.14.32",
   "releaseDate": "2025-01-09",
   "changelog": [
-    "Fix: KRITISCH - Urlaub überschreibt keine Feiertage mehr",
-    "Fix: Offizieller Feiertag (6.1., 25.12. etc.) = KEIN Urlaub gespeichert",
-    "Fix: Urlaub nur an Arbeitstagen ohne Feiertag",
-    "Logic: Feiertag erkannt UND Urlaub → Skip (kein Urlaubstag verbrauchen)"
+    "Fix: Email Betreff/Body zeigt jetzt 'Jänner' statt 'nner'",
+    "Fix: Umlaut-Problem beim Monatsnamen-Parsing behoben",
+    "Improve: Verwendet split() statt Regex für robuste Extraktion",
+    "Fix: März, Jänner und andere Umlaute funktionieren jetzt korrekt"
   ],
-  "critical": true
+  "critical": false
 }

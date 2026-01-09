@@ -494,7 +494,11 @@ class ExcelExport {
 
   // Send Excel via email (using Web Share API + Clipboard for subject)
   async sendEmail(blob, filename, settings) {
-    const monthStr = filename.match(/(\w+) \d{4}/)[1];
+    // Extract month name from filename: "Arbeitszeit USERNAME MONAT JAHR.xlsx"
+    // Using split is more robust than regex for umlauts (ä, ö, ü)
+    const parts = filename.replace('.xlsx', '').split(' ');
+    const monthStr = parts[parts.length - 2]; // Second-to-last part is the month
+
     const subject = settings.emailSubject
       .replace('{month}', monthStr)
       .replace('{name}', settings.username);
