@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.15.0';
+const APP_VERSION = '1.15.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1728,6 +1728,9 @@ class App {
         }
       }
 
+      // Get target hours for this day to set vacationDays correctly
+      const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
+
       const entry = {
         date: dateStr,
         startTime: '',
@@ -1735,7 +1738,9 @@ class App {
         pause: '',
         travelTime: '',
         surcharge: '',
-        tasks: [{ type: '', description: absenceType }]
+        tasks: [{ type: '', description: absenceType }],
+        // Set vacationDays: 1 if Urlaub on workday, 0 otherwise
+        vacationDays: (absenceType === 'Urlaub' && targetHours > 0) ? 1 : 0
       };
 
       entries.push(entry);
@@ -1744,8 +1749,43 @@ class App {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
+    // Recalculate vacation remaining days holistically
+    await this.recalculateVacationDays();
+
     await this.renderMainScreen();
     ui.showToast(ui.t('absenceEntriesSaved').replace('{count}', entries.length), 'success');
+  }
+
+  // Recalculate vacation remaining days holistically
+  async recalculateVacationDays() {
+    if (!ui.settings?.workTimeTracking?.enabled) {
+      return; // Work time tracking not enabled
+    }
+
+    const vacation = ui.settings.workTimeTracking.vacation;
+    const referenceDate = new Date(vacation.referenceDate);
+    const referenceRemaining = vacation.referenceRemaining || vacation.annualDays || 25;
+
+    // Get all entries after reference date
+    const allEntries = await storage.getAllWorklogEntries();
+    const entriesAfterReference = allEntries.filter(entry => {
+      const [d, m, y] = entry.date.split('.');
+      const entryDate = new Date(y, m - 1, d);
+      return entryDate > referenceDate;
+    });
+
+    // Calculate vacation days used
+    let vacationUsed = 0;
+    for (const entry of entriesAfterReference) {
+      // Count explicit vacationDays field (respects targetHours check)
+      if (entry.vacationDays && entry.vacationDays > 0) {
+        vacationUsed += entry.vacationDays;
+      }
+    }
+
+    // Set remaining days = reference - used
+    ui.settings.workTimeTracking.vacation.remainingDays = referenceRemaining - vacationUsed;
+    await storage.saveSettings(ui.settings);
   }
 
   async showAbsenceTypeDialog() {
@@ -4562,21 +4602,6 @@ class App {
             updatedEntry.actualHours = timeAccount.getActualHours(updatedEntry, ui.settings);
             updatedEntry.vacationDays = 0;
           }
-
-          // Update vacation balance if needed (only if this day has target hours)
-          const hasTargetHours = updatedEntry.targetHours > 0;
-          const oldWasVacation = oldEntryType === 'vacation';
-          const newIsVacation = entryType === 'vacation';
-
-          if (hasTargetHours && newIsVacation && !oldWasVacation) {
-            // Changed to vacation on a work day: reduce remaining days
-            ui.settings.workTimeTracking.vacation.remainingDays -= 1;
-            await storage.saveSettings(ui.settings);
-          } else if (hasTargetHours && !newIsVacation && oldWasVacation) {
-            // Changed from vacation on a work day: restore remaining days
-            ui.settings.workTimeTracking.vacation.remainingDays += 1;
-            await storage.saveSettings(ui.settings);
-          }
         } else {
           // No WTT: keep original time fields
           updatedEntry.startTime = document.getElementById('edit-start').value;
@@ -4590,11 +4615,15 @@ class App {
         if (entry.id) {
           // Existing entry - update it
           await storage.updateWorklogEntry(updatedEntry);
+          // Recalculate vacation days holistically
+          await this.recalculateVacationDays();
           ui.hideModal();
           ui.showToast('Eintrag aktualisiert', 'success');
         } else {
           // New entry - add it
           await storage.addWorklogEntry(updatedEntry);
+          // Recalculate vacation days holistically
+          await this.recalculateVacationDays();
           ui.hideModal();
           ui.showToast('Eintrag erstellt', 'success');
         }
@@ -4616,6 +4645,8 @@ class App {
     if (!confirmed) return;
 
     await storage.deleteWorklogEntry(entry.id);
+    // Recalculate vacation days holistically
+    await this.recalculateVacationDays();
     ui.showToast('Eintrag gelöscht', 'success');
   }
 

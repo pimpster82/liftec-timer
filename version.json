@@ -1,14 +1,12 @@
 {
-  "version": "1.15.0",
+  "version": "1.15.1",
   "releaseDate": "2025-01-09",
   "changelog": [
-    "Release: Production Version 1.15.0",
-    "Feature: Visueller Range-Datepicker für Abwesenheiten (Booking.com Style)",
-    "Feature: Automatische Feiertags-Erkennung mit Prioritätssystem",
-    "Feature: Intelligente Wochenend-Erkennung bei Urlaubseintragung",
-    "Fix: Urlaub überschreibt keine offiziellen Feiertage mehr",
-    "Fix: Email Umlaute (Jänner, März) werden korrekt angezeigt",
-    "Clean: Alle Debug-Logs entfernt für Production-Betrieb"
+    "Fix: KRITISCH - Resturlaubstage werden jetzt holistisch berechnet",
+    "Fix: vacationDays Feld wird beim Erstellen korrekt gesetzt",
+    "Fix: Neuberechnung nach Erstellen, Bearbeiten und Löschen von Einträgen",
+    "Logic: Resturlaubstage = Referenz-Resttage - verbrauchte Tage (ab Referenzdatum)",
+    "Remove: Alte inkrementelle ±1 Logik entfernt (fehleranfällig)"
   ],
-  "critical": false
+  "critical": true
 }
