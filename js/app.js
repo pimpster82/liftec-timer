@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.14.25';
+const APP_VERSION = '1.14.26';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1704,7 +1704,7 @@ class App {
       console.log('  Loop iteration - dateStr:', dateStr);
 
       // Check if this day already has an entry with higher priority
-      const existing = await storage.getWorklogByDate(dateStr);
+      const existing = await storage.getWorklogEntryByDate(dateStr);
       if (existing) {
         const existingPriority = getPriority(existing);
         console.log('    Existing entry found with priority:', existingPriority, 'vs new:', newPriority);
