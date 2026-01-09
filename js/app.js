@@ -1683,6 +1683,12 @@ class App {
     const entries = [];
     const currentDate = new Date(startDate);
     console.log('5. Starting loop - currentDate:', currentDate, 'endDate:', endDate);
+    console.log('  Settings check:', {
+      hasSettings: !!ui.settings,
+      hasWorkTimeTracking: !!ui.settings?.workTimeTracking,
+      enabled: ui.settings?.workTimeTracking?.enabled,
+      dailyTargetHours: ui.settings?.workTimeTracking?.dailyTargetHours
+    });
 
     const getPriority = (entry) => {
       // Work entries with actual times have highest priority
