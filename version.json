@@ -1,10 +1,10 @@
 {
-  "version": "1.14.28",
+  "version": "1.14.29",
   "releaseDate": "2025-01-09",
   "changelog": [
-    "Fix: Kritischer Bug - Settings fehlten bei getDailyTargetHours()",
-    "Fix: Urlaub wird jetzt nur an Arbeitstagen gespeichert",
-    "Fix: Wochenenden werden korrekt erkannt und übersprungen"
+    "Fix: Wochenend-Check funktioniert jetzt auch ohne Work Time Tracking",
+    "Fix: Direkter dayOfWeek-Check statt targetHours-Abhängigkeit",
+    "Fix: Urlaub wird nur Mo-Fr gespeichert (außer Feiertage)"
   ],
   "critical": true
 }
