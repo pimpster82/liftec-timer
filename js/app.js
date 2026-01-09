@@ -1627,6 +1627,7 @@ class App {
 
     if (conflicts.length > 0) {
       const action = await this.showConflictDialog(conflicts);
+      console.log('  Conflict action chosen:', action);
 
       if (action === 'cancel') {
         return;
@@ -1634,6 +1635,7 @@ class App {
         // Restart flow
         return this.showAbsenceEntry();
       } else if (action === 'overwrite') {
+        console.log('  Processing overwrite...');
         // Define priority: Work > Feiertag > Krankenstand > Urlaub > Zeitausgleich
         const getPriority = (entry) => {
           // Work entries with actual times have highest priority
@@ -1659,12 +1661,19 @@ class App {
           'Zeitausgleich': 1
         }[absenceType] || 0;
 
+        console.log('  New entry priority:', newPriority, '(' + absenceType + ')');
+
         // Only delete conflicting entries with LOWER priority
         for (const conflict of conflicts) {
           const conflictPriority = getPriority(conflict);
+          const conflictType = conflict.tasks?.[0]?.description || 'work';
+          console.log('    Conflict on', conflict.date, '- Type:', conflictType, '- Priority:', conflictPriority);
 
           if (conflictPriority < newPriority) {
+            console.log('      -> DELETING (lower priority)');
             await storage.deleteWorklogEntry(conflict.id);
+          } else {
+            console.log('      -> KEEPING (higher/equal priority)');
           }
         }
       }
