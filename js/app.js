@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.15.1';
+const APP_VERSION = '1.15.2';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1749,8 +1749,9 @@ class App {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Recalculate vacation remaining days holistically
+    // Recalculate vacation and time account holistically
     await this.recalculateVacationDays();
+    await this.recalculateTimeAccountBalance();
 
     await this.renderMainScreen();
     ui.showToast(ui.t('absenceEntriesSaved').replace('{count}', entries.length), 'success');
@@ -1785,6 +1786,41 @@ class App {
 
     // Set remaining days = reference - used
     ui.settings.workTimeTracking.vacation.remainingDays = referenceRemaining - vacationUsed;
+    await storage.saveSettings(ui.settings);
+  }
+
+  // Recalculate time account balance holistically
+  async recalculateTimeAccountBalance() {
+    if (!ui.settings?.workTimeTracking?.enabled) {
+      return; // Work time tracking not enabled
+    }
+
+    const timeAccountSettings = ui.settings.workTimeTracking.timeAccount;
+    const referenceDate = new Date(timeAccountSettings.referenceDate);
+    const referenceBalance = timeAccountSettings.referenceBalance || 0;
+
+    // Get all entries after reference date
+    const allEntries = await storage.getAllWorklogEntries();
+    const entriesAfterReference = allEntries.filter(entry => {
+      const [d, m, y] = entry.date.split('.');
+      const entryDate = new Date(y, m - 1, d);
+      return entryDate > referenceDate;
+    });
+
+    // Calculate balance change since reference date
+    let balanceChange = 0;
+    for (const entry of entriesAfterReference) {
+      const [d, m, y] = entry.date.split('.');
+      const entryDate = new Date(y, m - 1, d);
+
+      const targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+      const actualHours = timeAccount.getActualHours(entry, ui.settings);
+
+      balanceChange += (actualHours - targetHours);
+    }
+
+    // Set current balance = reference + changes
+    ui.settings.workTimeTracking.timeAccount.currentBalance = referenceBalance + balanceChange;
     await storage.saveSettings(ui.settings);
   }
 
@@ -4615,15 +4651,17 @@ class App {
         if (entry.id) {
           // Existing entry - update it
           await storage.updateWorklogEntry(updatedEntry);
-          // Recalculate vacation days holistically
+          // Recalculate vacation and time account holistically
           await this.recalculateVacationDays();
+          await this.recalculateTimeAccountBalance();
           ui.hideModal();
           ui.showToast('Eintrag aktualisiert', 'success');
         } else {
           // New entry - add it
           await storage.addWorklogEntry(updatedEntry);
-          // Recalculate vacation days holistically
+          // Recalculate vacation and time account holistically
           await this.recalculateVacationDays();
+          await this.recalculateTimeAccountBalance();
           ui.hideModal();
           ui.showToast('Eintrag erstellt', 'success');
         }
@@ -4645,8 +4683,9 @@ class App {
     if (!confirmed) return;
 
     await storage.deleteWorklogEntry(entry.id);
-    // Recalculate vacation days holistically
+    // Recalculate vacation and time account holistically
     await this.recalculateVacationDays();
+    await this.recalculateTimeAccountBalance();
     ui.showToast('Eintrag gelöscht', 'success');
   }
 
