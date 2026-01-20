@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.15.4';
+const APP_VERSION = '1.15.5';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1088,8 +1088,18 @@ class App {
       tasks: this.session.tasks
     };
 
+    // Add targetHours if work time tracking is enabled
+    if (ui.settings?.workTimeTracking?.enabled) {
+      entry.targetHours = timeAccount.getDailyTargetHours(startTime, ui.settings);
+      entry.entryType = 'work';
+    }
+
     await storage.addWorklogEntry(entry);
     await storage.deleteCurrentSession();
+
+    // Recalculate vacation and time account holistically
+    await this.recalculateVacationDays();
+    await this.recalculateTimeAccountBalance();
 
     this.session = null;
     this.stopDurationUpdater();
@@ -1825,20 +1835,21 @@ class App {
     currentDate.setDate(currentDate.getDate() + 1); // Start day after reference
 
     while (currentDate <= today) {
-      // Get target hours for this day of week
-      const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
+      const dateStr = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
+      const entry = entryMap.get(dateStr);
 
-      // Only process days with target hours > 0 (workdays)
-      if (targetHours > 0) {
-        const dateStr = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
-        const entry = entryMap.get(dateStr);
+      if (entry) {
+        // Entry exists - use the targetHours saved in the entry (historical)
+        // If not saved (legacy entries), calculate from current settings
+        const targetHours = entry.targetHours || timeAccount.getDailyTargetHours(currentDate, ui.settings);
+        const actualHours = timeAccount.getActualHours(entry, ui.settings);
+        balanceChange += (actualHours - targetHours);
+      } else {
+        // NO entry for this workday - check if it's a workday
+        const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
 
-        if (entry) {
-          // Entry exists - calculate actual vs target
-          const actualHours = timeAccount.getActualHours(entry, ui.settings);
-          balanceChange += (actualHours - targetHours);
-        } else {
-          // NO entry for this workday = missing hours (Zeitausgleich genommen)
+        if (targetHours > 0) {
+          // Missing workday = debt
           balanceChange -= targetHours;
         }
       }

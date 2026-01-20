@@ -1,11 +1,12 @@
 {
-  "version": "1.15.4",
+  "version": "1.15.5",
   "releaseDate": "2025-01-20",
   "changelog": [
-    "Fix: KRITISCH - Fehlende Arbeitstage werden jetzt als negative Stunden gezählt",
-    "Logic: Kein Eintrag an Arbeitstag = Zeitausgleich genommen = -targetHours",
-    "Enhancement: Schleife durch ALLE Tage (Referenzdatum bis heute), nicht nur Einträge",
-    "Example: Freitag (4h Soll) ohne Eintrag = -4h zum ZA-Stand"
+    "Fix: KRITISCH - Urlaub/Feiertag verwenden jetzt historische targetHours",
+    "Logic: targetHours wird beim Erstellen gespeichert, nicht neu berechnet",
+    "Fix: endSession() speichert jetzt targetHours + entryType für korrekte Berechnung",
+    "Fix: Recalculate nach endSession() für aktuellen ZA-Stand",
+    "Example: Urlaub bei Fr=4h → bleibt neutral auch wenn Fr später zu 8h geändert wird"
   ],
   "critical": true
 }
