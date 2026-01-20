@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.15.3';
+const APP_VERSION = '1.15.4';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1809,24 +1809,41 @@ class App {
     const referenceDate = new Date(timeAccountSettings.referenceDate);
     const referenceBalance = timeAccountSettings.referenceBalance || 0;
 
-    // Get all entries after reference date
+    // Get all entries for quick lookup
     const allEntries = await storage.getAllWorklogEntries();
-    const entriesAfterReference = allEntries.filter(entry => {
-      const [d, m, y] = entry.date.split('.');
-      const entryDate = new Date(y, m - 1, d);
-      return entryDate > referenceDate;
-    });
+    const entryMap = new Map();
+    for (const entry of allEntries) {
+      entryMap.set(entry.date, entry);
+    }
 
-    // Calculate balance change since reference date
+    // Loop through ALL days from reference date to today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     let balanceChange = 0;
-    for (const entry of entriesAfterReference) {
-      const [d, m, y] = entry.date.split('.');
-      const entryDate = new Date(y, m - 1, d);
+    const currentDate = new Date(referenceDate);
+    currentDate.setDate(currentDate.getDate() + 1); // Start day after reference
 
-      const targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
-      const actualHours = timeAccount.getActualHours(entry, ui.settings);
+    while (currentDate <= today) {
+      // Get target hours for this day of week
+      const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
 
-      balanceChange += (actualHours - targetHours);
+      // Only process days with target hours > 0 (workdays)
+      if (targetHours > 0) {
+        const dateStr = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
+        const entry = entryMap.get(dateStr);
+
+        if (entry) {
+          // Entry exists - calculate actual vs target
+          const actualHours = timeAccount.getActualHours(entry, ui.settings);
+          balanceChange += (actualHours - targetHours);
+        } else {
+          // NO entry for this workday = missing hours (Zeitausgleich genommen)
+          balanceChange -= targetHours;
+        }
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
     // Set current balance = reference + changes

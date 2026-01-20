@@ -1,11 +1,11 @@
 {
-  "version": "1.15.3",
+  "version": "1.15.4",
   "releaseDate": "2025-01-20",
   "changelog": [
-    "Fix: KRITISCH - targetHours wird jetzt in Abwesenheits-Einträgen gespeichert",
-    "Fix: entryType Feld wird korrekt gesetzt (vacation/sick/holiday/timeoff)",
-    "Logic: Holistische ZA-Berechnung verwendet nun korrekte tagesspezifische Sollstunden",
-    "Impact: Mo-Do=8.5h, Fr=4h, Sa-So=0h werden jetzt korrekt berücksichtigt"
+    "Fix: KRITISCH - Fehlende Arbeitstage werden jetzt als negative Stunden gezählt",
+    "Logic: Kein Eintrag an Arbeitstag = Zeitausgleich genommen = -targetHours",
+    "Enhancement: Schleife durch ALLE Tage (Referenzdatum bis heute), nicht nur Einträge",
+    "Example: Freitag (4h Soll) ohne Eintrag = -4h zum ZA-Stand"
   ],
   "critical": true
 }
