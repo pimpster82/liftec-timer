@@ -1,11 +1,11 @@
 {
-  "version": "1.15.2",
+  "version": "1.15.3",
   "releaseDate": "2025-01-20",
   "changelog": [
-    "Fix: KRITISCH - ZA-Stand (Zeitkonto) wird jetzt holistisch berechnet",
-    "Logic: currentBalance = referenceBalance + Σ(actualHours - targetHours) ab Referenzdatum",
-    "Fix: Neuberechnung nach Erstellen, Bearbeiten und Löschen von Einträgen",
-    "Enhancement: Zeitkonto-Saldo in Aufzeichnungen immer korrekt und aktuell"
+    "Fix: KRITISCH - targetHours wird jetzt in Abwesenheits-Einträgen gespeichert",
+    "Fix: entryType Feld wird korrekt gesetzt (vacation/sick/holiday/timeoff)",
+    "Logic: Holistische ZA-Berechnung verwendet nun korrekte tagesspezifische Sollstunden",
+    "Impact: Mo-Do=8.5h, Fr=4h, Sa-So=0h werden jetzt korrekt berücksichtigt"
   ],
   "critical": true
 }

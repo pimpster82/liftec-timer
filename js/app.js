@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.15.2';
+const APP_VERSION = '1.15.3';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1731,6 +1731,14 @@ class App {
       // Get target hours for this day to set vacationDays correctly
       const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
 
+      // Determine entry type based on absence type
+      const entryTypeMap = {
+        'Urlaub': 'vacation',
+        'Krankenstand': 'sick',
+        'Feiertag': 'holiday',
+        'Zeitausgleich': 'timeoff'
+      };
+
       const entry = {
         date: dateStr,
         startTime: '',
@@ -1739,6 +1747,8 @@ class App {
         travelTime: '',
         surcharge: '',
         tasks: [{ type: '', description: absenceType }],
+        entryType: entryTypeMap[absenceType] || '',
+        targetHours: targetHours,  // Store daily target hours for this day
         // Set vacationDays: 1 if Urlaub on workday, 0 otherwise
         vacationDays: (absenceType === 'Urlaub' && targetHours > 0) ? 1 : 0
       };
