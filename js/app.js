@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.16.0';
+const APP_VERSION = '1.16.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -4652,8 +4652,12 @@ class App {
           const [d, m, y] = formattedDate.split('.');
           const entryDate = new Date(y, m - 1, d);
 
-          // Calculate target hours for this day
-          updatedEntry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+          // Preserve historical targetHours! Only set if missing (legacy entries)
+          if (!entry.targetHours) {
+            updatedEntry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+          }
+          // else: keep original entry.targetHours (already in updatedEntry via spread)
+
           updatedEntry.entryType = entryType;
 
           if (entryType === 'vacation' || entryType === 'sick' || entryType === 'holiday') {

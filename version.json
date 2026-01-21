@@ -1,12 +1,11 @@
 {
-  "version": "1.16.0",
+  "version": "1.16.1",
   "releaseDate": "2025-01-20",
   "changelog": [
-    "BREAKING: Urlaub/Krankenstand/Feiertag setzen Soll-Zeit auf 0 (saubere Statistik)",
-    "Logic: Urlaub/Krankenstand/Feiertag → actualHours=0, targetHours=0 → Balance=0",
-    "Logic: Zeitausgleich → actualHours=0, targetHours=4h → Balance=-4h (vom Konto)",
-    "Enhancement: Statistiken zeigen nur tatsächlich gearbeitete vs. tatsächliche Sollstunden",
-    "Impact: Urlaub zählt nicht mehr als 'gearbeitete Stunden', sondern reduziert Urlaubstage"
+    "Fix: KRITISCH - editWorklogEntry überschreibt targetHours nicht mehr",
+    "Logic: Historische targetHours bleiben beim Editieren erhalten",
+    "Fix: ZA-Stand wird beim Editieren jetzt korrekt berechnet",
+    "Impact: Mehrfaches Editieren ändert targetHours nicht mehr → korrekte Balance"
   ],
   "critical": true
 }
