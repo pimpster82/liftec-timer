@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.16.2-debug';
+const APP_VERSION = '1.17.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1830,9 +1830,9 @@ class App {
       entryMap.set(entry.date, entry);
     }
 
-    // Loop through ALL days from reference date to today
+    // Loop through ALL days from reference date to today (INCLUSIVE!)
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setHours(23, 59, 59, 999); // End of today to ensure today is included
 
     console.log('Today:', today.toLocaleDateString('de-DE'), today.getTime());
 
@@ -6849,12 +6849,12 @@ class App {
     });
 
     document.getElementById('wtt-step3-finish').addEventListener('click', async () => {
-      // Calculate reference date from selected month
+      // Calculate reference date from selected month (first day of NEXT month)
       let referenceDate = null;
       let referenceDateStr = null;
       if (data.referenceMonth) {
         const [year, month] = data.referenceMonth.split('-').map(Number);
-        referenceDate = new Date(year, month, 0); // Last day of month
+        referenceDate = new Date(year, month, 1); // First day of next month (month is 1-based in input, becomes correct in Date constructor)
         referenceDateStr = referenceDate.toISOString().split('T')[0];
       }
 
@@ -6996,9 +6996,9 @@ class App {
       const balanceInput = this.parseTimeInput(document.getElementById('payroll-balance').value);
       const vacationInput = this.parseTimeInput(document.getElementById('payroll-vacation').value);
 
-      // Calculate reference date (last day of selected month)
+      // Calculate reference date (first day of NEXT month)
       const [year, month] = selectedMonth.split('-').map(Number);
-      const referenceDate = new Date(year, month, 0); // Last day of month
+      const referenceDate = new Date(year, month, 1); // First day of next month
       const referenceDateStr = referenceDate.toISOString().split('T')[0];
 
       // Update settings with reference values
