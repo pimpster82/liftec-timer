@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.16.1';
+const APP_VERSION = '1.16.2-debug';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1819,6 +1819,10 @@ class App {
     const referenceDate = new Date(timeAccountSettings.referenceDate);
     const referenceBalance = timeAccountSettings.referenceBalance || 0;
 
+    console.log('=== ZA Recalculation Start ===');
+    console.log('Reference Date:', referenceDate.toLocaleDateString('de-DE'));
+    console.log('Reference Balance:', referenceBalance);
+
     // Get all entries for quick lookup
     const allEntries = await storage.getAllWorklogEntries();
     const entryMap = new Map();
@@ -1852,7 +1856,10 @@ class App {
         }
 
         const actualHours = timeAccount.getActualHours(entry, ui.settings);
-        balanceChange += (actualHours - targetHours);
+        const dayBalance = actualHours - targetHours;
+        balanceChange += dayBalance;
+
+        console.log(`${dateStr}: actual=${actualHours.toFixed(2)}h, target=${targetHours.toFixed(2)}h, balance=${dayBalance.toFixed(2)}h, type=${entry.entryType || 'work'}, stored_target=${entry.targetHours || 'none'}`);
       } else {
         // NO entry for this workday - check if it's a workday
         const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
@@ -1860,14 +1867,20 @@ class App {
         if (targetHours > 0) {
           // Missing workday = debt
           balanceChange -= targetHours;
+          console.log(`${dateStr}: MISSING ENTRY, debt=-${targetHours}h`);
         }
       }
 
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
+    const finalBalance = referenceBalance + balanceChange;
+    console.log('Total Balance Change:', balanceChange.toFixed(2));
+    console.log('Final Balance:', finalBalance.toFixed(2));
+    console.log('=== ZA Recalculation End ===');
+
     // Set current balance = reference + changes
-    ui.settings.workTimeTracking.timeAccount.currentBalance = referenceBalance + balanceChange;
+    ui.settings.workTimeTracking.timeAccount.currentBalance = finalBalance;
     await storage.saveSettings(ui.settings);
   }
 

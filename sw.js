@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.16.1';
+const CACHE_VERSION = '1.16.2-debug';
 const CACHE_NAME = `liftec-timer-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
