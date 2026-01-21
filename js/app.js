@@ -1865,13 +1865,21 @@ class App {
 
         console.log(`${dateStr}: actual=${actualHours.toFixed(2)}h, target=${targetHours.toFixed(2)}h, balance=${dayBalance.toFixed(2)}h, type=${entry.entryType || 'work'}, stored_target=${entry.targetHours || 'none'}`);
       } else {
-        // NO entry for this workday - check if it's a workday
+        // NO entry for this day
         const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
 
         if (targetHours > 0) {
-          // Missing workday = debt
-          balanceChange -= targetHours;
-          console.log(`${dateStr}: MISSING ENTRY, debt=-${targetHours}h`);
+          // Check if this is a public holiday
+          const holidayCheck = austrianHolidays.isHoliday(dateStr);
+
+          if (holidayCheck.isHoliday) {
+            // Public holiday without entry → neutral (no debt)
+            console.log(`${dateStr}: PUBLIC HOLIDAY (${holidayCheck.name}), no entry needed, balance=0h`);
+          } else {
+            // Missing regular workday = debt
+            balanceChange -= targetHours;
+            console.log(`${dateStr}: MISSING ENTRY, debt=-${targetHours}h`);
+          }
         }
       }
 
