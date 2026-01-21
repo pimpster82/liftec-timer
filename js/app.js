@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.17.0';
+const APP_VERSION = '1.17.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1819,10 +1819,6 @@ class App {
     const referenceDate = new Date(timeAccountSettings.referenceDate);
     const referenceBalance = timeAccountSettings.referenceBalance || 0;
 
-    console.log('=== ZA Recalculation Start ===');
-    console.log('Reference Date:', referenceDate.toLocaleDateString('de-DE'));
-    console.log('Reference Balance:', referenceBalance);
-
     // Get all entries for quick lookup
     const allEntries = await storage.getAllWorklogEntries();
     const entryMap = new Map();
@@ -1834,13 +1830,9 @@ class App {
     const today = new Date();
     today.setHours(23, 59, 59, 999); // End of today to ensure today is included
 
-    console.log('Today:', today.toLocaleDateString('de-DE'), today.getTime());
-
     let balanceChange = 0;
     const currentDate = new Date(referenceDate);
     currentDate.setDate(currentDate.getDate() + 1); // Start day after reference
-
-    console.log('Loop Start:', currentDate.toLocaleDateString('de-DE'), 'Loop will run while <= today');
 
     while (currentDate <= today) {
       const dateStr = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
@@ -1860,10 +1852,7 @@ class App {
         }
 
         const actualHours = timeAccount.getActualHours(entry, ui.settings);
-        const dayBalance = actualHours - targetHours;
-        balanceChange += dayBalance;
-
-        console.log(`${dateStr}: actual=${actualHours.toFixed(2)}h, target=${targetHours.toFixed(2)}h, balance=${dayBalance.toFixed(2)}h, type=${entry.entryType || 'work'}, stored_target=${entry.targetHours || 'none'}`);
+        balanceChange += (actualHours - targetHours);
       } else {
         // NO entry for this day
         const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
@@ -1872,13 +1861,9 @@ class App {
           // Check if this is a public holiday
           const holidayCheck = austrianHolidays.isHoliday(dateStr);
 
-          if (holidayCheck.isHoliday) {
-            // Public holiday without entry → neutral (no debt)
-            console.log(`${dateStr}: PUBLIC HOLIDAY (${holidayCheck.name}), no entry needed, balance=0h`);
-          } else {
-            // Missing regular workday = debt
+          if (!holidayCheck.isHoliday) {
+            // Missing regular workday = debt (holidays are neutral)
             balanceChange -= targetHours;
-            console.log(`${dateStr}: MISSING ENTRY, debt=-${targetHours}h`);
           }
         }
       }
@@ -1886,13 +1871,8 @@ class App {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    const finalBalance = referenceBalance + balanceChange;
-    console.log('Total Balance Change:', balanceChange.toFixed(2));
-    console.log('Final Balance:', finalBalance.toFixed(2));
-    console.log('=== ZA Recalculation End ===');
-
     // Set current balance = reference + changes
-    ui.settings.workTimeTracking.timeAccount.currentBalance = finalBalance;
+    ui.settings.workTimeTracking.timeAccount.currentBalance = referenceBalance + balanceChange;
     await storage.saveSettings(ui.settings);
   }
 
@@ -4227,17 +4207,30 @@ class App {
     // Work Time Tracking Widget (if enabled)
     let wttWidgetHtml = '';
     if (ui.settings.workTimeTracking?.enabled) {
-      const timeAccount = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
+      let timeAccount = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
       const vacationDays = ui.settings.workTimeTracking.vacation.remainingDays || 0;
+
+      // Add current session to time account (live calculation)
+      if (this.session) {
+        const sessionStart = new Date(this.session.start);
+        const currentDuration = (Date.now() - sessionStart.getTime()) / (1000 * 60 * 60);
+        const targetHours = timeAccount.getDailyTargetHours(new Date(), ui.settings);
+
+        // Live balance = brutto hours - target
+        // (Approximate since pause hasn't been entered yet)
+        timeAccount += (currentDuration - targetHours);
+      }
+
       const timeAccountColor = timeAccount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
       const timeAccountSign = timeAccount >= 0 ? '+' : '';
+      const timeAccountLiveIndicator = isSessionActive ? `<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse ml-1"></span>` : '';
 
       wttWidgetHtml = `
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-4 mb-4 border border-blue-200 dark:border-gray-600">
           <div class="grid grid-cols-2 gap-4">
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('timeAccount')}</div>
-              <div class="text-2xl font-bold ${timeAccountColor}">${timeAccountSign}${ui.formatHours(timeAccount)} ${ui.t('hoursShort')}</div>
+              <div class="text-2xl font-bold ${timeAccountColor} flex items-center">${timeAccountSign}${ui.formatHours(timeAccount)} ${ui.t('hoursShort')}${timeAccountLiveIndicator}</div>
             </div>
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('remainingVacation')}</div>

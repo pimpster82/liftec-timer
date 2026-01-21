@@ -1,12 +1,12 @@
 {
-  "version": "1.17.0",
+  "version": "1.17.1",
   "releaseDate": "2025-01-21",
   "changelog": [
-    "Fix: KRITISCH - Heute (21.01) wird jetzt in Berechnung inkludiert",
-    "Fix: Feiertage ohne Eintrag zählen nicht mehr als Schulden (01.01, 06.01 neutral)",
-    "BREAKING: Stichtag = 1. des Folgemonats (statt letzter Tag des gewählten Monats)",
-    "Logic: Dezember 2025 → Stichtag 01.01.2026 (statt 31.12.2025)",
-    "Enhancement: today.setHours(23:59:59) für inklusive Berechnung bis heute"
+    "Enhancement: ZA-Stand wird jetzt LIVE während Session aktualisiert (wie 'Diese Woche')",
+    "Feature: Grüner Puls-Indikator beim ZA-Stand wenn Session läuft",
+    "Logic: Live-Berechnung = gespeicherter Stand + (aktuelle Dauer - Soll heute)",
+    "Note: Live-Wert ist Brutto-Zeit (Pause wird erst bei Session-Ende abgezogen)",
+    "Cleanup: Debug console.logs entfernt für saubere Production-Version"
   ],
-  "critical": true
+  "critical": false
 }
