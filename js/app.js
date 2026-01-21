@@ -1834,9 +1834,13 @@ class App {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    console.log('Today:', today.toLocaleDateString('de-DE'), today.getTime());
+
     let balanceChange = 0;
     const currentDate = new Date(referenceDate);
     currentDate.setDate(currentDate.getDate() + 1); // Start day after reference
+
+    console.log('Loop Start:', currentDate.toLocaleDateString('de-DE'), 'Loop will run while <= today');
 
     while (currentDate <= today) {
       const dateStr = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
