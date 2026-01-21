@@ -39,16 +39,17 @@ class TimeAccount {
    * @returns {number} Actual hours worked
    */
   getActualHours(entry, settings) {
-    // Vacation, sick days, and holidays count as target fulfilled
+    // Vacation, sick days, and holidays: 0 actual hours (didn't work)
+    // Target is also set to 0 in recalculation → balance = 0 - 0 = neutral
     if (entry.entryType === 'vacation' ||
         entry.entryType === 'sick' ||
         entry.entryType === 'holiday') {
-      // Return the target hours for this day (what would have been worked)
-      return entry.targetHours || 0;
+      return 0;
     }
 
-    // Unpaid leave doesn't count as hours worked
-    if (entry.entryType === 'unpaid') {
+    // Unpaid leave and Zeitausgleich: 0 actual hours
+    // But target stays → balance = 0 - target = negative (debt)
+    if (entry.entryType === 'unpaid' || entry.entryType === 'timeoff') {
       return 0;
     }
 

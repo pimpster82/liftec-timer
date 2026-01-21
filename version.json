@@ -1,12 +1,12 @@
 {
-  "version": "1.15.5",
+  "version": "1.16.0",
   "releaseDate": "2025-01-20",
   "changelog": [
-    "Fix: KRITISCH - Urlaub/Feiertag verwenden jetzt historische targetHours",
-    "Logic: targetHours wird beim Erstellen gespeichert, nicht neu berechnet",
-    "Fix: endSession() speichert jetzt targetHours + entryType für korrekte Berechnung",
-    "Fix: Recalculate nach endSession() für aktuellen ZA-Stand",
-    "Example: Urlaub bei Fr=4h → bleibt neutral auch wenn Fr später zu 8h geändert wird"
+    "BREAKING: Urlaub/Krankenstand/Feiertag setzen Soll-Zeit auf 0 (saubere Statistik)",
+    "Logic: Urlaub/Krankenstand/Feiertag → actualHours=0, targetHours=0 → Balance=0",
+    "Logic: Zeitausgleich → actualHours=0, targetHours=4h → Balance=-4h (vom Konto)",
+    "Enhancement: Statistiken zeigen nur tatsächlich gearbeitete vs. tatsächliche Sollstunden",
+    "Impact: Urlaub zählt nicht mehr als 'gearbeitete Stunden', sondern reduziert Urlaubstage"
   ],
   "critical": true
 }

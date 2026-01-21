@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.15.5';
+const APP_VERSION = '1.16.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1841,7 +1841,16 @@ class App {
       if (entry) {
         // Entry exists - use the targetHours saved in the entry (historical)
         // If not saved (legacy entries), calculate from current settings
-        const targetHours = entry.targetHours || timeAccount.getDailyTargetHours(currentDate, ui.settings);
+        let targetHours = entry.targetHours || timeAccount.getDailyTargetHours(currentDate, ui.settings);
+
+        // Urlaub/Krankenstand/Feiertag: Soll auf 0 setzen (kein Soll an diesem Tag)
+        // Diese Tage zählen nicht zur Arbeitszeit-Statistik
+        if (entry.entryType === 'vacation' ||
+            entry.entryType === 'sick' ||
+            entry.entryType === 'holiday') {
+          targetHours = 0;
+        }
+
         const actualHours = timeAccount.getActualHours(entry, ui.settings);
         balanceChange += (actualHours - targetHours);
       } else {
