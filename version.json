@@ -1,12 +1,13 @@
 {
-  "version": "1.17.1",
+  "version": "1.18.0",
   "releaseDate": "2025-01-21",
   "changelog": [
-    "Enhancement: ZA-Stand wird jetzt LIVE während Session aktualisiert (wie 'Diese Woche')",
-    "Feature: Grüner Puls-Indikator beim ZA-Stand wenn Session läuft",
-    "Logic: Live-Berechnung = gespeicherter Stand + (aktuelle Dauer - Soll heute)",
-    "Note: Live-Wert ist Brutto-Zeit (Pause wird erst bei Session-Ende abgezogen)",
-    "Cleanup: Debug console.logs entfernt für saubere Production-Version"
+    "Feature: WTT-Felder beim Teilen (entryType, vacationDays) - ZA-Stand bleibt korrekt!",
+    "BREAKING: Share-UX komplett erneuert - 1 Klick weniger, Freunde als Buttons",
+    "Feature: Favoriten-System - Top 3 Freunde prominent, Stern-Icon zum Favorisieren",
+    "Logic: targetHours wird NICHT geteilt - beim Import aus Empfänger-Settings berechnet",
+    "Enhancement: Direkt zu Cloud-Share wenn eingeloggt, sonst File-Share (kein Dialog)",
+    "UX: 1-3 Freunde als Buttons nebeneinander, >3 Freunde mit 'Andere...' Button"
   ],
   "critical": false
 }

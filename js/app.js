@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.17.1';
+const APP_VERSION = '1.18.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -498,6 +498,13 @@ class App {
       const share = sharedEntries.find(s => s.id === shareId);
       if (!share) return;
 
+      // Calculate targetHours for this entry (based on recipient's settings)
+      if (ui.settings?.workTimeTracking?.enabled && share.entry.date) {
+        const [d, m, y] = share.entry.date.split('.');
+        const entryDate = new Date(y, m - 1, d);
+        share.entry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+      }
+
       // Check for duplicate
       const existingEntry = await storage.getWorklogEntryByDate(share.entry.date);
 
@@ -514,13 +521,19 @@ class App {
             id: existingEntry.id
           };
           await storage.updateWorklogEntry(updatedEntry);
+          await this.recalculateVacationDays();
+          await this.recalculateTimeAccountBalance();
         } else if (choice === 'keep-both') {
           // Add as new entry
           await storage.addWorklogEntry(share.entry);
+          await this.recalculateVacationDays();
+          await this.recalculateTimeAccountBalance();
         }
       } else {
         // No duplicate, just add
         await storage.addWorklogEntry(share.entry);
+        await this.recalculateVacationDays();
+        await this.recalculateTimeAccountBalance();
       }
 
       // Delete from Firestore (cleanup old shares)
@@ -4794,74 +4807,15 @@ class App {
   // ===== Share & Import Entry =====
 
   async shareWorklogEntry(entry) {
-    // Show choice dialog: Cloud vs File sharing
-    const choice = await this.showShareChoiceDialog(entry);
-    if (!choice) return;
+    const isSignedIn = firebaseService.isSignedIn();
 
-    if (choice === 'cloud') {
+    if (isSignedIn) {
+      // Signed in → direkt zu Freunde-Auswahl
       await this.shareWorklogEntryToUser(entry);
     } else {
+      // Nicht signed in → direkt zu File-Share
       await this.shareWorklogEntryViaFile(entry);
     }
-  }
-
-  async showShareChoiceDialog(entry) {
-    return new Promise((resolve) => {
-      const isSignedIn = firebaseService.isSignedIn();
-
-      const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-            ${ui.icon('share-2')}
-            <span>${ui.t('shareEntry')}</span>
-          </h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            ${ui.t('entryFrom')} ${entry.date}
-          </p>
-
-          <div class="space-y-2">
-            ${isSignedIn ? `
-              <button id="share-cloud-btn" class="w-full px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
-                ${ui.icon('user-plus', 'w-5 h-5')}
-                <span>${ui.t('shareToUser')}</span>
-              </button>
-            ` : ''}
-            <button id="share-file-btn" class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
-              ${ui.icon('share-2', 'w-5 h-5')}
-              <span>${ui.t('shareViaFile')}</span>
-            </button>
-            <button id="dialog-cancel" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-              ${ui.t('cancel')}
-            </button>
-          </div>
-
-          ${!isSignedIn ? `
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-              ${ui.t('signInToShareCloud')}
-            </p>
-          ` : ''}
-        </div>
-      `;
-
-      ui.showModal(content);
-
-      if (isSignedIn) {
-        document.getElementById('share-cloud-btn').addEventListener('click', () => {
-          ui.hideModal();
-          resolve('cloud');
-        });
-      }
-
-      document.getElementById('share-file-btn').addEventListener('click', () => {
-        ui.hideModal();
-        resolve('file');
-      });
-
-      document.getElementById('dialog-cancel').addEventListener('click', () => {
-        ui.hideModal();
-        resolve(null);
-      });
-    });
   }
 
   async shareWorklogEntryToUser(entry) {
@@ -4874,27 +4828,43 @@ class App {
         return;
       }
 
+      // Get favorite friends from settings (max 3)
+      const favoriteFriends = ui.settings.favoriteFriends || [];
+      const favorites = friends.filter(f => favoriteFriends.includes(f.uid)).slice(0, 3);
+      const others = friends.filter(f => !favoriteFriends.includes(f.uid));
+
       return new Promise((resolve) => {
-        const friendOptions = friends.map(friend =>
-          `<option value="${friend.uid}">@${friend.nickname} (${friend.displayName})</option>`
-        ).join('');
+        // Build friend buttons HTML
+        const favoritesHtml = favorites.length > 0 ? `
+          <div class="mb-3">
+            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">${ui.t('favorites') || 'Favoriten'}</p>
+            <div class="grid ${favorites.length === 1 ? 'grid-cols-1' : favorites.length === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-2">
+              ${favorites.map(friend => `
+                <button class="share-friend-btn px-3 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 text-sm flex flex-col items-center gap-1"
+                        data-uid="${friend.uid}"
+                        data-nickname="${friend.nickname}"
+                        data-name="${friend.displayName}">
+                  ${ui.icon('user', 'w-5 h-5')}
+                  <span class="text-xs">@${friend.nickname}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        ` : '';
+
+        const othersButton = others.length > 0 ? `
+          <button id="share-other-friends-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-2">
+            ${ui.icon('users', 'w-5 h-5')}
+            <span>${ui.t('otherFriends') || 'Andere Freunde'} (${others.length})</span>
+          </button>
+        ` : '';
 
         const content = `
           <div class="p-6">
             <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-              ${ui.icon('user-plus')}
+              ${ui.icon('share-2')}
               <span>${ui.t('shareToFriend')}</span>
             </h3>
-
-            <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                ${ui.t('selectFriend')}
-              </label>
-              <select id="share-friend-select" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                <option value="">${ui.t('selectOption')}</option>
-                ${friendOptions}
-              </select>
-            </div>
 
             <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
               <p class="text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('sharingEntry')}:</p>
@@ -4904,34 +4874,28 @@ class App {
               </p>
             </div>
 
-            <div class="flex gap-2">
-              <button id="share-send-btn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
-                ${ui.t('send')}
-              </button>
-              <button id="dialog-cancel" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-                ${ui.t('cancel')}
-              </button>
-            </div>
+            ${favoritesHtml}
+
+            ${othersButton}
+
+            <button id="dialog-cancel" class="w-full px-4 py-2 mt-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+
+            ${others.length === 0 && favorites.length === 0 ? `
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
+                ${ui.t('addFriendsFirst') || 'Füge zuerst Freunde hinzu'}
+              </p>
+            ` : ''}
           </div>
         `;
 
         ui.showModal(content);
 
-        const select = document.getElementById('share-friend-select');
-
-        const sendShare = async () => {
-          const friendUserId = select.value;
-          if (!friendUserId) {
-            ui.showToast(ui.t('selectFriendFirst'), 'error');
-            return;
-          }
-
+        const sendShare = async (friendUserId, friendNickname, friendName) => {
           try {
-            ui.showToast(ui.t('sharing'), 'info');
-
-            const result = await firebaseService.shareWorklogEntry(entry, friendUserId);
-
             ui.hideModal();
+            const result = await firebaseService.shareWorklogEntry(entry, friendUserId);
             ui.showToast(ui.t('sharedWithUser').replace('{user}', `@${result.recipientNickname}`), 'success');
             resolve(true);
           } catch (error) {
@@ -4941,27 +4905,153 @@ class App {
             } else {
               ui.showToast(ui.t('shareFailed'), 'error');
             }
+            resolve(false);
           }
         };
 
-        document.getElementById('share-send-btn').addEventListener('click', sendShare);
+        // Friend button click handlers
+        document.querySelectorAll('.share-friend-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const uid = btn.getAttribute('data-uid');
+            const nickname = btn.getAttribute('data-nickname');
+            const name = btn.getAttribute('data-name');
+            sendShare(uid, nickname, name);
+          });
+        });
+
+        // Other friends button
+        if (others.length > 0) {
+          document.getElementById('share-other-friends-btn').addEventListener('click', async () => {
+            ui.hideModal();
+            await this.showOtherFriendsDialog(entry, others, favorites, friends);
+          });
+        }
 
         document.getElementById('dialog-cancel').addEventListener('click', () => {
           ui.hideModal();
           resolve(false);
         });
       });
+
     } catch (error) {
       console.error('Failed to load friends:', error);
-      ui.showToast(ui.t('error'), 'error');
+      ui.showToast(ui.t('loadFriendsFailed'), 'error');
     }
+  }
+
+  async showOtherFriendsDialog(entry, otherFriends, currentFavorites, allFriends) {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            ${ui.icon('users')}
+            <span>${ui.t('selectFriend')}</span>
+          </h3>
+
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
+            <p class="text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('sharingEntry')}:</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">${entry.date}</p>
+          </div>
+
+          <div class="space-y-2 max-h-96 overflow-y-auto mb-4">
+            ${otherFriends.map(friend => {
+              const isFavorite = currentFavorites.some(f => f.uid === friend.uid);
+              return `
+                <div class="flex items-center gap-2">
+                  <button class="other-friend-btn flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-left flex items-center gap-3"
+                          data-uid="${friend.uid}"
+                          data-nickname="${friend.nickname}"
+                          data-name="${friend.displayName}">
+                    ${ui.icon('user', 'w-5 h-5 text-gray-500')}
+                    <div>
+                      <div class="font-semibold">@${friend.nickname}</div>
+                      <div class="text-xs text-gray-500">${friend.displayName}</div>
+                    </div>
+                  </button>
+                  <button class="toggle-favorite-btn w-10 h-10 rounded-lg flex items-center justify-center ${isFavorite ? 'bg-yellow-400 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'} hover:bg-yellow-500"
+                          data-uid="${friend.uid}"
+                          title="${isFavorite ? ui.t('removeFromFavorites') || 'Von Favoriten entfernen' : ui.t('addToFavorites') || 'Zu Favoriten hinzufügen'}">
+                    ${ui.icon('star', 'w-5 h-5')}
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <button id="dialog-cancel" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('back') || 'Zurück'}
+          </button>
+        </div>
+      `;
+
+      ui.showModal(content);
+
+      const sendShare = async (friendUserId, friendNickname, friendName) => {
+        try {
+          ui.hideModal();
+          const result = await firebaseService.shareWorklogEntry(entry, friendUserId);
+          ui.showToast(ui.t('sharedWithUser').replace('{user}', `@${result.recipientNickname}`), 'success');
+          resolve(true);
+        } catch (error) {
+          console.error('Cloud share failed:', error);
+          ui.showToast(ui.t('shareFailed'), 'error');
+          resolve(false);
+        }
+      };
+
+      // Friend selection handlers
+      document.querySelectorAll('.other-friend-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const uid = btn.getAttribute('data-uid');
+          const nickname = btn.getAttribute('data-nickname');
+          const name = btn.getAttribute('data-name');
+          sendShare(uid, nickname, name);
+        });
+      });
+
+      // Favorite toggle handlers
+      document.querySelectorAll('.toggle-favorite-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const uid = btn.getAttribute('data-uid');
+          let favs = ui.settings.favoriteFriends || [];
+
+          if (favs.includes(uid)) {
+            // Remove from favorites
+            favs = favs.filter(id => id !== uid);
+            btn.classList.remove('bg-yellow-400', 'text-white');
+            btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-500');
+          } else {
+            // Add to favorites (max 3)
+            if (favs.length >= 3) {
+              ui.showToast(ui.t('maxFavoritesReached') || 'Maximal 3 Favoriten erlaubt', 'error');
+              return;
+            }
+            favs.push(uid);
+            btn.classList.add('bg-yellow-400', 'text-white');
+            btn.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-500');
+          }
+
+          ui.settings.favoriteFriends = favs;
+          await storage.saveSettings(ui.settings);
+        });
+      });
+
+      document.getElementById('dialog-cancel').addEventListener('click', () => {
+        ui.hideModal();
+        // Re-open main share dialog
+        this.shareWorklogEntryToUser(entry);
+        resolve(false);
+      });
+    });
   }
 
   async shareWorklogEntryViaFile(entry) {
     try {
-      // Create shareable data (exclude internal id)
+      // Create shareable data (exclude internal id, include WTT fields)
+      // NOTE: targetHours is NOT shared - will be recalculated by recipient
       const shareData = {
-        version: '1.0',
+        version: '1.1',
         type: 'liftec-timer-entry',
         date: entry.date,
         startTime: entry.startTime,
@@ -4970,6 +5060,9 @@ class App {
         travelTime: entry.travelTime,
         surcharge: entry.surcharge,
         tasks: entry.tasks || [],
+        // Work Time Tracking fields (v1.1+)
+        entryType: entry.entryType,
+        vacationDays: entry.vacationDays,
         exportedBy: ui.settings.username || 'Benutzer',
         exportedAt: new Date().toISOString()
       };
@@ -5013,7 +5106,7 @@ class App {
       // Final fallback: download
       try {
         const shareData = {
-          version: '1.0',
+          version: '1.1',
           type: 'liftec-timer-entry',
           date: entry.date,
           startTime: entry.startTime,
@@ -5022,6 +5115,10 @@ class App {
           travelTime: entry.travelTime,
           surcharge: entry.surcharge,
           tasks: entry.tasks || [],
+          // Work Time Tracking fields (v1.1+)
+          // NOTE: targetHours not included - recipient will calculate from their settings
+          entryType: entry.entryType,
+          vacationDays: entry.vacationDays,
           exportedBy: ui.settings.username || 'Benutzer',
           exportedAt: new Date().toISOString()
         };
@@ -5136,7 +5233,20 @@ class App {
         tasks: data.tasks || []
       };
 
+      // Calculate targetHours based on recipient's settings (not shared value!)
+      if (ui.settings?.workTimeTracking?.enabled && data.date) {
+        const [d, m, y] = data.date.split('.');
+        const entryDate = new Date(y, m - 1, d);
+        newEntry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+
+        // Copy WTT fields if present in v1.1+ format
+        if (data.entryType) newEntry.entryType = data.entryType;
+        if (data.vacationDays !== undefined) newEntry.vacationDays = data.vacationDays;
+      }
+
       await storage.addWorklogEntry(newEntry);
+      await this.recalculateVacationDays();
+      await this.recalculateTimeAccountBalance();
       ui.showToast(ui.t('entryImported'), 'success');
 
       // Refresh history if it's open
