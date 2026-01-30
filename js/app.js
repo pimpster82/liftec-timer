@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.19.1';
+const APP_VERSION = '1.20.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2964,14 +2964,6 @@ class App {
             ${ui.icon('settings')}
             <span>${ui.t('settings')}</span>
           </button>
-          <button id="menu-export" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
-            ${ui.icon('upload')}
-            <span>${ui.t('monthExport')}</span>
-          </button>
-          <button id="menu-import" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
-            ${ui.icon('download')}
-            <span>${ui.t('importCSV')}</span>
-          </button>
           <button id="menu-history" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
             ${ui.icon('history')}
             <span>${ui.t('recordings')}</span>
@@ -2992,16 +2984,6 @@ class App {
     document.getElementById('menu-settings').addEventListener('click', () => {
       ui.hideModal();
       this.showSettings();
-    });
-
-    document.getElementById('menu-export').addEventListener('click', () => {
-      ui.hideModal();
-      this.showExportMenu();
-    });
-
-    document.getElementById('menu-import').addEventListener('click', () => {
-      ui.hideModal();
-      this.showImportMenu();
     });
 
     document.getElementById('menu-history').addEventListener('click', () => {
@@ -5994,6 +5976,19 @@ class App {
           </p>
         </div>
 
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <h3 class="font-semibold text-blue-900 dark:text-blue-200 mb-2">
+            ${ui.icon('download', 'w-5 h-5 inline mr-1')} CSV importieren
+          </h3>
+          <p class="text-sm text-blue-800 dark:text-blue-300 mb-4">
+            Worklog-Einträge aus einer CSV-Datei importieren
+          </p>
+          <button id="import-csv-btn" class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2">
+            ${ui.icon('upload', 'w-5 h-5')}
+            <span>${ui.t('importCSV')}</span>
+          </button>
+        </div>
+
         <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <h3 class="font-semibold text-red-900 dark:text-red-200 mb-2">
             ${ui.t('deleteAllData')}
@@ -6020,6 +6015,12 @@ class App {
     `;
 
     ui.showModal(content);
+
+    // CSV Import
+    document.getElementById('import-csv-btn').addEventListener('click', () => {
+      ui.hideModal();
+      this.showImportMenu();
+    });
 
     // Delete all data
     document.getElementById('delete-all-data-btn').addEventListener('click', async () => {
