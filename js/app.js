@@ -4465,16 +4465,16 @@ class App {
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Art des Eintrags</label>
             <div class="grid grid-cols-3 gap-2" id="entry-type-tiles">
-              <button type="button" class="entry-type-tile px-4 py-3 rounded-lg border-2 transition-all ${selectedTileType === 'work' ? 'bg-green-500 border-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-green-400'}" data-type="work">
-                ${ui.icon('briefcase', 'w-5 h-5 mx-auto mb-1')}
+              <button type="button" class="entry-type-tile px-2 py-2.5 rounded-lg border-2 transition-all ${selectedTileType === 'work' ? 'bg-green-500 border-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-green-400'}" data-type="work">
+                ${ui.icon('briefcase', 'w-4 h-4 mx-auto mb-0.5')}
                 <div class="text-xs font-semibold">Arbeitstag</div>
               </button>
-              <button type="button" class="entry-type-tile px-4 py-3 rounded-lg border-2 transition-all ${selectedTileType === 'vacation' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-blue-400'}" data-type="vacation">
-                ${ui.icon('sun', 'w-5 h-5 mx-auto mb-1')}
+              <button type="button" class="entry-type-tile px-2 py-2.5 rounded-lg border-2 transition-all ${selectedTileType === 'vacation' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-blue-400'}" data-type="vacation">
+                ${ui.icon('sun', 'w-4 h-4 mx-auto mb-0.5')}
                 <div class="text-xs font-semibold">Urlaub</div>
               </button>
-              <button type="button" class="entry-type-tile px-4 py-3 rounded-lg border-2 transition-all ${selectedTileType === 'sick' ? 'bg-red-500 border-red-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-red-400'}" data-type="sick">
-                ${ui.icon('heart', 'w-5 h-5 mx-auto mb-1')}
+              <button type="button" class="entry-type-tile px-2 py-2.5 rounded-lg border-2 transition-all ${selectedTileType === 'sick' ? 'bg-red-500 border-red-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-red-400'}" data-type="sick">
+                ${ui.icon('heart', 'w-4 h-4 mx-auto mb-0.5')}
                 <div class="text-xs font-semibold">Krankenstand</div>
               </button>
             </div>
@@ -4490,12 +4490,12 @@ class App {
                 <div>
                   <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Start</label>
                   <input type="time" id="edit-start" value="${entry.startTime || ''}"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                    class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
                 </div>
                 <div>
                   <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ende</label>
                   <input type="time" id="edit-end" value="${entry.endTime || ''}"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                    class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
                 </div>
               </div>
 
@@ -4525,17 +4525,17 @@ class App {
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.icon('list', 'w-4 h-4 inline mr-1')} Aufgaben</label>
             <div id="edit-tasks-list" class="space-y-2 mb-2">
               ${entry.tasks && entry.tasks.length > 0 ? entry.tasks.map((task, idx) => `
-                <div class="flex gap-2 items-center">
-                  <select class="task-type flex-none px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+                <div class="flex gap-1.5 items-center">
+                  <select class="task-type flex-none w-16 px-1.5 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
                     <option value="">-</option>
                     ${Object.keys(TASK_TYPES).map(key =>
                       `<option value="${key}" ${task.type === key ? 'selected' : ''}>${key}</option>`
                     ).join('')}
                   </select>
-                  <input type="text" class="task-desc flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  <input type="text" class="task-desc flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                     value="${task.description || ''}" placeholder="Beschreibung">
-                  <button type="button" class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${idx}">
-                    ${ui.icon('trash', 'w-5 h-5')}
+                  <button type="button" class="remove-task-btn flex-none text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1.5" data-index="${idx}">
+                    ${ui.icon('trash', 'w-4 h-4')}
                   </button>
                 </div>
               `).join('') : '<p class="text-sm text-gray-500 dark:text-gray-400 py-3 text-center">Keine Aufgaben</p>'}
@@ -4703,7 +4703,17 @@ class App {
         if (workMinutes < 0) workMinutes = 0;
 
         const netHours = workMinutes / 60;
-        const surchargePercent = ui.settings?.surchargePercent || 0;
+
+        // Check for office tasks (type empty OR description contains "office"/"büro")
+        const taskElements = document.querySelectorAll('#edit-tasks-list .flex');
+        const hasOfficeTask = Array.from(taskElements).some(el => {
+          const type = el.querySelector('.task-type')?.value || '';
+          const desc = el.querySelector('.task-desc')?.value || '';
+          return type === '' || desc.toLowerCase().includes('office') || desc.toLowerCase().includes('büro');
+        });
+
+        // Office tasks get 0% surcharge, others use settings
+        const surchargePercent = hasOfficeTask ? 0 : (ui.settings?.surchargePercent || 0);
         const surchargeHours = netHours * (surchargePercent / 100);
         const surchargeMinutes = Math.round(surchargeHours * 60);
 
@@ -4722,6 +4732,15 @@ class App {
         }
       });
 
+      // Attach listeners to task fields for surcharge recalculation
+      const attachTaskListeners = () => {
+        document.querySelectorAll('#edit-tasks-list .task-type, #edit-tasks-list .task-desc').forEach(input => {
+          input.addEventListener('change', calculateSurcharge);
+          input.addEventListener('input', calculateSurcharge);
+        });
+      };
+      attachTaskListeners(); // Initial attach
+
       // Add task button
       document.getElementById('add-task-to-entry').addEventListener('click', () => {
         const tasksList = document.getElementById('edit-tasks-list');
@@ -4729,15 +4748,15 @@ class App {
         const newIndex = existingTasks.length;
 
         const newTaskHtml = `
-          <div class="flex gap-2 items-center">
-            <select class="task-type flex-none px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+          <div class="flex gap-1.5 items-center">
+            <select class="task-type flex-none w-16 px-1.5 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
               <option value="">-</option>
               ${Object.keys(TASK_TYPES).map(key => `<option value="${key}">${key}</option>`).join('')}
             </select>
-            <input type="text" class="task-desc flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            <input type="text" class="task-desc flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               value="" placeholder="Beschreibung">
-            <button type="button" class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${newIndex}">
-              ${ui.icon('trash', 'w-5 h-5')}
+            <button type="button" class="remove-task-btn flex-none text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1.5" data-index="${newIndex}">
+              ${ui.icon('trash', 'w-4 h-4')}
             </button>
           </div>
         `;
@@ -4755,8 +4774,13 @@ class App {
             if (tasksList.querySelectorAll('.flex').length === 0) {
               tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 py-3 text-center">Keine Aufgaben</p>';
             }
+            calculateSurcharge(); // Recalculate after removal
           });
         });
+
+        // Re-attach task listeners for surcharge recalculation
+        attachTaskListeners();
+        calculateSurcharge(); // Calculate after adding task
       });
 
       // Remove task buttons
@@ -4767,6 +4791,7 @@ class App {
           if (tasksList.querySelectorAll('.flex').length === 0) {
             tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 py-3 text-center">Keine Aufgaben</p>';
           }
+          calculateSurcharge(); // Recalculate after removal
         });
       });
 
