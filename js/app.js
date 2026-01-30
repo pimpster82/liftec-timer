@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.18.0';
+const APP_VERSION = '1.19.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -4439,88 +4439,126 @@ class App {
 
       let hasChanges = false;
 
+      // Parse date for header display
+      const [day, month, year] = entry.date.split('.');
+      const entryDateObj = new Date(year, month - 1, day);
+      const weekdayName = entryDateObj.toLocaleDateString('de-DE', { weekday: 'long' });
+      const dateDisplay = `${weekdayName}, ${entry.date}`;
+
+      // Simplify entry type to 3 options: work, vacation, sick
+      let selectedTileType = 'work';
+      if (currentEntryType === 'vacation') selectedTileType = 'vacation';
+      else if (currentEntryType === 'sick') selectedTileType = 'sick';
+      else selectedTileType = 'work';
+
       const contentHtml = `
-          <div class="space-y-3">
-            ${isWTTEnabled ? `
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Art des Eintrags</label>
-                <select id="edit-entry-type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                  <option value="work" ${currentEntryType === 'work' ? 'selected' : ''}>${ui.t('entryTypeWork')}</option>
-                  <option value="vacation" ${currentEntryType === 'vacation' ? 'selected' : ''}>${ui.t('entryTypeVacation')}</option>
-                  <option value="sick" ${currentEntryType === 'sick' ? 'selected' : ''}>${ui.t('entryTypeSick')}</option>
-                  <option value="unpaid" ${currentEntryType === 'unpaid' ? 'selected' : ''}>${ui.t('entryTypeUnpaid')}</option>
-                  ${isHoliday ? `<option value="holiday" ${currentEntryType === 'holiday' ? 'selected' : ''}>${ui.t('entryTypeHoliday')}</option>` : ''}
-                </select>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Urlaub und Krankenstand zählen als Sollzeit erfüllt</p>
-              </div>
-            ` : ''}
+        <div class="space-y-4">
+          <!-- Header: Date Display -->
+          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-4 border border-blue-200 dark:border-gray-600">
+            <div class="text-sm text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">Datum</div>
+            <div class="text-xl font-bold text-gray-900 dark:text-white">${dateDisplay}</div>
+            ${isHoliday ? `<div class="text-xs text-blue-600 dark:text-blue-400 mt-1">${ui.icon('star', 'w-3 h-3 inline')} ${holidayInfo.name}</div>` : ''}
+          </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Datum</label>
-              <input type="date" id="edit-date" value="${entry.date.split('.').reverse().join('-')}"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-            </div>
-
-            <div id="edit-time-fields" class="space-y-3" style="display: ${currentEntryType === 'work' ? 'block' : 'none'}">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startzeit</label>
-                <input type="time" id="edit-start" value="${entry.startTime || ''}"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endzeit</label>
-                <input type="time" id="edit-end" value="${entry.endTime || ''}"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pause (HH:MM)</label>
-                <input type="time" id="edit-pause" value="${entry.pause || '00:00'}"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fahrtzeit (HH:MM)</label>
-                <input type="time" id="edit-travel" value="${entry.travelTime || '00:00'}"
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Zuschlag (HH:MM)</label>
-              <input type="time" id="edit-surcharge" value="${entry.surcharge || '00:00'}"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-            </div>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Aufgaben</label>
-              <div id="edit-tasks-list" class="space-y-2 mb-2">
-                ${entry.tasks && entry.tasks.length > 0 ? entry.tasks.map((task, idx) => `
-                  <div class="flex gap-2">
-                    <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      value="${task.type || ''}" placeholder="Typ">
-                    <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      value="${task.description || ''}" placeholder="Beschreibung">
-                    <button class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${idx}">${ui.icon('x')}</button>
-                  </div>
-                `).join('') : '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>'}
-              </div>
-              <button id="add-task-to-entry" class="text-sm text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-1">
-                ${ui.icon('plus')}
-                <span>Aufgabe hinzufügen</span>
+          ${isWTTEnabled ? `
+          <!-- Type Selection Tiles -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Art des Eintrags</label>
+            <div class="grid grid-cols-3 gap-2" id="entry-type-tiles">
+              <button type="button" class="entry-type-tile px-4 py-3 rounded-lg border-2 transition-all ${selectedTileType === 'work' ? 'bg-green-500 border-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-green-400'}" data-type="work">
+                ${ui.icon('briefcase', 'w-5 h-5 mx-auto mb-1')}
+                <div class="text-xs font-semibold">Arbeitstag</div>
+              </button>
+              <button type="button" class="entry-type-tile px-4 py-3 rounded-lg border-2 transition-all ${selectedTileType === 'vacation' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-blue-400'}" data-type="vacation">
+                ${ui.icon('sun', 'w-5 h-5 mx-auto mb-1')}
+                <div class="text-xs font-semibold">Urlaub</div>
+              </button>
+              <button type="button" class="entry-type-tile px-4 py-3 rounded-lg border-2 transition-all ${selectedTileType === 'sick' ? 'bg-red-500 border-red-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-red-400'}" data-type="sick">
+                ${ui.icon('heart', 'w-5 h-5 mx-auto mb-1')}
+                <div class="text-xs font-semibold">Krankenstand</div>
               </button>
             </div>
           </div>
+          ` : ''}
+
+          <!-- Time Fields (conditional) -->
+          <div id="edit-time-card" style="display: ${selectedTileType === 'work' ? 'block' : 'none'}">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">${ui.icon('clock', 'w-4 h-4 inline mr-1')} Arbeitszeiten</div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Start</label>
+                  <input type="time" id="edit-start" value="${entry.startTime || ''}"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ende</label>
+                  <input type="time" id="edit-end" value="${entry.endTime || ''}"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2 mt-3">
+                <div>
+                  <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Pause</label>
+                  <input type="time" id="edit-pause" value="${entry.pause || '00:00'}"
+                    class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Fahrt</label>
+                  <input type="time" id="edit-travel" value="${entry.travelTime || '00:00'}"
+                    class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Zuschlag</label>
+                  <input type="time" id="edit-surcharge" value="${entry.surcharge || '00:00'}" readonly
+                    class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-not-allowed">
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${ui.icon('info', 'w-3 h-3 inline')} Zuschlag wird automatisch berechnet</p>
+            </div>
+          </div>
+
+          <!-- Tasks -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.icon('list', 'w-4 h-4 inline mr-1')} Aufgaben</label>
+            <div id="edit-tasks-list" class="space-y-2 mb-2">
+              ${entry.tasks && entry.tasks.length > 0 ? entry.tasks.map((task, idx) => `
+                <div class="flex gap-2 items-center">
+                  <select class="task-type flex-none px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+                    <option value="">-</option>
+                    ${Object.keys(TASK_TYPES).map(key =>
+                      `<option value="${key}" ${task.type === key ? 'selected' : ''}>${key}</option>`
+                    ).join('')}
+                  </select>
+                  <input type="text" class="task-desc flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    value="${task.description || ''}" placeholder="Beschreibung">
+                  <button type="button" class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${idx}">
+                    ${ui.icon('trash', 'w-5 h-5')}
+                  </button>
+                </div>
+              `).join('') : '<p class="text-sm text-gray-500 dark:text-gray-400 py-3 text-center">Keine Aufgaben</p>'}
+            </div>
+            <button type="button" id="add-task-to-entry" class="w-full px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center gap-2">
+              ${ui.icon('plus', 'w-4 h-4')}
+              <span>Aufgabe hinzufügen</span>
+            </button>
+          </div>
+        </div>
       `;
 
       const footerHtml = `
-        <button id="edit-save" class="w-full px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
-          ${ui.icon('check')}
-          <span>Speichern</span>
-        </button>
+        <div class="flex gap-2">
+          <button type="button" id="edit-share" class="px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
+            ${ui.icon('share-2', 'w-4 h-4')}
+            <span>Teilen</span>
+          </button>
+          <button type="button" id="edit-save" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
+            ${ui.icon('check', 'w-4 h-4')}
+            <span>Speichern</span>
+          </button>
+        </div>
       `;
 
       // Check for changes function
@@ -4532,8 +4570,13 @@ class App {
           }))
           .filter(t => t.description);
 
-        const currentEntryType = isWTTEnabled ? document.getElementById('edit-entry-type')?.value : 'work';
-        const currentDate = document.getElementById('edit-date')?.value.split('-').reverse().join('.') || originalValues.date;
+        // Get selected tile type instead of dropdown
+        let currentEntryType = 'work';
+        if (isWTTEnabled) {
+          const selectedTile = document.querySelector('.entry-type-tile.bg-green-500, .entry-type-tile.bg-blue-500, .entry-type-tile.bg-red-500');
+          currentEntryType = selectedTile?.getAttribute('data-type') || 'work';
+        }
+
         const currentStartTime = document.getElementById('edit-start')?.value || '';
         const currentEndTime = document.getElementById('edit-end')?.value || '';
         const currentPause = document.getElementById('edit-pause')?.value || '00:00';
@@ -4542,7 +4585,6 @@ class App {
 
         hasChanges = (
           currentEntryType !== originalValues.entryType ||
-          currentDate !== originalValues.date ||
           currentStartTime !== originalValues.startTime ||
           currentEndTime !== originalValues.endTime ||
           currentPause !== originalValues.pause ||
@@ -4585,30 +4627,100 @@ class App {
         onClose: handleClose
       });
 
-      // Entry type change handler (show/hide time fields)
+      // Type tiles click handlers (show/hide time card)
       if (isWTTEnabled) {
-        const entryTypeSelect = document.getElementById('edit-entry-type');
-        const timeFields = document.getElementById('edit-time-fields');
+        const tiles = document.querySelectorAll('.entry-type-tile');
+        const timeCard = document.getElementById('edit-time-card');
         const startTimeInput = document.getElementById('edit-start');
         const endTimeInput = document.getElementById('edit-end');
 
-        const toggleTimeFields = () => {
-          const entryType = entryTypeSelect.value;
-          if (entryType === 'vacation' || entryType === 'sick' || entryType === 'unpaid' || entryType === 'holiday') {
-            timeFields.style.display = 'none';
-          } else {
-            timeFields.style.display = 'block';
-            // If changing to work and no times set, provide defaults
-            if (!startTimeInput.value && !endTimeInput.value) {
-              startTimeInput.value = '08:00';
-              endTimeInput.value = '17:00';
-            }
-          }
-        };
+        tiles.forEach(tile => {
+          tile.addEventListener('click', (e) => {
+            const selectedType = tile.getAttribute('data-type');
 
-        entryTypeSelect.addEventListener('change', toggleTimeFields);
-        toggleTimeFields(); // Initial state
+            // Update tile visual states
+            tiles.forEach(t => {
+              const type = t.getAttribute('data-type');
+              t.classList.remove('bg-green-500', 'border-green-600', 'bg-blue-500', 'border-blue-600', 'bg-red-500', 'border-red-600', 'text-white');
+              t.classList.add('bg-gray-100', 'dark:bg-gray-800', 'border-gray-300', 'dark:border-gray-600', 'text-gray-600', 'dark:text-gray-400');
+
+              if (type === 'work') {
+                t.classList.add('hover:border-green-400');
+              } else if (type === 'vacation') {
+                t.classList.add('hover:border-blue-400');
+              } else if (type === 'sick') {
+                t.classList.add('hover:border-red-400');
+              }
+            });
+
+            // Highlight selected tile
+            tile.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'border-gray-300', 'dark:border-gray-600', 'text-gray-600', 'dark:text-gray-400', 'hover:border-green-400', 'hover:border-blue-400', 'hover:border-red-400');
+            if (selectedType === 'work') {
+              tile.classList.add('bg-green-500', 'border-green-600', 'text-white');
+            } else if (selectedType === 'vacation') {
+              tile.classList.add('bg-blue-500', 'border-blue-600', 'text-white');
+            } else if (selectedType === 'sick') {
+              tile.classList.add('bg-red-500', 'border-red-600', 'text-white');
+            }
+
+            // Show/hide time card
+            if (selectedType === 'work') {
+              timeCard.style.display = 'block';
+              // If changing to work and no times set, provide defaults
+              if (!startTimeInput.value && !endTimeInput.value) {
+                startTimeInput.value = '08:00';
+                endTimeInput.value = '17:00';
+              }
+            } else {
+              timeCard.style.display = 'none';
+            }
+          });
+        });
       }
+
+      // Auto-calculate surcharge when time fields change
+      const calculateSurcharge = () => {
+        const startTime = document.getElementById('edit-start')?.value;
+        const endTime = document.getElementById('edit-end')?.value;
+        const pause = document.getElementById('edit-pause')?.value || '00:00';
+        const travelTime = document.getElementById('edit-travel')?.value || '00:00';
+        const surchargeInput = document.getElementById('edit-surcharge');
+
+        if (!startTime || !endTime || !surchargeInput) return;
+
+        // Calculate net work hours
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        const [endHour, endMin] = endTime.split(':').map(Number);
+        const [pauseHour, pauseMin] = pause.split(':').map(Number);
+        const [travelHour, travelMin] = travelTime.split(':').map(Number);
+
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+        const pauseMinutes = pauseHour * 60 + pauseMin;
+        const travelMinutes = travelHour * 60 + travelMin;
+
+        let workMinutes = endMinutes - startMinutes - pauseMinutes + travelMinutes;
+        if (workMinutes < 0) workMinutes = 0;
+
+        const netHours = workMinutes / 60;
+        const surchargePercent = ui.settings?.surchargePercent || 0;
+        const surchargeHours = netHours * (surchargePercent / 100);
+        const surchargeMinutes = Math.round(surchargeHours * 60);
+
+        const surchHours = Math.floor(surchargeMinutes / 60);
+        const surchMins = surchargeMinutes % 60;
+
+        surchargeInput.value = `${String(surchHours).padStart(2, '0')}:${String(surchMins).padStart(2, '0')}`;
+      };
+
+      // Attach listeners to time fields
+      ['edit-start', 'edit-end', 'edit-pause', 'edit-travel'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+          input.addEventListener('change', calculateSurcharge);
+          input.addEventListener('input', calculateSurcharge);
+        }
+      });
 
       // Add task button
       document.getElementById('add-task-to-entry').addEventListener('click', () => {
@@ -4617,12 +4729,16 @@ class App {
         const newIndex = existingTasks.length;
 
         const newTaskHtml = `
-          <div class="flex gap-2">
-            <input type="text" class="task-type flex-none w-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              value="" placeholder="Typ">
-            <input type="text" class="task-desc flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          <div class="flex gap-2 items-center">
+            <select class="task-type flex-none px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+              <option value="">-</option>
+              ${Object.keys(TASK_TYPES).map(key => `<option value="${key}">${key}</option>`).join('')}
+            </select>
+            <input type="text" class="task-desc flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               value="" placeholder="Beschreibung">
-            <button class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${newIndex}">${ui.icon('x')}</button>
+            <button type="button" class="remove-task-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2" data-index="${newIndex}">
+              ${ui.icon('trash', 'w-5 h-5')}
+            </button>
           </div>
         `;
 
@@ -4637,7 +4753,7 @@ class App {
           btn.addEventListener('click', (e) => {
             e.currentTarget.closest('.flex').remove();
             if (tasksList.querySelectorAll('.flex').length === 0) {
-              tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>';
+              tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 py-3 text-center">Keine Aufgaben</p>';
             }
           });
         });
@@ -4649,38 +4765,42 @@ class App {
           e.currentTarget.closest('.flex').remove();
           const tasksList = document.getElementById('edit-tasks-list');
           if (tasksList.querySelectorAll('.flex').length === 0) {
-            tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Keine Aufgaben</p>';
+            tasksList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 py-3 text-center">Keine Aufgaben</p>';
           }
         });
       });
 
+      // Share button
+      document.getElementById('edit-share').addEventListener('click', async () => {
+        await this.shareWorklogEntry(entry);
+      });
+
       // Save button
       document.getElementById('edit-save').addEventListener('click', async () => {
-        const dateInput = document.getElementById('edit-date').value;
-        const [year, month, day] = dateInput.split('-');
-        const formattedDate = `${day}.${month}.${year}`;
-
         const taskElements = document.querySelectorAll('#edit-tasks-list .flex');
         const tasks = Array.from(taskElements).map(el => ({
           type: el.querySelector('.task-type').value.trim(),
           description: el.querySelector('.task-desc').value.trim()
         })).filter(t => t.description); // Only keep tasks with descriptions
 
-        // Get entry type if WTT is enabled
-        const entryType = isWTTEnabled ? document.getElementById('edit-entry-type').value : 'work';
+        // Get entry type from selected tile (not dropdown)
+        let entryType = 'work';
+        if (isWTTEnabled) {
+          const selectedTile = document.querySelector('.entry-type-tile.bg-green-500, .entry-type-tile.bg-blue-500, .entry-type-tile.bg-red-500');
+          entryType = selectedTile?.getAttribute('data-type') || 'work';
+        }
         const oldEntryType = entry.entryType || 'work';
 
-        // Base updated entry
+        // Base updated entry (date not editable in new UI)
         const updatedEntry = {
           ...entry,
-          date: formattedDate,
           tasks: tasks,
           entryType: entryType
         };
 
         // Handle work time tracking calculations
         if (isWTTEnabled && ui.settings.workTimeTracking) {
-          const [d, m, y] = formattedDate.split('.');
+          const [d, m, y] = entry.date.split('.');
           const entryDate = new Date(y, m - 1, d);
 
           // Preserve historical targetHours! Only set if missing (legacy entries)

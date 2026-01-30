@@ -1,13 +1,15 @@
 {
-  "version": "1.18.0",
-  "releaseDate": "2025-01-21",
+  "version": "1.19.0",
+  "releaseDate": "2025-01-30",
   "changelog": [
-    "Feature: WTT-Felder beim Teilen (entryType, vacationDays) - ZA-Stand bleibt korrekt!",
-    "BREAKING: Share-UX komplett erneuert - 1 Klick weniger, Freunde als Buttons",
-    "Feature: Favoriten-System - Top 3 Freunde prominent, Stern-Icon zum Favorisieren",
-    "Logic: targetHours wird NICHT geteilt - beim Import aus Empfänger-Settings berechnet",
-    "Enhancement: Direkt zu Cloud-Share wenn eingeloggt, sonst File-Share (kein Dialog)",
-    "UX: 1-3 Freunde als Buttons nebeneinander, >3 Freunde mit 'Andere...' Button"
+    "BREAKING: Edit-Dialog komplett überarbeitet - moderne Kachel-UI statt Dropdown",
+    "UX: Header mit Wochentag + Datum, Feiertage prominent angezeigt",
+    "Feature: Entry-Type als 3 farbige Kacheln (Arbeitstag/Urlaub/Krankenstand)",
+    "Enhancement: Kompakte Zeit-Card mit 2x2 und 3-Spalten Grid-Layout",
+    "Feature: Zuschlag wird live beim Tippen automatisch berechnet",
+    "Enhancement: Zeit-Card wird bei Urlaub/Krankenstand ausgeblendet",
+    "Feature: Aufgabentyp als Dropdown aus TASK_TYPES (statt Freitext)",
+    "UX: Share-Button direkt im Edit-Dialog - gleiche Logik wie in Aufzeichnungen"
   ],
   "critical": false
 }
