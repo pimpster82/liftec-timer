@@ -1,15 +1,11 @@
 {
-  "version": "1.19.0",
+  "version": "1.19.1",
   "releaseDate": "2025-01-30",
   "changelog": [
-    "BREAKING: Edit-Dialog komplett überarbeitet - moderne Kachel-UI statt Dropdown",
-    "UX: Header mit Wochentag + Datum, Feiertage prominent angezeigt",
-    "Feature: Entry-Type als 3 farbige Kacheln (Arbeitstag/Urlaub/Krankenstand)",
-    "Enhancement: Kompakte Zeit-Card mit 2x2 und 3-Spalten Grid-Layout",
-    "Feature: Zuschlag wird live beim Tippen automatisch berechnet",
-    "Enhancement: Zeit-Card wird bei Urlaub/Krankenstand ausgeblendet",
-    "Feature: Aufgabentyp als Dropdown aus TASK_TYPES (statt Freitext)",
-    "UX: Share-Button direkt im Edit-Dialog - gleiche Logik wie in Aufzeichnungen"
+    "Fix: Mobile/iPhone Layout optimiert - kompaktere Felder (text-sm, weniger padding)",
+    "Fix: Office-Zuschlag-Logik korrigiert - Office-Aufgaben bekommen 0% Zuschlag",
+    "Enhancement: Zuschlag wird auch bei Task-Änderungen live neu berechnet",
+    "UX: Task-Dropdown nur noch w-16, kleinere Icons für mehr Platz auf iPhone"
   ],
   "critical": false
 }
