@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.20.2';
+const APP_VERSION = '1.20.3';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2028,11 +2028,14 @@ class App {
   }
 
   showDateRangePicker() {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       const today = new Date();
       let startDate = null;
       let endDate = null;
       let currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      // Load all worklog entries to show existing entries
+      const allEntries = await storage.getAllWorklogEntries();
 
       const renderCalendar = () => {
         const year = currentMonth.getFullYear();
@@ -2053,6 +2056,7 @@ class App {
 
         for (let day = 1; day <= daysInMonth; day++) {
           const date = new Date(year, month, day);
+          const dateStr = ui.formatDate(date);
           const isToday = date.toDateString() === today.toDateString();
 
           let isStart = false;
@@ -2067,13 +2071,27 @@ class App {
             }
           }
 
+          // Check if there's an existing entry for this day
+          const entry = allEntries.find(e => e.date === dateStr);
+          let entryType = null;
+          if (entry && entry.tasks && entry.tasks.length > 0) {
+            const task = entry.tasks[0];
+            if (task.type === '' && task.description) {
+              entryType = task.description; // Urlaub, Krankenstand, etc.
+            } else {
+              entryType = 'work';
+            }
+          }
+
           calendarDays.push({
             day,
             date,
+            dateStr,
             isToday,
             isStart,
             isEnd,
-            inRange
+            inRange,
+            entryType
           });
         }
 
@@ -2108,20 +2126,48 @@ class App {
 
                 let bgClass = 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700';
                 let textClass = 'text-gray-900 dark:text-white';
+                let ringClass = '';
 
-                if (dayInfo.isStart || dayInfo.isEnd) {
-                  bgClass = 'bg-primary text-gray-900 font-bold';
-                  textClass = 'text-gray-900';
-                } else if (dayInfo.inRange) {
-                  bgClass = 'bg-primary/30 dark:bg-primary/20';
+                // Set background color based on existing entry type
+                if (dayInfo.entryType) {
+                  switch (dayInfo.entryType) {
+                    case 'work':
+                      bgClass = 'bg-green-100 dark:bg-green-900 hover:bg-green-200 dark:hover:bg-green-800';
+                      textClass = 'text-green-900 dark:text-green-100';
+                      break;
+                    case 'Urlaub':
+                      bgClass = 'bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800';
+                      textClass = 'text-blue-900 dark:text-blue-100';
+                      break;
+                    case 'Krankenstand':
+                      bgClass = 'bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-800';
+                      textClass = 'text-red-900 dark:text-red-100';
+                      break;
+                    case 'Zeitausgleich':
+                      bgClass = 'bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800';
+                      textClass = 'text-purple-900 dark:text-purple-100';
+                      break;
+                    case 'Feiertag':
+                      bgClass = 'bg-yellow-100 dark:bg-yellow-900 hover:bg-yellow-200 dark:hover:bg-yellow-800';
+                      textClass = 'text-yellow-900 dark:text-yellow-100';
+                      break;
+                  }
                 }
 
-                if (dayInfo.isToday) {
-                  bgClass += ' ring-2 ring-blue-500';
+                // Overlay range selection with ring/border
+                if (dayInfo.isStart || dayInfo.isEnd) {
+                  ringClass = 'ring-4 ring-primary font-bold';
+                } else if (dayInfo.inRange) {
+                  ringClass = 'ring-2 ring-primary/50';
+                }
+
+                // Today indicator
+                if (dayInfo.isToday && !ringClass) {
+                  ringClass = 'ring-2 ring-blue-500';
                 }
 
                 return `
-                  <button class="range-day aspect-square ${bgClass} ${textClass} rounded-lg flex items-center justify-center text-sm font-semibold transition-colors btn-press"
+                  <button class="range-day aspect-square ${bgClass} ${textClass} ${ringClass} rounded-lg flex items-center justify-center text-sm font-semibold transition-all btn-press"
                           data-year="${dayInfo.date.getFullYear()}"
                           data-month="${dayInfo.date.getMonth()}"
                           data-day="${dayInfo.date.getDate()}">
