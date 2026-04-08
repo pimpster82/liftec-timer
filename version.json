@@ -1,9 +1,11 @@
 {
-  "version": "1.20.1",
+  "version": "1.20.2",
   "releaseDate": "2026-04-08",
   "changelog": [
-    "Fix: Update-Banner wird nicht mehr ständig angezeigt",
-    "Fix: version.json wird jetzt korrekt vom Server geladen (nicht gecacht)"
+    "Feature: Startzeit in Hero-Card zeigt jetzt Wochentag + Datum (z.B. 'Montag, 4.3. 8:40')",
+    "Feature: Endzeit-Eingabe verwendet jetzt Startdatum + intelligente Zeitauswahl",
+    "UX: Bei Sessions >24h wird automatisch 17:00 als Endzeit vorgeschlagen",
+    "Fix: Vergessene Sessions lassen sich jetzt einfacher korrekt abschließen"
   ],
   "critical": false
 }

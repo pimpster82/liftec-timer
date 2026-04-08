@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.20.1';
+const APP_VERSION = '1.20.2';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1024,11 +1024,25 @@ class App {
   }
 
   async endSession() {
-    // Show end time picker
-    const endTime = await this.showDateTimePicker('Endzeit wählen', new Date());
-    if (!endTime) return;
-
     const startTime = new Date(this.session.start);
+    const now = new Date();
+    const hoursSinceStart = (now - startTime) / 3600000;
+
+    // Calculate default end time
+    let defaultEndTime;
+    if (hoursSinceStart >= 24) {
+      // If 24+ hours passed, use start date with 17:00
+      defaultEndTime = new Date(startTime);
+      defaultEndTime.setHours(17, 0, 0, 0);
+    } else {
+      // Use start date with current time
+      defaultEndTime = new Date(startTime);
+      defaultEndTime.setHours(now.getHours(), now.getMinutes(), 0, 0);
+    }
+
+    // Show end time picker
+    const endTime = await this.showDateTimePicker('Endzeit wählen', defaultEndTime);
+    if (!endTime) return;
 
     if (endTime <= startTime) {
       ui.showToast('Endzeit muss nach Startzeit liegen', 'error');

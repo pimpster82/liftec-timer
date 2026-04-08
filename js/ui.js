@@ -1240,7 +1240,18 @@ class UI {
     const start = new Date(startISO);
     const hours = start.getHours();
     const mins = start.getMinutes();
-    return `${this.pad2(hours)}:${this.pad2(mins)}`;
+
+    // Get weekday name
+    const weekdayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const weekday = this.t(weekdayNames[start.getDay()]);
+
+    // Get date (day.month)
+    const day = start.getDate();
+    const month = start.getMonth() + 1;
+    const date = `${day}.${month}.`;
+
+    // Format: "Montag, 4.3. 8:40"
+    return `${weekday}, ${date} ${this.pad2(hours)}:${this.pad2(mins)}`;
   }
 
   hoursToHHMM(hours) {
