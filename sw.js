@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.20.0';
+const CACHE_VERSION = '1.20.1';
 const CACHE_NAME = `liftec-timer-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
@@ -71,6 +71,12 @@ self.addEventListener('fetch', (event) => {
 
   // Skip chrome extensions and non-http(s) requests
   if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
+  // Never cache version.json - always fetch from network
+  if (event.request.url.includes('version.json')) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
