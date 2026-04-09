@@ -1,10 +1,10 @@
 {
-  "version": "1.20.4",
-  "releaseDate": "2026-04-08",
+  "version": "1.20.5",
+  "releaseDate": "2026-04-09",
   "changelog": [
-    "Fix: Startzeit in Hero-Card jetzt zweizeilig (Datum + Zeit)",
-    "UX: Datum klein (Montag, 4.3.), Zeit groß und prominent (8:40)",
-    "Fix: Kein Zeilenumbruch mehr, alles passt perfekt"
+    "UX: Update-Banner jetzt kompakt und unaufdringlich",
+    "Fix: Kein breites Banner mehr, nur kleine Info oben rechts",
+    "UX: Click auf Update-Info installiert direkt"
   ],
   "critical": false
 }
