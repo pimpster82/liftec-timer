@@ -4212,7 +4212,7 @@ class App {
     // Work Time Tracking Widget (if enabled)
     let wttWidgetHtml = '';
     if (ui.settings.workTimeTracking?.enabled) {
-      let timeAccount = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
+      let timeAccountBalance = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
       const vacationDays = ui.settings.workTimeTracking.vacation.remainingDays || 0;
 
       // Add current session to time account (live calculation)
@@ -4223,11 +4223,11 @@ class App {
 
         // Live balance = brutto hours - target
         // (Approximate since pause hasn't been entered yet)
-        timeAccount += (currentDuration - targetHours);
+        timeAccountBalance += (currentDuration - targetHours);
       }
 
-      const timeAccountColor = timeAccount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-      const timeAccountSign = timeAccount >= 0 ? '+' : '';
+      const timeAccountColor = timeAccountBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+      const timeAccountSign = timeAccountBalance >= 0 ? '+' : '';
       const timeAccountLiveIndicator = isSessionActive ? `<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse ml-1"></span>` : '';
 
       wttWidgetHtml = `
@@ -4235,7 +4235,7 @@ class App {
           <div class="grid grid-cols-2 gap-4">
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('timeAccount')}</div>
-              <div class="text-2xl font-bold ${timeAccountColor} flex items-center">${timeAccountSign}${ui.formatHours(timeAccount)} ${ui.t('hoursShort')}${timeAccountLiveIndicator}</div>
+              <div class="text-2xl font-bold ${timeAccountColor} flex items-center">${timeAccountSign}${ui.formatHours(timeAccountBalance)} ${ui.t('hoursShort')}${timeAccountLiveIndicator}</div>
             </div>
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('remainingVacation')}</div>
