@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.20.6';
+const APP_VERSION = '1.20.7';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -877,7 +877,8 @@ class App {
           const showStartTime = ui.settings?.heroTimeDisplay === 'startTime';
           if (showStartTime) {
             // For start time, we don't need to update every second (it's static)
-            durationElement.textContent = ui.formatStartTime(this.session.start);
+            const startTimeObj = ui.formatStartTime(this.session.start);
+            durationElement.textContent = startTimeObj.time;
             if (labelElement) labelElement.textContent = ui.t('startTime').toUpperCase();
           } else {
             // For duration, update every second
