@@ -1,8 +1,8 @@
 {
-  "version": "1.20.7",
+  "version": "1.20.8",
   "releaseDate": "2026-04-09",
   "changelog": [
-    "Fix: Startzeit-Anzeige zeigt jetzt korrekte Zeit (statt [object Object])"
+    "Fix: Aufzeichnungen öffnen jetzt auch während aktiver Session"
   ],
   "critical": false
 }
