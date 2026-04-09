@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.20.5';
+const APP_VERSION = '1.20.6';
 
 const TASK_TYPES = {
   N: 'Neuanlage',

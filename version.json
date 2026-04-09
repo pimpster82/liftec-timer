@@ -1,10 +1,10 @@
 {
-  "version": "1.20.5",
+  "version": "1.20.6",
   "releaseDate": "2026-04-09",
   "changelog": [
-    "UX: Update-Banner jetzt kompakt und unaufdringlich",
-    "Fix: Kein breites Banner mehr, nur kleine Info oben rechts",
-    "UX: Click auf Update-Info installiert direkt"
+    "UX: Startzeit und Datum jetzt in einer Zeile",
+    "UX: Zeit linksbündig groß, Datum rechtsbündig klein",
+    "UX: Kompaktere, übersichtlichere Hero-Card"
   ],
   "critical": false
 }

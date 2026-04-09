@@ -1385,8 +1385,10 @@ class UI {
       if (showStartTime) {
         const startTimeObj = this.formatStartTime(session.start);
         timeDisplay = `
-          <p class="text-sm font-medium text-gray-700 mb-0.5">${startTimeObj.date}</p>
-          <p class="text-3xl font-bold text-gray-900 duration">${startTimeObj.time}</p>
+          <div class="flex items-center justify-between">
+            <p class="text-3xl font-bold text-gray-900 duration">${startTimeObj.time}</p>
+            <p class="text-sm font-medium text-gray-700">${startTimeObj.date}</p>
+          </div>
         `;
       } else {
         const timeValue = this.formatDuration(session.start);
