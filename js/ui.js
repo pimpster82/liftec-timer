@@ -1250,8 +1250,11 @@ class UI {
     const month = start.getMonth() + 1;
     const date = `${day}.${month}.`;
 
-    // Format: "Montag, 4.3. 8:40"
-    return `${weekday}, ${date} ${this.pad2(hours)}:${this.pad2(mins)}`;
+    // Return object with date and time for flexible formatting
+    return {
+      date: `${weekday}, ${date}`,
+      time: `${this.pad2(hours)}:${this.pad2(mins)}`
+    };
   }
 
   hoursToHHMM(hours) {
@@ -1376,15 +1379,24 @@ class UI {
     if (session) {
       // Check if we should show duration or start time
       const showStartTime = this.settings?.heroTimeDisplay === 'startTime';
-      const timeValue = showStartTime
-        ? this.formatStartTime(session.start)
-        : this.formatDuration(session.start);
       const timeLabel = showStartTime ? this.t('startTime') : this.t('duration');
+
+      let timeDisplay;
+      if (showStartTime) {
+        const startTimeObj = this.formatStartTime(session.start);
+        timeDisplay = `
+          <p class="text-sm font-medium text-gray-700 mb-0.5">${startTimeObj.date}</p>
+          <p class="text-3xl font-bold text-gray-900 duration">${startTimeObj.time}</p>
+        `;
+      } else {
+        const timeValue = this.formatDuration(session.start);
+        timeDisplay = `<p class="text-3xl font-bold text-gray-900 duration">${timeValue}</p>`;
+      }
 
       durationHTML = `
         <div id="hero-time-display" class="mt-4 bg-black bg-opacity-10 rounded-lg p-3 cursor-pointer hover:bg-opacity-20 transition-colors" title="${this.t('clickToToggle')}">
           <p class="text-xs text-gray-800 uppercase tracking-wide mb-1">${timeLabel}</p>
-          <p class="text-3xl font-bold text-gray-900 duration">${timeValue}</p>
+          ${timeDisplay}
         </div>
       `;
     }
