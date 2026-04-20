@@ -1,8 +1,9 @@
 {
-  "version": "1.20.8",
-  "releaseDate": "2026-04-09",
+  "version": "1.20.9",
+  "releaseDate": "2026-04-20",
   "changelog": [
-    "Fix: Aufzeichnungen öffnen jetzt auch während aktiver Session"
+    "Fix: Update-Banner erscheint nur bei tatsächlichem Update",
+    "Fix: Update-Banner blockiert Navigation nicht mehr"
   ],
   "critical": false
 }

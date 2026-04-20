@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.20.8';
+const APP_VERSION = '1.20.9';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -91,16 +91,58 @@ class App {
         this.serviceWorkerRegistration.addEventListener('updatefound', () => {
           const newWorker = this.serviceWorkerRegistration.installing;
 
-          newWorker.addEventListener('statechange', () => {
+          newWorker.addEventListener('statechange', async () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New version available
-              this.showUpdateAvailable();
+              // Service Worker detected an update - verify with version.json
+              await this.verifyAndShowUpdate();
             }
           });
         });
       } catch (error) {
         console.error('Service Worker registration failed:', error);
       }
+    }
+  }
+
+  // Verify update with version.json before showing banner
+  async verifyAndShowUpdate() {
+    try {
+      // Fetch version.json to compare versions
+      const response = await fetch('./version.json?t=' + Date.now());
+      const remote = await response.json();
+
+      // Store for later reference
+      this.remoteVersion = remote;
+
+      // Only show banner if remote version is actually different
+      if (remote.version !== APP_VERSION) {
+        console.log(`Update detected: ${APP_VERSION} -> ${remote.version}`);
+
+        // Check dismiss/snooze flags
+        const dismissedVersion = localStorage.getItem('dismissedUpdateVersion');
+        const remindLater = localStorage.getItem('remindUpdateLater');
+
+        if (dismissedVersion === remote.version) {
+          console.log('Update dismissed by user for version:', remote.version);
+          return;
+        }
+
+        if (remindLater) {
+          const remindTime = parseInt(remindLater);
+          if (Date.now() < remindTime) {
+            console.log('Update reminder postponed');
+            return;
+          }
+        }
+
+        // Show the banner
+        this.showUpdateAvailable();
+      } else {
+        console.log('Service Worker updated but version unchanged:', APP_VERSION);
+      }
+    } catch (error) {
+      console.error('Version verification failed:', error);
+      // Fallback: don't show banner if we can't verify
     }
   }
 
