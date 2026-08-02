@@ -1296,8 +1296,10 @@ class UI {
 
   // Format hours (limit decimal places for display)
   formatHours(hours) {
-    // Round to 1 decimal place to avoid long decimals like 71.133333...
-    return parseFloat(hours.toFixed(1));
+    // Alle Zeitangaben in der App laufen als HH:MM, passend zum Stundenzettel.
+    // Früher gab diese Funktion Dezimalstunden zurück (4.8 statt 04:48), was
+    // sich mit den HH:MM-Feldern der Eingabe biss.
+    return this.hoursToHHMM(hours);
   }
 
   // ===== Icon Helper =====

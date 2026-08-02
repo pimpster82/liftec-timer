@@ -1,7 +1,9 @@
 {
-  "version": "1.27.0",
+  "version": "1.28.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Alle Zeitangaben durchgehend im Format HH:MM statt Dezimalstunden",
+    "Fix: Negative Zeiteingaben wie -04:48 wurden falsch gelesen",
     "Die Kacheln in den Aufzeichnungen rechnen jetzt wie die Statistik",
     "Fix: Einträge ausserhalb der Woche bzw. des Monats zählten in den Kacheln mit",
     "Fix: Urlaub und Krankenstand zählten in den Kacheln als Arbeitstage",

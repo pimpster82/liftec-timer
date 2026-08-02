@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.27.0';
+const APP_VERSION = '1.28.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2283,7 +2283,7 @@ class App {
               ${ui.t('validFrom')} ${this.formatValidFrom(rate.validFrom)}
             </div>
             <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
-              ${ui.formatHours(weekly)} ${ui.t('hoursShort')}/${ui.t('week')}${money.length ? ' · ' + money.join(' · ') : ''}
+              ${ui.formatHours(weekly)}/${ui.t('week')}${money.length ? ' · ' + money.join(' · ') : ''}
             </div>
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
@@ -2360,7 +2360,7 @@ class App {
             ${days.map(([key, label]) => `
               <div class="flex items-center justify-between gap-3">
                 <label class="text-sm text-gray-600 dark:text-gray-400">${label}</label>
-                <input type="text" id="rate-${key}" value="${rate.dailyTargetHours?.[key] || 0}" inputmode="decimal"
+                <input type="text" id="rate-${key}" value="${ui.formatHours(rate.dailyTargetHours?.[key] || 0)}" inputmode="text"
                   class="w-24 px-2 py-1.5 text-sm text-right border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
               </div>
             `).join('')}
@@ -2410,7 +2410,7 @@ class App {
         const total = days.reduce((sum, [key]) =>
           sum + this.parseTimeInput(document.getElementById(`rate-${key}`)?.value), 0);
         document.getElementById('rate-weekly-total').textContent =
-          `${ui.formatHours(total)} ${ui.t('hoursShort')}`;
+          ui.formatHours(total);
       };
 
       days.forEach(([key]) => {
@@ -3290,12 +3290,11 @@ class App {
 
           <!-- Pause Picker -->
           <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pause (Stunden)</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pause</label>
             <div class="flex items-center space-x-4">
               <button id="pause-minus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">−</button>
               <div class="flex-1 text-center">
                 <span id="pause-display" class="text-3xl font-bold text-gray-900 dark:text-white">${ui.formatHours(pauseValue)}</span>
-                <span class="text-lg text-gray-600 dark:text-gray-400 ml-1">h</span>
               </div>
               <button id="pause-plus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">+</button>
             </div>
@@ -3303,12 +3302,11 @@ class App {
 
           <!-- Travel Picker -->
           <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fahrtzeit (Stunden)</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fahrtzeit</label>
             <div class="flex items-center space-x-4">
               <button id="travel-minus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">−</button>
               <div class="flex-1 text-center">
                 <span id="travel-display" class="text-3xl font-bold text-gray-900 dark:text-white">${ui.formatHours(travelValue)}</span>
-                <span class="text-lg text-gray-600 dark:text-gray-400 ml-1">h</span>
               </div>
               <button id="travel-plus" class="w-12 h-12 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-bold text-xl hover:bg-gray-300 dark:hover:bg-gray-600 btn-press">+</button>
             </div>
@@ -4934,7 +4932,7 @@ class App {
           <div class="grid grid-cols-2 gap-4">
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('timeAccount')}</div>
-              <div class="text-2xl font-bold ${timeAccountColor} flex items-center">${timeAccountSign}${ui.formatHours(timeAccountBalance)} ${ui.t('hoursShort')}${timeAccountLiveIndicator}</div>
+              <div class="text-2xl font-bold ${timeAccountColor} flex items-center">${timeAccountSign}${ui.formatHours(timeAccountBalance)}${timeAccountLiveIndicator}</div>
             </div>
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('remainingVacation')}</div>
@@ -5022,7 +5020,7 @@ class App {
           <div class="flex justify-between items-start mb-1">
             <span class="font-medium text-gray-900 dark:text-white">${dateStr}${holidayBadge}</span>
             <div class="flex items-center gap-2">
-              <span class="font-semibold text-primary">${ui.formatHours(workHours)}h</span>
+              <span class="font-semibold text-primary">${ui.formatHours(workHours)}</span>
               <button class="history-share-btn text-green-500 hover:text-green-700 dark:hover:text-green-400 p-1" data-id="${entry.id}" title="${ui.t('shareEntry')}">
                 ${ui.icon('share')}
               </button>
@@ -7329,18 +7327,25 @@ class App {
 
   // Helper: Parse time input (supports hh:mm, h,h, and h.h formats)
   parseTimeInput(value) {
-    if (!value) return 0;
-    const str = String(value).trim();
+    if (value === null || value === undefined || value === '') return 0;
+    let str = String(value).trim();
 
-    // Check for hh:mm format (e.g., 08:30, 8:30)
+    // Vorzeichen getrennt behandeln: bei "-04:48" wäre sonst nur die
+    // Stundenzahl negativ und die Minuten würden gegengerechnet (-3,2 statt -4,8)
+    const negative = str.startsWith('-');
+    if (negative || str.startsWith('+')) str = str.slice(1);
+
+    let hours;
     if (str.includes(':')) {
-      const [hours, minutes] = str.split(':').map(s => parseInt(s) || 0);
-      return hours + (minutes / 60);
+      // HH:MM
+      const [h, m] = str.split(':').map(s => parseInt(s, 10) || 0);
+      hours = h + (m / 60);
+    } else {
+      // Dezimal, auch mit Komma (8,5)
+      hours = parseFloat(str.replace(',', '.')) || 0;
     }
 
-    // Replace comma with dot for European format (8,5 → 8.5)
-    const normalized = str.replace(',', '.');
-    return parseFloat(normalized) || 0;
+    return negative ? -hours : hours;
   }
 
   // Helper: Parse a number of days (NICHT als Uhrzeit interpretieren).
@@ -7399,19 +7404,19 @@ class App {
             <div class="flex items-center justify-between">
               <label class="text-sm text-gray-700 dark:text-gray-300 w-32">${ui.t(day)}</label>
               <div class="flex items-center gap-2">
-                <input type="text" id="wtt-${day}" value="${data.dailyHours[day]}" placeholder="8,5 oder 08:30"
+                <input type="text" id="wtt-${day}" value="${ui.formatHours(data.dailyHours[day] || 0)}" placeholder="08:30"
                   class="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
-                <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
+                
               </div>
             </div>
           `).join('')}
         </div>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Eingabe: 8,5 oder 8.5 oder 08:30</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Eingabe als HH:MM, z. B. 08:30</p>
 
         <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg mb-6">
           <div class="flex justify-between items-center">
             <span class="font-semibold text-gray-900 dark:text-white">${ui.t('wttWeeklyTotal')}:</span>
-            <span id="weekly-total" class="text-lg font-bold text-primary">0 ${ui.t('hoursShort')}</span>
+            <span id="weekly-total" class="text-lg font-bold text-primary">00:00</span>
           </div>
         </div>
 
@@ -7432,7 +7437,7 @@ class App {
         const value = this.parseTimeInput(document.getElementById(`wtt-${day}`).value);
         return sum + value;
       }, 0);
-      document.getElementById('weekly-total').textContent = `${ui.formatHours(total)} ${ui.t('hoursShort')}`;
+      document.getElementById('weekly-total').textContent = ui.formatHours(total);
     };
 
     // Add event listeners to all inputs
@@ -7504,11 +7509,11 @@ class App {
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('wttCurrentBalance')}</label>
             <div class="flex items-center gap-2">
-              <input type="text" id="wtt-balance" value="${data.timeAccountBalance || '0'}" placeholder="8:30 oder 8,5"
+              <input type="text" id="wtt-balance" value="${ui.formatHours(data.timeAccountBalance || 0)}" placeholder="08:30 oder -04:48"
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-              <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
+              
             </div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Eingabe: +12,5 oder -8,5 oder 08:30</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Eingabe als HH:MM, z. B. 08:30 oder -04:48</p>
           </div>
 
           <!-- Remaining Vacation -->
@@ -7593,11 +7598,11 @@ class App {
         <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-6 space-y-2">
           <div class="flex justify-between">
             <span class="text-gray-600 dark:text-gray-400">${ui.t('weeklyTarget')}:</span>
-            <span class="font-semibold text-gray-900 dark:text-white">${weeklyTotal} ${ui.t('hoursShort')}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${ui.formatHours(weeklyTotal)}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600 dark:text-gray-400">${ui.t('timeAccount')}:</span>
-            <span class="font-semibold text-gray-900 dark:text-white">${data.timeAccountBalance >= 0 ? '+' : ''}${ui.formatHours(data.timeAccountBalance)} ${ui.t('hoursShort')}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">${data.timeAccountBalance >= 0 ? '+' : ''}${ui.formatHours(data.timeAccountBalance)}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600 dark:text-gray-400">${ui.t('remainingVacation')}:</span>
@@ -7724,11 +7729,11 @@ class App {
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('timeAccountFromPayroll')}</label>
             <div class="flex items-center gap-2">
-              <input type="text" id="payroll-balance" value="0" placeholder="8:30 oder 8,5"
+              <input type="text" id="payroll-balance" value="00:00" placeholder="08:30 oder -04:48"
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-              <span class="text-sm text-gray-500">${ui.t('hoursShort')}</span>
+              
             </div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Eingabe: +12,5 oder -8,5 oder 08:30</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Eingabe als HH:MM, z. B. 08:30 oder -04:48</p>
           </div>
 
           <!-- Vacation Days -->
