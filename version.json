@@ -1,7 +1,8 @@
 {
-  "version": "1.21.3",
+  "version": "1.22.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Neu: Einsätze können nachträglich erfasst werden (Menü → Einsätze)",
     "Fix: Schmutzzulage beim Bearbeiten rechnet die Fahrtzeit jetzt korrekt heraus",
     "Fix: Bereitschaft zieht nur noch den überlappenden Teil einer Schicht ab",
     "Fix: Nachtschichten werden bei Bereitschaft und Zeitkonto korrekt gerechnet",

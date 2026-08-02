@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.21.3';
+const APP_VERSION = '1.22.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1600,18 +1600,45 @@ class App {
   // ===== Bereitschaftseinsätze (Callouts) =====
 
   /**
-   * Dialog zum Erfassen von Einsätzen während einer laufenden Bereitschaft.
-   * Zeigt zusätzlich die bereits erfassten Einsätze dieser Bereitschaft.
+   * Findet die Bereitschaftsperiode, die einen Zeitpunkt abdeckt.
+   * Damit bekommt auch ein nachträglich erfasster Einsatz die richtige
+   * Zuordnung, ohne dass der Nutzer sie auswählen muss.
+   */
+  async findOnCallPeriodForDateTime(dateTime) {
+    try {
+      const periods = await storage.getAllOnCallPeriods();
+
+      for (const period of periods) {
+        if (!period.startDate || !period.startTime) continue;
+
+        const start = this.parseDateTime(period.startDate, period.startTime);
+        const end = period.endDate
+          ? this.parseDateTime(period.endDate, period.endTime)
+          : new Date();
+
+        if (dateTime >= start && dateTime <= end) {
+          return period.id;
+        }
+      }
+    } catch (error) {
+      console.error('Error looking up on-call period:', error);
+    }
+
+    return null;
+  }
+
+  /**
+   * Dialog zum Erfassen von Bereitschaftseinsätzen.
+   * Funktioniert während einer laufenden Bereitschaft und nachträglich -
+   * das Datum ist frei wählbar. Die Zuordnung zur Bereitschaftsperiode
+   * passiert automatisch anhand des gewählten Zeitpunkts.
    */
   async showCalloutDialog(onCallStatus) {
     const status = (onCallStatus && onCallStatus.active)
       ? onCallStatus
       : await this.getOnCallStatus();
 
-    if (!status || !status.active) {
-      ui.showToast('Keine aktive Bereitschaft', 'error');
-      return;
-    }
+    const isActive = !!(status && status.active);
 
     const escapeHtml = (value) => String(value || '')
       .replace(/&/g, '&amp;')
@@ -1622,12 +1649,14 @@ class App {
     const now = new Date();
     const todayValue = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-    // Bereits erfasste Einsätze dieser Bereitschaft rendern
+    // Einsätze des gewählten Monats rendern (aktualisiert sich mit dem Datum)
     const renderList = async () => {
       const container = document.getElementById('callout-list');
       if (!container) return;
 
-      const segments = await callouts.getCalloutsForPeriod(status.id);
+      const dateValue = document.getElementById('callout-date')?.value || todayValue;
+      const [listYear, listMonth] = dateValue.split('-').map(Number);
+      const segments = await callouts.getCalloutsForMonth(listYear, listMonth);
 
       if (segments.length === 0) {
         container.innerHTML = `<p class="text-sm text-gray-500 dark:text-gray-400">${ui.t('calloutNone')}</p>`;
@@ -1723,11 +1752,16 @@ class App {
     `;
 
     ui.showModalWithHeader({
-      title: `${ui.t('calloutTitle')} · ${ui.t('onCall')} #${status.id}`,
+      title: isActive
+        ? `${ui.t('calloutTitle')} · ${ui.t('onCall')} #${status.id}`
+        : ui.t('calloutTitle'),
       icon: 'plus',
       content: contentHtml,
       footer: footerHtml
     });
+
+    // Liste folgt dem gewählten Monat
+    document.getElementById('callout-date').addEventListener('change', () => renderList());
 
     await renderList();
 
@@ -1751,9 +1785,15 @@ class App {
       const [year, month, day] = dateValue.split('-');
       const dateStr = `${day}.${month}.${year}`;
 
+      // Passende Bereitschaftsperiode automatisch ermitteln - so bekommt auch
+      // ein nachträglich erfasster Einsatz die richtige Zuordnung
+      const periodId = await this.findOnCallPeriodForDateTime(
+        this.parseDateTime(dateStr, startTime)
+      );
+
       try {
         await callouts.addCallout({
-          onCallPeriodId: status.id,
+          onCallPeriodId: periodId,
           date: dateStr,
           startTime,
           endTime,
@@ -3279,6 +3319,12 @@ class App {
             ${ui.icon('history')}
             <span>${ui.t('recordings')}</span>
           </button>
+          ${ui.settings?.onCallEnabled ? `
+          <button id="menu-callouts" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
+            ${ui.icon('plus')}
+            <span>${ui.t('callouts')}</span>
+          </button>
+          ` : ''}
           <button id="menu-about" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
             ${ui.icon('info')}
             <span>Info</span>
@@ -3300,6 +3346,11 @@ class App {
     document.getElementById('menu-history').addEventListener('click', () => {
       ui.hideModal();
       this.showHistory();
+    });
+
+    document.getElementById('menu-callouts')?.addEventListener('click', () => {
+      ui.hideModal();
+      this.showCalloutDialog();
     });
 
     document.getElementById('menu-about').addEventListener('click', () => {
