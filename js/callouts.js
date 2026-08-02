@@ -233,7 +233,13 @@ class Callouts {
         updatedAt: now
       };
 
-      ids.push(await storage.add('callouts', record));
+      // OFFLINE FIRST: erst lokal speichern
+      const id = await storage.add('callouts', record);
+      record.id = id;
+      ids.push(id);
+
+      // OPTIONAL: Sync im Hintergrund (non-blocking)
+      storage.syncToCloud('callouts', record);
     }
 
     return { groupId, ids, segments: segments.length };
@@ -246,6 +252,9 @@ class Callouts {
 
     for (const record of toDelete) {
       await storage.delete('callouts', record.id);
+
+      // OPTIONAL: Löschung im Hintergrund synchronisieren
+      storage.syncToCloud('callouts-delete', record.id);
     }
 
     return toDelete.length;

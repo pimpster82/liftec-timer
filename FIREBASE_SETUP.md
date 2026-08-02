@@ -168,7 +168,11 @@ Firebase erstellt automatisch diese Struktur:
 users/
   {userId}/
     data/
-      settings/          → User-Einstellungen
+      settings/          → User-Einstellungen (inkl. Zeitkonto & Urlaub)
+      onCall/            → Bereitschaft: alle Perioden in einem Dokument
+        periods: [...]
+        nextId: 4
+        updatedAt: Timestamp
 
     sessions/
       current/           → Aktuelle Session
@@ -180,7 +184,22 @@ users/
         endTime: "16:30"
         tasks: [...]
         updatedAt: Timestamp
+
+    callouts/
+      {calloutId}/       → Bereitschaftseinsätze (v1.21.2)
+        groupId: "1754..."      zusammengehörige Segmente
+        onCallPeriodId: 3
+        date: "05.07.2025"
+        startTime: "22:00"
+        endTime: "24:00"        Einsätze über Mitternacht werden gesplittet
+        description: "..."
+        yearMonth: "2025-07"
+        updatedAt: Timestamp
 ```
+
+> **Regeln:** `onCall` und `callouts` liegen beide unter `/users/{userId}/`
+> und sind damit bereits von der bestehenden Subcollection-Regel abgedeckt.
+> Es ist **keine Änderung an den Security Rules nötig**.
 
 ---
 

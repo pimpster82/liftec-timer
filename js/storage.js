@@ -265,6 +265,22 @@ class Storage {
         await firebaseService.syncSettings(data);
         break;
 
+      case 'onCall':
+        await firebaseService.syncOnCall(data);
+        break;
+
+      case 'onCall-delete':
+        await firebaseService.deleteOnCall();
+        break;
+
+      case 'callouts':
+        await firebaseService.syncCallout(data);
+        break;
+
+      case 'callouts-delete':
+        await firebaseService.deleteCallout(data);
+        break;
+
       default:
         console.warn('Unknown sync type:', type);
     }

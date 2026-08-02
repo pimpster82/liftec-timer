@@ -312,6 +312,106 @@ class FirebaseService {
     }
   }
 
+  // Sync on-call data (Bereitschaft).
+  // Ein einzelnes Dokument mit allen Perioden - analog zu den Settings.
+  async syncOnCall(onCallData) {
+    if (!this.currentUser || !this.syncEnabled) {
+      return false;
+    }
+
+    try {
+      await this.db
+        .collection('users')
+        .doc(this.currentUser.uid)
+        .collection('data')
+        .doc('onCall')
+        .set({
+          ...onCallData,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+      console.log('On-call data synced');
+      return true;
+    } catch (error) {
+      console.error('On-call sync error:', error);
+      return false;
+    }
+  }
+
+  // Delete on-call data from cloud
+  async deleteOnCall() {
+    if (!this.currentUser || !this.syncEnabled) {
+      return false;
+    }
+
+    try {
+      await this.db
+        .collection('users')
+        .doc(this.currentUser.uid)
+        .collection('data')
+        .doc('onCall')
+        .delete();
+
+      console.log('On-call data deleted from cloud');
+      return true;
+    } catch (error) {
+      console.error('On-call delete error:', error);
+      return false;
+    }
+  }
+
+  // Sync a single callout segment (Bereitschaftseinsatz)
+  async syncCallout(callout) {
+    if (!this.currentUser || !this.syncEnabled) {
+      return false;
+    }
+
+    if (!callout || !callout.id) {
+      console.error('Callout sync failed: record has no ID', callout);
+      return false;
+    }
+
+    try {
+      await this.db
+        .collection('users')
+        .doc(this.currentUser.uid)
+        .collection('callouts')
+        .doc(String(callout.id))
+        .set({
+          ...callout,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+      console.log('Callout synced to cloud:', callout.id);
+      return true;
+    } catch (error) {
+      console.error('Callout sync error:', error);
+      return false;
+    }
+  }
+
+  // Delete a callout segment from cloud
+  async deleteCallout(calloutId) {
+    if (!this.currentUser || !this.syncEnabled) {
+      return false;
+    }
+
+    try {
+      await this.db
+        .collection('users')
+        .doc(this.currentUser.uid)
+        .collection('callouts')
+        .doc(String(calloutId))
+        .delete();
+
+      console.log('Callout deleted from cloud:', calloutId);
+      return true;
+    } catch (error) {
+      console.error('Callout delete error:', error);
+      return false;
+    }
+  }
+
   // Pull data from cloud on sign-in
   async pullCloudData() {
     if (!this.currentUser) {
@@ -322,7 +422,9 @@ class FirebaseService {
       const data = {
         worklog: [],
         session: null,
-        settings: null
+        settings: null,
+        onCall: null,
+        callouts: []
       };
 
       // Pull worklog
@@ -367,6 +469,37 @@ class FirebaseService {
       if (settingsDoc.exists) {
         data.settings = this.cleanFirestoreData(settingsDoc.data());
       }
+
+      // Pull on-call data (Bereitschaft)
+      const onCallDoc = await this.db
+        .collection('users')
+        .doc(this.currentUser.uid)
+        .collection('data')
+        .doc('onCall')
+        .get();
+
+      if (onCallDoc.exists) {
+        data.onCall = this.cleanFirestoreData(onCallDoc.data());
+      }
+
+      // Pull callouts (Bereitschaftseinsätze)
+      const calloutsSnapshot = await this.db
+        .collection('users')
+        .doc(this.currentUser.uid)
+        .collection('callouts')
+        .get();
+
+      data.callouts = calloutsSnapshot.docs.map(doc => {
+        const id = parseInt(doc.id);
+        if (isNaN(id)) {
+          console.error(`Invalid callout ID from Firestore: ${doc.id}`);
+          return null;
+        }
+        return {
+          id,
+          ...this.cleanFirestoreData(doc.data())
+        };
+      }).filter(entry => entry !== null);
 
       console.log('Cloud data pulled successfully');
       return data;
@@ -474,6 +607,41 @@ class FirebaseService {
       // cleanFirestoreData() already removed timestamps
       await storage.saveCurrentSession(cloudData.session);
       console.log('Merged current session from cloud');
+    }
+
+    // Merge on-call periods.
+    // Nicht stumpf überschreiben: Perioden werden über ihre ID vereinigt,
+    // sonst verliert ein Gerät die Bereitschaft, die es offline angelegt hat.
+    // Bei gleicher ID gewinnt die Cloud.
+    if (cloudData.onCall && Array.isArray(cloudData.onCall.periods)) {
+      const local = await storage.getOnCallStatus();
+
+      const merged = new Map();
+      for (const period of (local.periods || [])) {
+        merged.set(period.id, period);
+      }
+      for (const period of cloudData.onCall.periods) {
+        merged.set(period.id, period);
+      }
+
+      const periods = Array.from(merged.values()).sort((a, b) => a.id - b.id);
+
+      await storage.put('onCall', {
+        id: 'active',
+        periods,
+        nextId: Math.max(local.nextId || 1, cloudData.onCall.nextId || 1)
+      });
+
+      console.log(`Merged ${periods.length} on-call periods from cloud`);
+    }
+
+    // Merge callouts (Bereitschaftseinsätze)
+    if (cloudData.callouts && cloudData.callouts.length > 0) {
+      for (const callout of cloudData.callouts) {
+        // put() statt add(), weil die IDs aus der Cloud bereits feststehen
+        await storage.put('callouts', callout);
+      }
+      console.log(`Merged ${cloudData.callouts.length} callouts from cloud`);
     }
   }
 
