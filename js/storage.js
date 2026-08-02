@@ -317,6 +317,7 @@ class Storage {
       cloudSync: true,  // Cloud sync enabled by default (user can sign out to disable)
       onboardingCompleted: false,  // Show onboarding on first launch
       onCallEnabled: false,  // On-call feature disabled by default
+      lastShareRecipient: null,  // uid des zuletzt beteilten Friends - wird beim Teilen vorgeschlagen
 
       // Work time tracking & vacation (v1.12.0)
       workTimeTracking: {

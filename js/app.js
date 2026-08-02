@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.29.0';
+const APP_VERSION = '1.30.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -432,12 +432,8 @@ class App {
         if (existing) conflicts.set(share.id, existing);
       }
 
-      const escapeHtml = (value) => String(value || '')
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
       const entriesHtml = sharedEntries.length > 0
-        ? sharedEntries.map(share => this.renderSharedEntryCard(share, conflicts.get(share.id), escapeHtml)).join('')
+        ? sharedEntries.map(share => this.renderSharedEntryCard(share, conflicts.get(share.id))).join('')
         : `
           <div class="text-center py-8">
             <div class="text-gray-400 dark:text-gray-500 mb-2">${ui.icon('inbox', 'w-10 h-10 mx-auto')}</div>
@@ -500,11 +496,12 @@ class App {
   }
 
   /**
-   * Eine Karte im Posteingang - mit allem, was den Eintrag ausmacht.
+   * Vorschau eines Eintrags: Datum, Zeiten, Nebenzeiten, Tätigkeiten.
+   *
+   * Absender und Empfänger sehen dadurch dieselbe Darstellung - was im
+   * Sende-Blatt steht, steht beim anderen genauso im Posteingang.
    */
-  renderSharedEntryCard(share, existingEntry, escapeHtml) {
-    const entry = share.entry;
-
+  renderEntryPreview(entry) {
     const [d, m, y] = (entry.date || '').split('.');
     const dateObj = (d && m && y) ? new Date(y, m - 1, d) : null;
     const weekday = dateObj
@@ -526,12 +523,34 @@ class App {
                ${t.type
                  ? `<span class="flex-shrink-0 px-1.5 py-0.5 bg-primary bg-opacity-30 text-gray-900 dark:text-white rounded text-xs font-semibold" title="${TASK_TYPES[t.type] || t.type}">${t.type}</span>`
                  : ''}
-               <span class="text-gray-700 dark:text-gray-300">${escapeHtml(t.description)}</span>
+               <span class="text-gray-700 dark:text-gray-300">${this.escapeHtml(t.description)}</span>
              </div>
            `).join('')}
          </div>`
       : `<p class="text-sm text-gray-500 dark:text-gray-400 mt-2">${ui.t('noTasks')}</p>`;
 
+    return `
+      <div class="flex items-baseline justify-between gap-2">
+        <div class="font-semibold text-gray-900 dark:text-white">
+          ${entry.date}${weekday ? `<span class="text-sm font-normal text-gray-500 dark:text-gray-400"> · ${weekday}</span>` : ''}
+        </div>
+        ${net > 0 ? `<div class="text-lg font-bold text-primary flex-shrink-0">${ui.formatHours(net)}</div>` : ''}
+      </div>
+
+      ${entry.startTime && entry.endTime
+        ? `<div class="text-sm text-gray-600 dark:text-gray-400">${entry.startTime} – ${entry.endTime}</div>` : ''}
+
+      ${details.length
+        ? `<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${details.join(' · ')}</div>` : ''}
+
+      ${tasksHtml}
+    `;
+  }
+
+  /**
+   * Eine Karte im Posteingang - Vorschau plus Absender, Konflikt und Aktionen.
+   */
+  renderSharedEntryCard(share, existingEntry) {
     const conflictHtml = existingEntry
       ? `<div class="mt-2 flex items-start gap-2 text-xs text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 rounded p-2">
            ${ui.icon('warning', 'w-4 h-4 flex-shrink-0')}
@@ -542,23 +561,10 @@ class App {
     return `
       <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
         <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          ${ui.t('sharedBy')} @${escapeHtml(share.fromNickname)}${share.fromName ? ` · ${escapeHtml(share.fromName)}` : ''}
+          ${ui.t('sharedBy')} @${this.escapeHtml(share.fromNickname)}${share.fromName ? ` · ${this.escapeHtml(share.fromName)}` : ''}
         </div>
 
-        <div class="flex items-baseline justify-between gap-2">
-          <div class="font-semibold text-gray-900 dark:text-white">
-            ${entry.date}${weekday ? `<span class="text-sm font-normal text-gray-500 dark:text-gray-400"> · ${weekday}</span>` : ''}
-          </div>
-          ${net > 0 ? `<div class="text-lg font-bold text-primary flex-shrink-0">${ui.formatHours(net)}</div>` : ''}
-        </div>
-
-        ${entry.startTime && entry.endTime
-          ? `<div class="text-sm text-gray-600 dark:text-gray-400">${entry.startTime} – ${entry.endTime}</div>` : ''}
-
-        ${details.length
-          ? `<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${details.join(' · ')}</div>` : ''}
-
-        ${tasksHtml}
+        ${this.renderEntryPreview(share.entry)}
         ${conflictHtml}
 
         <div class="flex gap-2 mt-3">
@@ -1783,11 +1789,7 @@ class App {
 
     const isActive = !!(status && status.active);
 
-    const escapeHtml = (value) => String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    const escapeHtml = (value) => this.escapeHtml(value);
 
     const now = new Date();
     const todayValue = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -4101,26 +4103,19 @@ class App {
               </button>
               <div id="sharing-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
 
-                <div class="space-y-2">
-                  <button id="manage-profile-btn" class="w-full px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
-                    ${ui.icon('user')}
-                    <span>${ui.t('myShareProfile')}</span>
-                  </button>
-
-                  <button id="show-qr-btn" class="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
-                    ${ui.icon('qr-code')}
-                    <span>${ui.t('showMyQRCode')}</span>
-                  </button>
-
-                  <button id="scan-qr-btn" class="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 flex items-center justify-center gap-2">
-                    ${ui.icon('camera')}
-                    <span>${ui.t('scanFriendQR')}</span>
-                  </button>
-
-                  <button id="manage-friends-btn" class="w-full px-3 py-2 bg-gray-600 text-white rounded-lg text-sm font-semibold hover:bg-gray-700 flex items-center justify-center gap-2">
-                    ${ui.icon('users')}
-                    <span>${ui.t('manageFriends')}</span>
-                  </button>
+                <div class="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                  ${[
+                    { id: 'manage-profile-btn', icon: 'user', label: ui.t('myShareProfile') },
+                    { id: 'show-qr-btn', icon: 'qr-code', label: ui.t('showMyQRCode') },
+                    { id: 'scan-qr-btn', icon: 'camera', label: ui.t('scanFriendQR') },
+                    { id: 'manage-friends-btn', icon: 'users', label: ui.t('manageFriends') }
+                  ].map(item => `
+                    <button type="button" id="${item.id}" class="w-full px-3 py-3 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <span class="text-gray-500 dark:text-gray-400 flex-shrink-0">${ui.icon(item.icon, 'w-5 h-5')}</span>
+                      <span class="flex-1 text-sm font-medium text-gray-900 dark:text-white">${item.label}</span>
+                      ${ui.icon('chevron-right', 'w-4 h-4 text-gray-400 flex-shrink-0')}
+                    </button>
+                  `).join('')}
                 </div>
 
                 <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
@@ -5883,232 +5878,211 @@ class App {
     }
   }
 
+  /**
+   * Eintrag an einen Friend senden.
+   *
+   * Vorgeschlagen wird immer der zuletzt verwendete Empfänger - in der Praxis
+   * geht fast alles an dieselbe Person. Gewechselt wird nur, wenn man den
+   * Empfänger antippt; bei genau einem Friend gibt es nichts zu wechseln.
+   */
   async shareWorklogEntryToUser(entry) {
+    let friends;
     try {
-      // Load friends list
-      const friends = await firebaseService.getFriends();
-
-      if (friends.length === 0) {
-        ui.showToast(ui.t('noFriendsToShare'), 'error');
-        return;
-      }
-
-      // Get favorite friends from settings (max 3)
-      const favoriteFriends = ui.settings.favoriteFriends || [];
-      const favorites = friends.filter(f => favoriteFriends.includes(f.uid)).slice(0, 3);
-      const others = friends.filter(f => !favoriteFriends.includes(f.uid));
-
-      return new Promise((resolve) => {
-        // Build friend buttons HTML
-        const favoritesHtml = favorites.length > 0 ? `
-          <div class="mb-3">
-            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">${ui.t('favorites') || 'Favoriten'}</p>
-            <div class="grid ${favorites.length === 1 ? 'grid-cols-1' : favorites.length === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-2">
-              ${favorites.map(friend => `
-                <button class="share-friend-btn px-3 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 text-sm flex flex-col items-center gap-1"
-                        data-uid="${friend.uid}"
-                        data-nickname="${friend.nickname}"
-                        data-name="${friend.displayName}">
-                  ${ui.icon('user', 'w-5 h-5')}
-                  <span class="text-xs">@${friend.nickname}</span>
-                </button>
-              `).join('')}
-            </div>
-          </div>
-        ` : '';
-
-        const othersButton = others.length > 0 ? `
-          <button id="share-other-friends-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-2">
-            ${ui.icon('users', 'w-5 h-5')}
-            <span>${ui.t('otherFriends') || 'Andere Freunde'} (${others.length})</span>
-          </button>
-        ` : '';
-
-        const content = `
-          <div class="p-6">
-            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-              ${ui.icon('share-2')}
-              <span>${ui.t('shareToFriend')}</span>
-            </h3>
-
-            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
-              <p class="text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('sharingEntry')}:</p>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">${entry.date}</p>
-              <p class="text-xs text-gray-600 dark:text-gray-400">
-                ${entry.startTime} - ${entry.endTime} (${entry.tasks?.length || 0} ${ui.t('tasks')})
-              </p>
-            </div>
-
-            ${favoritesHtml}
-
-            ${othersButton}
-
-            <button id="dialog-cancel" class="w-full px-4 py-2 mt-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-              ${ui.t('cancel')}
-            </button>
-
-            ${others.length === 0 && favorites.length === 0 ? `
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-                ${ui.t('addFriendsFirst') || 'Füge zuerst Freunde hinzu'}
-              </p>
-            ` : ''}
-          </div>
-        `;
-
-        ui.showModal(content);
-
-        const sendShare = async (friendUserId, friendNickname, friendName) => {
-          try {
-            ui.hideModal();
-            const result = await firebaseService.shareWorklogEntry(entry, friendUserId);
-            ui.showToast(ui.t('sharedWithUser').replace('{user}', `@${result.recipientNickname}`), 'success');
-            resolve(true);
-          } catch (error) {
-            console.error('Cloud share failed:', error);
-            if (error.message.includes('only share with friends')) {
-              ui.showToast(ui.t('canOnlyShareWithFriends'), 'error');
-            } else {
-              ui.showToast(ui.t('shareFailed'), 'error');
-            }
-            resolve(false);
-          }
-        };
-
-        // Friend button click handlers
-        document.querySelectorAll('.share-friend-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const uid = btn.getAttribute('data-uid');
-            const nickname = btn.getAttribute('data-nickname');
-            const name = btn.getAttribute('data-name');
-            sendShare(uid, nickname, name);
-          });
-        });
-
-        // Other friends button
-        if (others.length > 0) {
-          document.getElementById('share-other-friends-btn').addEventListener('click', async () => {
-            ui.hideModal();
-            await this.showOtherFriendsDialog(entry, others, favorites, friends);
-          });
-        }
-
-        document.getElementById('dialog-cancel').addEventListener('click', () => {
-          ui.hideModal();
-          resolve(false);
-        });
-      });
-
+      friends = await firebaseService.getFriends();
     } catch (error) {
       console.error('Failed to load friends:', error);
       ui.showToast(ui.t('loadFriendsFailed'), 'error');
+      return false;
+    }
+
+    if (friends.length === 0) {
+      await this.showNoFriendsDialog();
+      return false;
+    }
+
+    friends.sort((a, b) => (a.nickname || '').localeCompare(b.nickname || ''));
+
+    // Zuletzt verwendeter Empfänger - fehlt er oder wurde er entfernt,
+    // greift der erste Friend alphabetisch
+    let recipient = friends.find(f => f.uid === ui.settings.lastShareRecipient) || friends[0];
+
+    // Der Empfängerwechsel führt zurück ins Blatt, deshalb die Schleife
+    while (true) {
+      const action = await this.showShareConfirmDialog(entry, recipient, friends.length > 1);
+
+      if (action === 'cancel') return false;
+
+      if (action === 'change') {
+        const picked = await this.showRecipientPicker(friends, recipient.uid);
+        if (picked) recipient = picked;
+        continue;
+      }
+
+      return await this.sendSharedEntry(entry, recipient);
     }
   }
 
-  async showOtherFriendsDialog(entry, otherFriends, currentFavorites, allFriends) {
+  /**
+   * Bestätigungsblatt vor dem Senden.
+   * @returns {Promise<'send'|'change'|'cancel'>}
+   */
+  showShareConfirmDialog(entry, recipient, canChange) {
     return new Promise((resolve) => {
       const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-            ${ui.icon('users')}
-            <span>${ui.t('selectFriend')}</span>
-          </h3>
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          ${this.renderEntryPreview(entry)}
+        </div>
 
-          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
-            <p class="text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('sharingEntry')}:</p>
-            <p class="text-sm font-medium text-gray-900 dark:text-white">${entry.date}</p>
-          </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-4 mb-2">${ui.t('recipient')}</p>
 
-          <div class="space-y-2 max-h-96 overflow-y-auto mb-4">
-            ${otherFriends.map(friend => {
-              const isFavorite = currentFavorites.some(f => f.uid === friend.uid);
-              return `
-                <div class="flex items-center gap-2">
-                  <button class="other-friend-btn flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-left flex items-center gap-3"
-                          data-uid="${friend.uid}"
-                          data-nickname="${friend.nickname}"
-                          data-name="${friend.displayName}">
-                    ${ui.icon('user', 'w-5 h-5 text-gray-500')}
-                    <div>
-                      <div class="font-semibold">@${friend.nickname}</div>
-                      <div class="text-xs text-gray-500">${friend.displayName}</div>
-                    </div>
-                  </button>
-                  <button class="toggle-favorite-btn w-10 h-10 rounded-lg flex items-center justify-center ${isFavorite ? 'bg-yellow-400 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'} hover:bg-yellow-500"
-                          data-uid="${friend.uid}"
-                          title="${isFavorite ? ui.t('removeFromFavorites') || 'Von Favoriten entfernen' : ui.t('addToFavorites') || 'Zu Favoriten hinzufügen'}">
-                    ${ui.icon('star', 'w-5 h-5')}
-                  </button>
-                </div>
-              `;
-            }).join('')}
-          </div>
+        <button type="button" id="share-recipient-btn"
+                class="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-left ${canChange ? 'hover:bg-gray-50 dark:hover:bg-gray-700' : 'cursor-default'}"
+                ${canChange ? '' : 'disabled'}>
+          <span class="text-gray-500 dark:text-gray-400 flex-shrink-0">${ui.icon('user', 'w-5 h-5')}</span>
+          <span class="flex-1 min-w-0">
+            <span class="block font-semibold text-gray-900 dark:text-white truncate">@${this.escapeHtml(recipient.nickname)}</span>
+            ${recipient.displayName
+              ? `<span class="block text-xs text-gray-500 dark:text-gray-400 truncate">${this.escapeHtml(recipient.displayName)}</span>` : ''}
+          </span>
+          ${canChange ? ui.icon('chevron-right', 'w-5 h-5 text-gray-400 flex-shrink-0') : ''}
+        </button>
+      `;
 
-          <button id="dialog-cancel" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-            ${ui.t('back') || 'Zurück'}
-          </button>
+      const footer = `
+        <button type="button" id="share-send-btn" class="w-full px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
+          ${ui.icon('share-2', 'w-5 h-5')}
+          <span>${ui.t('send')}</span>
+        </button>
+      `;
+
+      ui.showModalWithHeader({
+        title: ui.t('shareToFriend'),
+        icon: 'share-2',
+        content,
+        footer,
+        onClose: () => {
+          ui.hideModal();
+          resolve('cancel');
+        }
+      });
+
+      if (canChange) {
+        document.getElementById('share-recipient-btn').addEventListener('click', () => {
+          ui.hideModal();
+          resolve('change');
+        });
+      }
+
+      document.getElementById('share-send-btn').addEventListener('click', () => {
+        resolve('send');
+      });
+    });
+  }
+
+  /**
+   * Empfängerliste. Aufgelöst mit dem gewählten Friend oder null bei Abbruch.
+   */
+  showRecipientPicker(friends, currentUid) {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="space-y-2">
+          ${friends.map(friend => `
+            <button type="button" class="recipient-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left hover:bg-gray-50 dark:hover:bg-gray-700 ${
+              friend.uid === currentUid
+                ? 'border-primary bg-primary bg-opacity-10'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+            }" data-uid="${friend.uid}">
+              <span class="text-gray-500 dark:text-gray-400 flex-shrink-0">${ui.icon('user', 'w-5 h-5')}</span>
+              <span class="flex-1 min-w-0">
+                <span class="block font-semibold text-gray-900 dark:text-white truncate">@${this.escapeHtml(friend.nickname)}</span>
+                ${friend.displayName
+                  ? `<span class="block text-xs text-gray-500 dark:text-gray-400 truncate">${this.escapeHtml(friend.displayName)}</span>` : ''}
+              </span>
+              ${friend.uid === currentUid ? ui.icon('check', 'w-5 h-5 text-primary flex-shrink-0') : ''}
+            </button>
+          `).join('')}
         </div>
       `;
 
-      ui.showModal(content);
-
-      const sendShare = async (friendUserId, friendNickname, friendName) => {
-        try {
+      ui.showModalWithHeader({
+        title: ui.t('selectFriend'),
+        icon: 'users',
+        content,
+        onClose: () => {
           ui.hideModal();
-          const result = await firebaseService.shareWorklogEntry(entry, friendUserId);
-          ui.showToast(ui.t('sharedWithUser').replace('{user}', `@${result.recipientNickname}`), 'success');
-          resolve(true);
-        } catch (error) {
-          console.error('Cloud share failed:', error);
-          ui.showToast(ui.t('shareFailed'), 'error');
-          resolve(false);
+          resolve(null);
         }
-      };
-
-      // Friend selection handlers
-      document.querySelectorAll('.other-friend-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const uid = btn.getAttribute('data-uid');
-          const nickname = btn.getAttribute('data-nickname');
-          const name = btn.getAttribute('data-name');
-          sendShare(uid, nickname, name);
-        });
       });
 
-      // Favorite toggle handlers
-      document.querySelectorAll('.toggle-favorite-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const uid = btn.getAttribute('data-uid');
-          let favs = ui.settings.favoriteFriends || [];
-
-          if (favs.includes(uid)) {
-            // Remove from favorites
-            favs = favs.filter(id => id !== uid);
-            btn.classList.remove('bg-yellow-400', 'text-white');
-            btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-500');
-          } else {
-            // Add to favorites (max 3)
-            if (favs.length >= 3) {
-              ui.showToast(ui.t('maxFavoritesReached') || 'Maximal 3 Favoriten erlaubt', 'error');
-              return;
-            }
-            favs.push(uid);
-            btn.classList.add('bg-yellow-400', 'text-white');
-            btn.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-500');
-          }
-
-          ui.settings.favoriteFriends = favs;
-          await storage.saveSettings(ui.settings);
+      document.querySelectorAll('.recipient-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const uid = e.currentTarget.dataset.uid;
+          resolve(friends.find(f => f.uid === uid) || null);
         });
-      });
-
-      document.getElementById('dialog-cancel').addEventListener('click', () => {
-        ui.hideModal();
-        // Re-open main share dialog
-        this.shareWorklogEntryToUser(entry);
-        resolve(false);
       });
     });
+  }
+
+  /**
+   * Hinweis statt blosser Fehlermeldung, wenn noch kein Friend da ist -
+   * mit dem Weg dorthin gleich daneben.
+   */
+  showNoFriendsDialog() {
+    return new Promise((resolve) => {
+      const content = `
+        <div class="text-center py-4">
+          <div class="text-gray-400 dark:text-gray-500 mb-3">${ui.icon('users', 'w-10 h-10 mx-auto')}</div>
+          <p class="font-semibold text-gray-900 dark:text-white mb-1">${ui.t('noFriendsToShare')}</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">${ui.t('noFriendsHint')}</p>
+        </div>
+      `;
+
+      const footer = `
+        <button type="button" id="no-friends-scan-btn" class="w-full px-4 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+          ${ui.icon('camera', 'w-5 h-5')}
+          <span>${ui.t('scanFriendQR')}</span>
+        </button>
+      `;
+
+      ui.showModalWithHeader({
+        title: ui.t('shareToFriend'),
+        icon: 'share-2',
+        content,
+        footer,
+        onClose: () => {
+          ui.hideModal();
+          resolve();
+        }
+      });
+
+      document.getElementById('no-friends-scan-btn').addEventListener('click', () => {
+        ui.hideModal();
+        resolve();
+        this.showQRScanner();
+      });
+    });
+  }
+
+  async sendSharedEntry(entry, recipient) {
+    try {
+      ui.hideModal();
+      const result = await firebaseService.shareWorklogEntry(entry, recipient.uid);
+
+      // Merken, damit beim nächsten Mal derselbe Empfänger vorgeschlagen wird
+      ui.settings.lastShareRecipient = recipient.uid;
+      await storage.saveSettings(ui.settings);
+
+      ui.showToast(ui.t('sharedWithUser').replace('{user}', `@${result.recipientNickname}`), 'success');
+      return true;
+    } catch (error) {
+      console.error('Cloud share failed:', error);
+      if (error.message && error.message.includes('only share with friends')) {
+        ui.showToast(ui.t('canOnlyShareWithFriends'), 'error');
+      } else {
+        ui.showToast(ui.t('shareFailed'), 'error');
+      }
+      return false;
+    }
   }
 
   async shareWorklogEntryViaFile(entry) {
@@ -6431,30 +6405,30 @@ class App {
       const qrData = `liftec-timer://add-friend/${firebaseService.currentUser.uid}|${profile.nickname}`;
 
       const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white text-center">
-            ${ui.t('myQRCode')}
-          </h3>
-
-          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-center">
-            <p class="text-2xl font-bold text-gray-900 dark:text-white mb-1">@${profile.nickname}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-400">${profile.displayName}</p>
-          </div>
-
-          <!-- QR Code Container -->
-          <div id="qrcode-container" class="bg-white p-4 rounded-lg mx-auto mb-4 flex justify-center"></div>
-
-          <p class="text-xs text-gray-500 dark:text-gray-400 text-center mb-4">
-            ${ui.t('qrCodeHint')}
-          </p>
-
-          <button id="qr-close-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-            ${ui.t('close')}
-          </button>
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 text-center border border-gray-200 dark:border-gray-700">
+          <p class="text-2xl font-bold text-gray-900 dark:text-white mb-1">@${this.escapeHtml(profile.nickname)}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400">${this.escapeHtml(profile.displayName)}</p>
         </div>
+
+        <!-- Der QR-Code braucht weissen Grund zum Scannen, der Rahmen lässt ihn
+             im Dunkelmodus wie eine Karte wirken statt wie ein Loch -->
+        <div id="qrcode-container" class="bg-white p-4 rounded-xl border border-gray-200 dark:border-gray-500 w-fit mx-auto mb-4 flex justify-center"></div>
+
+        <p class="text-xs text-gray-500 dark:text-gray-400 text-center">
+          ${ui.t('qrCodeHint')}
+        </p>
       `;
 
-      ui.showModal(content);
+      ui.showModalWithHeader({
+        title: ui.t('myQRCode'),
+        icon: 'qr-code',
+        content,
+        footer: `
+          <button type="button" id="qr-close-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('close')}
+          </button>
+        `
+      });
 
       // Generate QR Code
       const qrContainer = document.getElementById('qrcode-container');
@@ -6487,32 +6461,45 @@ class App {
     }
 
     const content = `
-      <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white text-center">
-          ${ui.t('scanQRCode')}
-        </h3>
+      <!-- Festes Seitenverhältnis, damit das Blatt beim Kamerastart nicht springt -->
+      <div id="qr-reader" class="aspect-square w-full rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mb-4"></div>
 
-        <!-- Scanner Container -->
-        <div id="qr-reader" class="mb-4 rounded-lg overflow-hidden"></div>
-
-        <p class="text-xs text-gray-500 dark:text-gray-400 text-center mb-4">
-          ${ui.t('scannerHint')}
-        </p>
-
-        <button id="scanner-close-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-          ${ui.t('cancel')}
-        </button>
-      </div>
+      <p class="text-xs text-gray-500 dark:text-gray-400 text-center">
+        ${ui.t('scannerHint')}
+      </p>
     `;
 
-    ui.showModal(content);
-
     // Initialize QR Scanner
-    const html5QrCode = new Html5Qrcode("qr-reader");
+    let html5QrCode;
+
+    // Die Kamera muss auf jedem Weg aus dem Dialog stoppen, sonst läuft sie weiter
+    const stopScanner = async () => {
+      try {
+        await html5QrCode?.stop();
+      } catch (error) {
+        // Bereits gestoppt oder nie gestartet - nichts zu tun
+      }
+    };
+
+    ui.showModalWithHeader({
+      title: ui.t('scanQRCode'),
+      icon: 'camera',
+      content,
+      footer: `
+        <button type="button" id="scanner-close-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+          ${ui.t('cancel')}
+        </button>
+      `,
+      onClose: async () => {
+        await stopScanner();
+        ui.hideModal();
+      }
+    });
+
+    html5QrCode = new Html5Qrcode("qr-reader");
 
     const onScanSuccess = async (decodedText) => {
-      // Stop scanner
-      await html5QrCode.stop();
+      await stopScanner();
       ui.hideModal();
 
       // Parse QR data: liftec-timer://add-friend/{userId}|{nickname}
@@ -6547,7 +6534,7 @@ class App {
 
     // Close button
     document.getElementById('scanner-close-btn').addEventListener('click', async () => {
-      await html5QrCode.stop();
+      await stopScanner();
       ui.hideModal();
     });
   }
@@ -6558,31 +6545,37 @@ class App {
   async confirmAddFriend(friendUserId, friendNickname) {
     return new Promise((resolve) => {
       const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white text-center">
-            ${ui.t('addFriend')}
-          </h3>
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 flex items-center gap-3">
+          <span class="text-gray-500 dark:text-gray-400 flex-shrink-0">${ui.icon('user', 'w-8 h-8')}</span>
+          <span class="min-w-0">
+            <span class="block text-xl font-bold text-gray-900 dark:text-white truncate">@${this.escapeHtml(friendNickname)}</span>
+          </span>
+        </div>
 
-          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-center">
-            <p class="text-xl font-bold text-gray-900 dark:text-white">@${friendNickname}</p>
-          </div>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mt-4">
+          ${ui.t('addFriendConfirm')}
+        </p>
+      `;
 
-          <p class="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
-            ${ui.t('addFriendConfirm')}
-          </p>
-
+      ui.showModalWithHeader({
+        title: ui.t('addFriend'),
+        icon: 'user',
+        content,
+        footer: `
           <div class="flex gap-2">
-            <button id="add-friend-yes" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+            <button type="button" id="add-friend-yes" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
               ${ui.t('yes')}
             </button>
-            <button id="add-friend-no" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+            <button type="button" id="add-friend-no" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
               ${ui.t('no')}
             </button>
           </div>
-        </div>
-      `;
-
-      ui.showModal(content);
+        `,
+        onClose: () => {
+          ui.hideModal();
+          resolve(false);
+        }
+      });
 
       document.getElementById('add-friend-yes').addEventListener('click', async () => {
         try {
@@ -6624,38 +6617,48 @@ class App {
     try {
       const friends = await firebaseService.getFriends();
 
-      const friendsHtml = friends.length > 0
-        ? friends.map(friend => `
-            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg mb-2">
-              <div>
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">@${friend.nickname}</p>
-                <p class="text-xs text-gray-600 dark:text-gray-400">${friend.displayName}</p>
-              </div>
-              <button class="remove-friend-btn text-red-500 hover:text-red-700 text-sm" data-friend-id="${friend.uid}" data-friend-nickname="${friend.nickname}">
-                ${ui.icon('trash', 'w-5 h-5')}
-              </button>
-            </div>
-          `).join('')
-        : `<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">${ui.t('noFriends')}</p>`;
+      const content = friends.length > 0
+        ? `<div class="space-y-2">
+             ${friends.map(friend => `
+               <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                 <span class="text-gray-500 dark:text-gray-400 flex-shrink-0">${ui.icon('user', 'w-5 h-5')}</span>
+                 <div class="flex-1 min-w-0">
+                   <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">@${this.escapeHtml(friend.nickname)}</p>
+                   <p class="text-xs text-gray-600 dark:text-gray-400 truncate">${this.escapeHtml(friend.displayName)}</p>
+                 </div>
+                 <button type="button" class="remove-friend-btn text-red-500 hover:text-red-700 p-1 flex-shrink-0" data-friend-id="${friend.uid}" data-friend-nickname="${this.escapeHtml(friend.nickname)}" title="${ui.t('removeFriend')}">
+                   ${ui.icon('trash', 'w-5 h-5')}
+                 </button>
+               </div>
+             `).join('')}
+           </div>`
+        : `<div class="text-center py-8">
+             <div class="text-gray-400 dark:text-gray-500 mb-2">${ui.icon('users', 'w-10 h-10 mx-auto')}</div>
+             <p class="text-sm text-gray-500 dark:text-gray-400">${ui.t('noFriends')}</p>
+             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${ui.t('noFriendsHint')}</p>
+           </div>`;
 
-      const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-            ${ui.icon('share')}
-            <span>${ui.t('myFriends')}</span>
-          </h3>
-
-          <div class="max-h-96 overflow-y-auto mb-4">
-            ${friendsHtml}
+      ui.showModalWithHeader({
+        title: ui.t('myFriends'),
+        icon: 'users',
+        content,
+        footer: `
+          <div class="flex gap-2">
+            <button type="button" id="friends-scan-btn" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+              ${ui.icon('camera', 'w-5 h-5')}
+              <span>${ui.t('scanFriendQR')}</span>
+            </button>
+            <button type="button" id="friends-close-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('close')}
+            </button>
           </div>
+        `
+      });
 
-          <button id="friends-close-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-            ${ui.t('close')}
-          </button>
-        </div>
-      `;
-
-      ui.showModal(content);
+      document.getElementById('friends-scan-btn').addEventListener('click', () => {
+        ui.hideModal();
+        this.showQRScanner();
+      });
 
       // Remove friend buttons
       document.querySelectorAll('.remove-friend-btn').forEach(btn => {
@@ -6707,58 +6710,57 @@ class App {
       const isEdit = !!profile;
 
       const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-            ${isEdit ? ui.t('editProfile') : ui.t('createProfile')}
-          </h3>
-
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                ${ui.t('nickname')} *
-              </label>
-              <div class="flex gap-2">
-                <span class="flex items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-l-lg">@</span>
-                <input
-                  type="text"
-                  id="profile-nickname"
-                  value="${profile?.nickname || ''}"
-                  placeholder="maya"
-                  class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-r-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  ${isEdit ? 'disabled' : ''}
-                >
-              </div>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                ${isEdit ? ui.t('nicknameCannotChange') : ui.t('nicknameHint')}
-              </p>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                ${ui.t('displayName')} *
-              </label>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              ${ui.t('nickname')} *
+            </label>
+            <div class="flex">
+              <span class="flex items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-l-lg border border-r-0 border-gray-300 dark:border-gray-600">@</span>
               <input
                 type="text"
-                id="profile-displayname"
-                value="${profile?.displayName || ui.settings.username || ''}"
-                placeholder="Maya Liftec"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                id="profile-nickname"
+                value="${this.escapeHtml(profile?.nickname || '')}"
+                placeholder="maya"
+                class="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-r-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                ${isEdit ? 'disabled' : ''}
               >
             </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              ${isEdit ? ui.t('nicknameCannotChange') : ui.t('nicknameHint')}
+            </p>
           </div>
 
-          <div class="flex gap-2 mt-6">
-            <button id="save-profile-btn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
-              ${ui.t('save')}
-            </button>
-            <button id="cancel-profile-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-              ${ui.t('cancel')}
-            </button>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              ${ui.t('displayName')} *
+            </label>
+            <input
+              type="text"
+              id="profile-displayname"
+              value="${this.escapeHtml(profile?.displayName || ui.settings.username || '')}"
+              placeholder="Maya Liftec"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
           </div>
         </div>
       `;
 
-      ui.showModal(content);
+      ui.showModalWithHeader({
+        title: isEdit ? ui.t('editProfile') : ui.t('createProfile'),
+        icon: 'user',
+        content,
+        footer: `
+          <div class="flex gap-2">
+            <button type="button" id="save-profile-btn" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600">
+              ${ui.t('save')}
+            </button>
+            <button type="button" id="cancel-profile-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+              ${ui.t('cancel')}
+            </button>
+          </div>
+        `
+      });
 
       const nicknameInput = document.getElementById('profile-nickname');
       const displayNameInput = document.getElementById('profile-displayname');
@@ -7455,10 +7457,16 @@ class App {
     return `vor ${days} Tag${days > 1 ? 'en' : ''}`;
   }
 
+  /**
+   * Macht Text HTML-sicher. Bewusst ohne DOM, damit die Funktion auch in
+   * Template-Strings und ohne document funktioniert.
+   */
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return String(text ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   // ===== Work Time Tracking & Vacation Onboarding =====
