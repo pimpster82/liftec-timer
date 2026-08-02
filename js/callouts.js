@@ -160,6 +160,63 @@ class Callouts {
     return Math.max(0, totalHours - deducted);
   }
 
+  /**
+   * Bereitschaftsperioden, die in ein Zeitfenster fallen, auf dieses Fenster
+   * zugeschnitten - inklusive der jeweiligen Bereitschaftsstunden.
+   *
+   * Eine noch laufende Periode wird bei "jetzt" gekappt, höchstens aber am
+   * Fensterende. Dadurch wächst der Wert mit, statt bis zum Abschluss der
+   * Bereitschaft ganz zu fehlen.
+   *
+   * Funktioniert für beliebige Fenster, nicht nur für Monate. Die Logik lag
+   * früher doppelt in csv.js und excel-export.js.
+   *
+   * @param {Date} windowStart
+   * @param {Date} windowEnd - exklusiv
+   * @returns {Promise<Array>} [{ id, isRunning, start, end, from, to, hours }]
+   */
+  async getOnCallPeriodsInWindow(windowStart, windowEnd) {
+    const allPeriods = await storage.getAllOnCallPeriods();
+
+    if (!allPeriods || allPeriods.length === 0) {
+      return [];
+    }
+
+    const now = new Date();
+    const result = [];
+
+    for (const period of allPeriods) {
+      if (!period.startDate || !period.startTime) continue;
+
+      const periodStart = this.parseDateTime(period.startDate, period.startTime);
+      const isRunning = !period.endDate;
+
+      const periodEnd = isRunning
+        ? new Date(Math.min(now.getTime(), windowEnd.getTime()))
+        : this.parseDateTime(period.endDate, period.endTime);
+
+      // Keine Überlappung mit dem Fenster
+      if (periodEnd <= windowStart || periodStart >= windowEnd) continue;
+
+      const start = periodStart < windowStart ? windowStart : periodStart;
+      const end = periodEnd > windowEnd ? windowEnd : periodEnd;
+
+      if (end <= start) continue;
+
+      result.push({
+        id: period.id,
+        isRunning,
+        start,
+        end,
+        from: `${this.formatDate(start)} ${this.formatTime(start)}`,
+        to: this.formatEndLabel(end) + (isRunning ? ' (laufend)' : ''),
+        hours: await this.calculateOnCallHours(start, end)
+      });
+    }
+
+    return result;
+  }
+
   // ===== Einsätze: Speicherung =====
 
   /**

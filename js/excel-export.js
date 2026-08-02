@@ -369,47 +369,8 @@ class ExcelExport {
   // Gibt die nächste freie Zeile zurück.
   async addOnCallSummary(worksheet, startRow, year, month) {
     try {
-      const allPeriods = await storage.getAllOnCallPeriods();
-
-      if (!allPeriods || allPeriods.length === 0) {
-        return startRow;
-      }
-
-      // Monatsgrenzen, Ende exklusiv (Mitternacht des Folgemonats)
-      const { start: monthStart, end: monthEnd } = callouts.getMonthBounds(year, month);
-      const now = new Date();
-
-      const overlappingPeriods = [];
-
-      for (const period of allPeriods) {
-        if (!period.startDate || !period.startTime) continue;
-
-        const periodStart = this.parseDateTime(period.startDate, period.startTime);
-        const isRunning = !period.endDate;
-
-        // Laufende Bereitschaft: bis jetzt, höchstens bis Monatsende
-        const periodEnd = isRunning
-          ? new Date(Math.min(now.getTime(), monthEnd.getTime()))
-          : this.parseDateTime(period.endDate, period.endTime);
-
-        if (periodEnd <= monthStart || periodStart >= monthEnd) {
-          continue; // Keine Überlappung mit diesem Monat
-        }
-
-        const adjustedStart = periodStart < monthStart ? monthStart : periodStart;
-        const adjustedEnd = periodEnd > monthEnd ? monthEnd : periodEnd;
-
-        if (adjustedEnd <= adjustedStart) continue;
-
-        const onCallHours = await callouts.calculateOnCallHours(adjustedStart, adjustedEnd);
-
-        overlappingPeriods.push({
-          id: period.id,
-          from: `${this.formatDate(adjustedStart)} ${this.formatTime(adjustedStart)}`,
-          to: callouts.formatEndLabel(adjustedEnd) + (isRunning ? ' (laufend)' : ''),
-          hours: onCallHours
-        });
-      }
+      const { start, end } = callouts.getMonthBounds(year, month);
+      const overlappingPeriods = await callouts.getOnCallPeriodsInWindow(start, end);
 
       if (overlappingPeriods.length === 0) {
         return startRow;
@@ -556,33 +517,9 @@ class ExcelExport {
     };
   }
 
-  // Helper: Parse date and time strings to Date object
-  parseDateTime(dateStr, timeStr) {
-    const [day, month, year] = dateStr.split('.').map(Number);
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return new Date(year, month - 1, day, hours, minutes);
-  }
 
-  // Helper: Format Date object to DD.MM.YYYY
-  formatDate(date) {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
-  }
 
-  // Helper: Format Date object to HH:MM
-  formatTime(date) {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  }
 
-  // Calculate on-call hours for a period within month boundaries.
-  // Delegiert an callouts.calculateOnCallHours() - die einzige Implementierung.
-  async calculateMonthlyOnCallHours(period, adjustedStart, adjustedEnd) {
-    return callouts.calculateOnCallHours(adjustedStart, adjustedEnd);
-  }
 
   // === NEU: EXACT WIE BEIM CSV – MAIL & SHARE ===
   async exportAndSend(entries, year, month, userName, settings) {
