@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.25.0';
+const APP_VERSION = '1.26.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2082,6 +2082,156 @@ class App {
     }
   }
 
+  // ===== Statistik =====
+
+  /**
+   * Wochen- bzw. Monatsübersicht.
+   *
+   * Nach dem Muster von renderCalendarView(): Der Zeitraum ist ein
+   * Funktionsparameter, Blättern ruft die Funktion rekursiv auf, Listener
+   * werden nach jedem Render neu gebunden.
+   */
+  async showStatistics(mode = 'month', refDate = new Date()) {
+    const isWeek = mode === 'week';
+    const bounds = isWeek
+      ? statistics.getWeekBounds(refDate)
+      : callouts.getMonthBounds(refDate.getFullYear(), refDate.getMonth() + 1);
+
+    const summary = await statistics.calculatePeriodSummary(
+      bounds.start, bounds.end, ui.settings, this.session
+    );
+
+    // Titel
+    let periodLabel;
+    if (isWeek) {
+      const last = new Date(bounds.end.getTime() - 1);
+      const short = (d) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`;
+      periodLabel = `KW ${statistics.getWeekNumber(bounds.start)} · ${short(bounds.start)}–${short(last)}${last.getFullYear()}`;
+    } else {
+      periodLabel = `${ui.t('monthNames')[refDate.getMonth()]} ${refDate.getFullYear()}`;
+    }
+
+    const hhmm = (h) => callouts.hoursToHHMM(h);
+    const money = (v) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const balanceColor = summary.balance >= 0
+      ? 'text-green-600 dark:text-green-400'
+      : 'text-red-600 dark:text-red-400';
+    const balanceSign = summary.balance >= 0 ? '+' : '';
+
+    const livedot = summary.hasRunningOnCall
+      ? '<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse ml-1"></span>'
+      : '';
+
+    const tile = (label, value, extraClass = '') => `
+      <div>
+        <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${label}</div>
+        <div class="text-sm font-semibold ${extraClass || 'text-gray-900 dark:text-white'}">${value}</div>
+      </div>
+    `;
+
+    const tabClass = (active) => active
+      ? 'flex-1 px-3 py-2 text-sm rounded-lg border bg-primary border-primary text-gray-900 font-semibold'
+      : 'flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary';
+
+    const contentHtml = `
+      <div class="space-y-4">
+        <!-- Umschalter -->
+        <div class="flex gap-2">
+          <button id="stats-mode-week" class="${tabClass(isWeek)}">${ui.t('week')}</button>
+          <button id="stats-mode-month" class="${tabClass(!isWeek)}">${ui.t('month')}</button>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex items-center justify-between">
+          <button id="stats-prev" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
+            ${ui.icon('chevron-left', 'w-6 h-6')}
+          </button>
+          <div class="text-base font-semibold text-gray-900 dark:text-white text-center">${periodLabel}</div>
+          <button id="stats-next" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
+            ${ui.icon('chevron-right', 'w-6 h-6')}
+          </button>
+        </div>
+
+        <!-- Saldo -->
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-4 border border-blue-200 dark:border-gray-600">
+          <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('balance')}</div>
+          <div class="text-3xl font-bold ${balanceColor}">${balanceSign}${hhmm(summary.balance)}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            ${ui.t('actual')} ${hhmm(summary.actualHours)} · ${ui.t('target')} ${hhmm(summary.targetHours)}
+          </div>
+        </div>
+
+        <!-- Bereitschaft & Einsätze -->
+        ${ui.settings?.onCallEnabled ? `
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('onCall')}</div>
+              <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${hhmm(summary.onCallHours)}${livedot}</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('callouts')}</div>
+              <div class="text-2xl font-bold text-gray-900 dark:text-white">${summary.calloutCount} × ${hhmm(summary.calloutHours)}</div>
+            </div>
+          </div>
+          ${summary.onCallEuro !== null ? `
+            <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
+              ${money(summary.onCallEuro)} €${summary.onCallZaHours !== null
+                ? `  ≙  ${hhmm(summary.onCallZaHours)} ${ui.t('timeAccount')}` : ''}
+            </div>` : ''}
+        </div>
+        ` : ''}
+
+        <!-- Tageszähler -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div class="grid grid-cols-2 gap-y-3 gap-x-4">
+            ${tile(ui.t('entryTypeWork'), summary.workDays)}
+            ${tile(ui.t('entryTypeVacation'), summary.vacationDays)}
+            ${tile(ui.t('entryTypeSick'), summary.sickDays)}
+            ${tile(ui.t('entryTypeHoliday'), summary.holidayDays)}
+            ${tile(ui.t('entryTypeTimeOff'), summary.timeoffDays)}
+            ${tile(ui.t('missingDays'), summary.missingDays,
+                   summary.missingDays > 0 ? 'text-red-600 dark:text-red-400' : '')}
+          </div>
+          ${summary.missingDays > 0
+            ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-3">${ui.t('missingDaysHint')}</p>` : ''}
+        </div>
+
+        <!-- Resturlaub -->
+        <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <span class="text-sm text-gray-600 dark:text-gray-400">${ui.t('remainingVacation')}</span>
+          <span class="text-lg font-bold text-blue-600 dark:text-blue-400">
+            ${ui.settings?.workTimeTracking?.vacation?.remainingDays ?? 0} ${ui.t('days')}
+          </span>
+        </div>
+      </div>
+    `;
+
+    ui.showModalWithHeader({
+      title: ui.t('statistics'),
+      icon: 'chart-bar',
+      content: contentHtml
+    });
+
+    // Listener nach jedem Render neu binden
+    document.getElementById('stats-mode-week').addEventListener('click',
+      () => this.showStatistics('week', refDate));
+    document.getElementById('stats-mode-month').addEventListener('click',
+      () => this.showStatistics('month', refDate));
+
+    document.getElementById('stats-prev').addEventListener('click', () => {
+      const d = new Date(refDate);
+      isWeek ? d.setDate(d.getDate() - 7) : d.setMonth(d.getMonth() - 1, 1);
+      this.showStatistics(mode, d);
+    });
+
+    document.getElementById('stats-next').addEventListener('click', () => {
+      const d = new Date(refDate);
+      isWeek ? d.setDate(d.getDate() + 7) : d.setMonth(d.getMonth() + 1, 1);
+      this.showStatistics(mode, d);
+    });
+  }
   // ===== Sollstunden & Sätze =====
 
   /**
@@ -2394,53 +2544,6 @@ class App {
     await storage.saveSettings(ui.settings);
   }
 
-  /**
-   * Ist- und Sollstunden EINES Tages.
-   *
-   * Das ist die einzige Stelle, an der diese Regeln stehen. Sie werden von
-   * recalculateTimeAccountBalance() benutzt und später von der
-   * Statistik-Ansicht - in dieser Session sind schon dreimal Fehler dadurch
-   * entstanden, dass dieselbe Rechnung mehrfach im Code lag und auseinanderlief.
-   *
-   * Regeln:
-   *   - Urlaub/Krankenstand/Feiertag: Soll auf 0 -> saldoneutral
-   *   - Zeitausgleich/unbezahlt: Ist 0, Soll bleibt -> verbraucht Überstunden
-   *   - Tag ohne Eintrag: Soll als Schuld, ausser an Feiertagen
-   *
-   * @param {Date} date
-   * @param {Object|undefined} entry - Worklog-Eintrag dieses Tages, falls vorhanden
-   * @param {Object} settings
-   * @returns {{actual: number, target: number, missing: boolean}}
-   */
-  getDayBalance(date, entry, settings) {
-    if (entry) {
-      // Historisches Soll aus dem Eintrag bevorzugen. Bewusst ?? statt ||:
-      // ein gespeichertes Soll von 0 (Wochenende, Abwesenheit) ist gültig und
-      // darf nicht auf die aktuellen Einstellungen zurückfallen.
-      let target = entry.targetHours ?? timeAccount.getDailyTargetHours(date, settings);
-
-      if (entry.entryType === 'vacation' ||
-          entry.entryType === 'sick' ||
-          entry.entryType === 'holiday') {
-        target = 0;
-      }
-
-      return {
-        actual: timeAccount.getActualHours(entry, settings),
-        target,
-        missing: false
-      };
-    }
-
-    // Kein Eintrag: Werktag ohne Erfassung ist eine Schuld, Feiertage sind neutral
-    const target = timeAccount.getDailyTargetHours(date, settings);
-
-    if (target > 0 && !austrianHolidays.isHoliday(callouts.formatDate(date)).isHoliday) {
-      return { actual: 0, target, missing: true };
-    }
-
-    return { actual: 0, target: 0, missing: false };
-  }
 
   // Recalculate time account balance holistically
   async recalculateTimeAccountBalance() {
@@ -2478,7 +2581,7 @@ class App {
 
     while (currentDate <= today) {
       const dateStr = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
-      const day = this.getDayBalance(currentDate, entryMap.get(dateStr), ui.settings);
+      const day = statistics.getDayBalance(currentDate, entryMap.get(dateStr), ui.settings);
 
       balanceChange += (day.actual - day.target);
 
@@ -3570,6 +3673,12 @@ class App {
             ${ui.icon('history')}
             <span>${ui.t('recordings')}</span>
           </button>
+          ${ui.settings?.workTimeTracking?.enabled ? `
+          <button id="menu-statistics" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
+            ${ui.icon('chart-bar')}
+            <span>${ui.t('statistics')}</span>
+          </button>
+          ` : ''}
           ${ui.settings?.onCallEnabled ? `
           <button id="menu-callouts" class="w-full px-4 py-3 text-left bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg flex items-center gap-3">
             ${ui.icon('plus')}
@@ -3597,6 +3706,11 @@ class App {
     document.getElementById('menu-history').addEventListener('click', () => {
       ui.hideModal();
       this.showHistory();
+    });
+
+    document.getElementById('menu-statistics')?.addEventListener('click', () => {
+      ui.hideModal();
+      this.showStatistics();
     });
 
     document.getElementById('menu-callouts')?.addEventListener('click', () => {

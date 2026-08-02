@@ -20,10 +20,12 @@ class CSVExport {
 
   // Convert hours to HH:MM format
   hoursToHHMM(hours) {
-    const totalMins = Math.round(hours * 60);
+    // Vorzeichen getrennt, sonst wird aus -18,38 h "-19:-23"
+    const negative = hours < 0;
+    const totalMins = Math.round(Math.abs(hours) * 60);
     const h = Math.floor(totalMins / 60);
     const m = totalMins % 60;
-    return `${this.pad2(h)}:${this.pad2(m)}`;
+    return `${negative ? '-' : ''}${this.pad2(h)}:${this.pad2(m)}`;
   }
 
   // Create a single CSV row from session data

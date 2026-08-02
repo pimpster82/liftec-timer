@@ -21,6 +21,10 @@ class UI {
         travelTime: 'Fahrtzeit',
         surcharge: 'Zuschlag',
         // Sollstunden & Sätze
+        statistics: 'Statistik',
+        month: 'Monat',
+        missingDays: 'Fehltage',
+        missingDaysHint: 'Werktage ohne Eintrag zählen als Minusstunden. Fehlt hier etwas, ist das meist der Grund für ein unerwartetes Minus.',
         ratesTitle: 'Sollstunden & Sätze',
         ratesHint: 'Ein Satz gilt ab seinem Datum, bis ein jüngerer greift. Alte Monate bleiben dadurch korrekt, auch wenn du eine Änderung erst später einträgst.',
         ratesNone: 'Noch keine Sätze hinterlegt',
@@ -442,6 +446,10 @@ class UI {
         travelTime: 'Travel time',
         surcharge: 'Surcharge',
         // Rates
+        statistics: 'Statistics',
+        month: 'Month',
+        missingDays: 'Missing days',
+        missingDaysHint: 'Workdays without an entry count as negative hours. If something is missing here, that is usually the reason for an unexpected minus.',
         ratesTitle: 'Target hours & rates',
         ratesHint: 'A rate applies from its date until a newer one takes over. Past months stay correct even if you enter a change later.',
         ratesNone: 'No rates defined yet',
@@ -863,6 +871,10 @@ class UI {
         travelTime: 'Vrijeme putovanja',
         surcharge: 'Prirez',
         // Stope
+        statistics: 'Statistika',
+        month: 'Mjesec',
+        missingDays: 'Dani bez unosa',
+        missingDaysHint: 'Radni dani bez unosa broje se kao minus sati. Ako ovdje nešto nedostaje, to je obično razlog neočekivanog minusa.',
         ratesTitle: 'Ciljni sati i stope',
         ratesHint: 'Stopa vrijedi od svog datuma dok je ne zamijeni novija. Stari mjeseci ostaju točni i ako promjenu uneseš naknadno.',
         ratesNone: 'Još nema definiranih stopa',
@@ -1323,6 +1335,7 @@ class UI {
       'chevron-right': '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>',
       'chevron-down': '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>',
       cloud: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-4"/></svg>',
+      'chart-bar': '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>',
       share: '<svg class="' + className + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>'
     };
     return icons[name] || '';
@@ -1372,10 +1385,12 @@ class UI {
   }
 
   hoursToHHMM(hours) {
-    const totalMins = Math.round(hours * 60);
+    // Vorzeichen getrennt, sonst wird aus -18,38 h "-19:-23"
+    const negative = hours < 0;
+    const totalMins = Math.round(Math.abs(hours) * 60);
     const h = Math.floor(totalMins / 60);
     const m = totalMins % 60;
-    return `${this.pad2(h)}:${this.pad2(m)}`;
+    return `${negative ? '-' : ''}${this.pad2(h)}:${this.pad2(m)}`;
   }
 
   getGreeting() {

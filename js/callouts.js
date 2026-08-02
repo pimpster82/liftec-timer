@@ -38,10 +38,13 @@ class Callouts {
 
   // Dezimalstunden -> 'HH:MM' (auch >24h, z.B. '123:45')
   hoursToHHMM(hours) {
-    const totalMinutes = Math.round(hours * 60);
+    // Vorzeichen getrennt behandeln: Math.floor(-18.4) waere -19 und der
+    // Modulo negativ, aus -18,38 h wuerde "-19:-23" statt "-18:23"
+    const negative = hours < 0;
+    const totalMinutes = Math.round(Math.abs(hours) * 60);
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return `${negative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
   // 'DD.MM.YYYY' -> 'YYYY-MM'
