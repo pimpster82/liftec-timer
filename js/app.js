@@ -2879,51 +2879,6 @@ class App {
     });
   }
 
-  showInputDialog(title, initialValue = '') {
-    return new Promise((resolve) => {
-      const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">${title}</h3>
-          <input type="text" id="text-input" value="${initialValue}"
-                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-          <div class="flex space-x-3">
-            <button id="dialog-cancel" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-              ${ui.t('cancel')}
-            </button>
-            <button id="dialog-ok" class="flex-1 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary-dark">
-              ${ui.t('save')}
-            </button>
-          </div>
-        </div>
-      `;
-
-      ui.showModal(content);
-
-      const input = document.getElementById('text-input');
-      input.focus();
-      input.select();
-
-      document.getElementById('dialog-ok').addEventListener('click', () => {
-        const value = input.value;
-        ui.hideModal();
-        resolve(value);
-      });
-
-      document.getElementById('dialog-cancel').addEventListener('click', () => {
-        ui.hideModal();
-        resolve(null);
-      });
-
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          const value = input.value;
-          ui.hideModal();
-          resolve(value);
-        }
-      });
-    });
-  }
-
   // Combined picker for pause and travel time with increment/decrement
   showPauseTravelPicker(defaultPause = 0.5, defaultTravel = 0) {
     return new Promise((resolve) => {
