@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.24.0';
+const APP_VERSION = '1.25.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2082,6 +2082,234 @@ class App {
     }
   }
 
+  // ===== Sollstunden & Sätze =====
+
+  /**
+   * Sätze absteigend nach Gültigkeitsdatum, jüngster zuerst.
+   */
+  getSortedRates() {
+    const history = ui.settings?.workTimeTracking?.rateHistory || [];
+    return [...history].sort((a, b) => b.validFrom.localeCompare(a.validFrom));
+  }
+
+  /**
+   * 'YYYY-MM-DD' -> 'DD.MM.YYYY' für die Anzeige
+   */
+  formatValidFrom(value) {
+    const parts = String(value || '').split('-');
+    if (parts.length !== 3) return value || '';
+    return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  }
+
+  /**
+   * Liste der Sätze in den Einstellungen aufbauen.
+   * Wird nach jeder Änderung erneut aufgerufen, Listener kommen dabei neu.
+   */
+  renderRatesList() {
+    const container = document.getElementById('rates-list');
+    if (!container) return;
+
+    const rates = this.getSortedRates();
+
+    if (rates.length === 0) {
+      container.innerHTML = `<p class="text-sm text-gray-500 dark:text-gray-400">${ui.t('ratesNone')}</p>`;
+      return;
+    }
+
+    const fmtMoney = (v) => Number(v || 0).toFixed(2).replace('.', ',');
+
+    container.innerHTML = rates.map((rate, index) => {
+      const weekly = Object.values(rate.dailyTargetHours || {})
+        .reduce((sum, h) => sum + (Number(h) || 0), 0);
+
+      const money = [];
+      if (rate.onCallRate > 0) money.push(`${fmtMoney(rate.onCallRate)} €/h ${ui.t('onCall')}`);
+      if (rate.hourlyWage > 0) money.push(`${fmtMoney(rate.hourlyWage)} € ${ui.t('hourlyWageShort')}`);
+
+      return `
+        <div class="flex items-center justify-between gap-2 bg-white dark:bg-gray-800 rounded-lg p-2 border border-gray-200 dark:border-gray-700">
+          <div class="min-w-0">
+            <div class="text-sm font-medium text-gray-900 dark:text-white">
+              ${ui.t('validFrom')} ${this.formatValidFrom(rate.validFrom)}
+            </div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
+              ${ui.formatHours(weekly)} ${ui.t('hoursShort')}/${ui.t('week')}${money.length ? ' · ' + money.join(' · ') : ''}
+            </div>
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <button class="rate-edit-btn text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 p-1" data-index="${index}" title="${ui.t('edit')}">
+              ${ui.icon('edit')}
+            </button>
+            ${rates.length > 1 ? `
+            <button class="rate-delete-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1" data-index="${index}" title="${ui.t('delete')}">
+              ${ui.icon('trash')}
+            </button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.rate-edit-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const rate = this.getSortedRates()[parseInt(e.currentTarget.dataset.index)];
+        const saved = await this.showRateDialog(rate);
+        if (saved) this.renderRatesList();
+      });
+    });
+
+    container.querySelectorAll('.rate-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const rate = this.getSortedRates()[parseInt(e.currentTarget.dataset.index)];
+        const history = ui.settings.workTimeTracking.rateHistory;
+
+        ui.settings.workTimeTracking.rateHistory = history.filter(r => r.validFrom !== rate.validFrom);
+        await storage.saveSettings(ui.settings);
+        await this.recalculateTimeAccountBalance();
+
+        ui.showToast(ui.t('rateDeleted'), 'success');
+        this.renderRatesList();
+      });
+    });
+  }
+
+  /**
+   * Dialog zum Anlegen oder Bearbeiten eines Satzes.
+   * Gibt true zurück, wenn gespeichert wurde.
+   *
+   * Das Gültig-ab-Datum ist der Schlüssel: Ein Satz gilt ab diesem Tag, bis
+   * ein jüngerer greift. Wird ein Satz rückwirkend eingefügt, rechnen sich
+   * die betroffenen Monate danach automatisch neu.
+   */
+  async showRateDialog(existingRate) {
+    const isNew = !existingRate;
+    const rate = existingRate || {
+      validFrom: this.formatReferenceDate(new Date()),
+      dailyTargetHours: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 },
+      onCallRate: 0,
+      hourlyWage: 0
+    };
+
+    const days = [
+      ['monday', ui.t('monday')], ['tuesday', ui.t('tuesday')], ['wednesday', ui.t('wednesday')],
+      ['thursday', ui.t('thursday')], ['friday', ui.t('friday')],
+      ['saturday', ui.t('saturday')], ['sunday', ui.t('sunday')]
+    ];
+
+    const contentHtml = `
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${ui.t('validFrom')}</label>
+          <input type="date" id="rate-valid-from" value="${rate.validFrom}"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${ui.t('validFromHint')}</p>
+        </div>
+
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">${ui.t('dailyTarget')}</div>
+          <div class="space-y-2">
+            ${days.map(([key, label]) => `
+              <div class="flex items-center justify-between gap-3">
+                <label class="text-sm text-gray-600 dark:text-gray-400">${label}</label>
+                <input type="text" id="rate-${key}" value="${rate.dailyTargetHours?.[key] || 0}" inputmode="decimal"
+                  class="w-24 px-2 py-1.5 text-sm text-right border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+              </div>
+            `).join('')}
+          </div>
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">${ui.t('weeklyTarget')}</span>
+            <span id="rate-weekly-total" class="text-sm font-bold text-primary">0</span>
+          </div>
+        </div>
+
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">${ui.t('rateMoney')}</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('onCallRate')}</label>
+              <input type="text" id="rate-oncall" value="${rate.onCallRate || 0}" inputmode="decimal"
+                class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('hourlyWage')}</label>
+              <input type="text" id="rate-wage" value="${rate.hourlyWage || 0}" inputmode="decimal"
+                class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${ui.t('rateMoneyHint')}</p>
+        </div>
+      </div>
+    `;
+
+    const footerHtml = `
+      <button type="button" id="rate-save" class="w-full px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
+        ${ui.icon('check', 'w-4 h-4')}
+        <span>${ui.t('save')}</span>
+      </button>
+    `;
+
+    return new Promise((resolve) => {
+      ui.showModalWithHeader({
+        title: isNew ? ui.t('rateAdd') : ui.t('rateEdit'),
+        icon: 'clock',
+        content: contentHtml,
+        footer: footerHtml,
+        onClose: () => { ui.hideModal(); resolve(false); }
+      });
+
+      const updateTotal = () => {
+        const total = days.reduce((sum, [key]) =>
+          sum + this.parseTimeInput(document.getElementById(`rate-${key}`)?.value), 0);
+        document.getElementById('rate-weekly-total').textContent =
+          `${ui.formatHours(total)} ${ui.t('hoursShort')}`;
+      };
+
+      days.forEach(([key]) => {
+        document.getElementById(`rate-${key}`)?.addEventListener('input', updateTotal);
+      });
+      updateTotal();
+
+      document.getElementById('rate-save').addEventListener('click', async () => {
+        const validFrom = document.getElementById('rate-valid-from').value;
+
+        if (!validFrom) {
+          ui.showToast(ui.t('validFromMissing'), 'error');
+          return;
+        }
+
+        const dailyTargetHours = {};
+        for (const [key] of days) {
+          dailyTargetHours[key] = this.parseTimeInput(document.getElementById(`rate-${key}`).value);
+        }
+
+        const newRate = {
+          validFrom,
+          dailyTargetHours,
+          onCallRate: this.parseDaysInput(document.getElementById('rate-oncall').value),
+          hourlyWage: this.parseDaysInput(document.getElementById('rate-wage').value)
+        };
+
+        const history = ui.settings.workTimeTracking.rateHistory || [];
+
+        // Ein Datum darf nur einmal vorkommen. Beim Bearbeiten wird der alte
+        // Eintrag ersetzt, auch wenn das Datum geändert wurde.
+        const without = history.filter(r =>
+          r.validFrom !== validFrom &&
+          (isNew || r.validFrom !== existingRate.validFrom)
+        );
+
+        ui.settings.workTimeTracking.rateHistory = [...without, newRate];
+        await storage.saveSettings(ui.settings);
+
+        // Sollstunden geändert -> der Saldo muss neu gerechnet werden
+        await this.recalculateTimeAccountBalance();
+
+        ui.hideModal();
+        ui.showToast(ui.t('rateSaved'), 'success');
+        resolve(true);
+      });
+    });
+  }
+
   /**
    * Überführt die flachen Sollstunden in die Satz-Historie.
    *
@@ -3698,6 +3926,27 @@ class App {
             </label>
           </div>
 
+          <!-- Sollstunden & Sätze -->
+          ${settings.workTimeTracking?.enabled ? `
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="rates-content">
+              <div class="flex items-center gap-2">
+                ${ui.icon('clock')}
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${ui.t('ratesTitle')}</h4>
+              </div>
+              ${ui.icon('chevron-down', 'w-5 h-5 collapsible-icon transition-transform')}
+            </button>
+            <div id="rates-content" class="collapsible-content hidden mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-2 border-primary">
+              <div id="rates-list" class="space-y-2"></div>
+              <button id="rate-add-btn" class="w-full mt-3 px-3 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary-dark flex items-center justify-center gap-2">
+                ${ui.icon('plus')}
+                <span>${ui.t('rateAdd')}</span>
+              </button>
+              <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">${ui.t('ratesHint')}</p>
+            </div>
+          </div>
+          ` : ''}
+
           <!-- Email Export Settings -->
           <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
             <button class="collapsible-header w-full flex items-center justify-between text-left" data-target="email-content">
@@ -3884,6 +4133,14 @@ class App {
           if (icon) icon.style.transform = 'rotate(0deg)';
         }
       });
+    });
+
+    // ===== Sollstunden & Sätze =====
+    this.renderRatesList();
+
+    document.getElementById('rate-add-btn')?.addEventListener('click', async () => {
+      const saved = await this.showRateDialog(null);
+      if (saved) this.renderRatesList();
     });
 
     // ===== Update Check Button =====

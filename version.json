@@ -1,7 +1,9 @@
 {
-  "version": "1.24.0",
+  "version": "1.25.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Neu: Sollstunden, Bereitschaftssatz und Stundenlohn mit Gültigkeitsdatum",
+    "Fix: Eine geänderte Wochenarbeitszeit verschiebt alte Monate nicht mehr rückwirkend",
     "Neu: Zuschlags-Prozentsatz ist im Bearbeiten-Dialog sichtbar und änderbar",
     "Fix: Ein per Session gewählter Zuschlagssatz geht beim Bearbeiten nicht mehr verloren",
     "Fix: Eine leere Aufgabenzeile setzt den Zuschlag nicht mehr auf null",
