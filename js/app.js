@@ -2098,6 +2098,54 @@ class App {
     await storage.saveSettings(ui.settings);
   }
 
+  /**
+   * Ist- und Sollstunden EINES Tages.
+   *
+   * Das ist die einzige Stelle, an der diese Regeln stehen. Sie werden von
+   * recalculateTimeAccountBalance() benutzt und später von der
+   * Statistik-Ansicht - in dieser Session sind schon dreimal Fehler dadurch
+   * entstanden, dass dieselbe Rechnung mehrfach im Code lag und auseinanderlief.
+   *
+   * Regeln:
+   *   - Urlaub/Krankenstand/Feiertag: Soll auf 0 -> saldoneutral
+   *   - Zeitausgleich/unbezahlt: Ist 0, Soll bleibt -> verbraucht Überstunden
+   *   - Tag ohne Eintrag: Soll als Schuld, ausser an Feiertagen
+   *
+   * @param {Date} date
+   * @param {Object|undefined} entry - Worklog-Eintrag dieses Tages, falls vorhanden
+   * @param {Object} settings
+   * @returns {{actual: number, target: number, missing: boolean}}
+   */
+  getDayBalance(date, entry, settings) {
+    if (entry) {
+      // Historisches Soll aus dem Eintrag bevorzugen. Bewusst ?? statt ||:
+      // ein gespeichertes Soll von 0 (Wochenende, Abwesenheit) ist gültig und
+      // darf nicht auf die aktuellen Einstellungen zurückfallen.
+      let target = entry.targetHours ?? timeAccount.getDailyTargetHours(date, settings);
+
+      if (entry.entryType === 'vacation' ||
+          entry.entryType === 'sick' ||
+          entry.entryType === 'holiday') {
+        target = 0;
+      }
+
+      return {
+        actual: timeAccount.getActualHours(entry, settings),
+        target,
+        missing: false
+      };
+    }
+
+    // Kein Eintrag: Werktag ohne Erfassung ist eine Schuld, Feiertage sind neutral
+    const target = timeAccount.getDailyTargetHours(date, settings);
+
+    if (target > 0 && !austrianHolidays.isHoliday(callouts.formatDate(date)).isHoliday) {
+      return { actual: 0, target, missing: true };
+    }
+
+    return { actual: 0, target: 0, missing: false };
+  }
+
   // Recalculate time account balance holistically
   async recalculateTimeAccountBalance() {
     if (!ui.settings?.workTimeTracking?.enabled) {
@@ -2134,37 +2182,9 @@ class App {
 
     while (currentDate <= today) {
       const dateStr = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
-      const entry = entryMap.get(dateStr);
+      const day = this.getDayBalance(currentDate, entryMap.get(dateStr), ui.settings);
 
-      if (entry) {
-        // Entry exists - use the targetHours saved in the entry (historical)
-        // If not saved (legacy entries), calculate from current settings
-        let targetHours = entry.targetHours || timeAccount.getDailyTargetHours(currentDate, ui.settings);
-
-        // Urlaub/Krankenstand/Feiertag: Soll auf 0 setzen (kein Soll an diesem Tag)
-        // Diese Tage zählen nicht zur Arbeitszeit-Statistik
-        if (entry.entryType === 'vacation' ||
-            entry.entryType === 'sick' ||
-            entry.entryType === 'holiday') {
-          targetHours = 0;
-        }
-
-        const actualHours = timeAccount.getActualHours(entry, ui.settings);
-        balanceChange += (actualHours - targetHours);
-      } else {
-        // NO entry for this day
-        const targetHours = timeAccount.getDailyTargetHours(currentDate, ui.settings);
-
-        if (targetHours > 0) {
-          // Check if this is a public holiday
-          const holidayCheck = austrianHolidays.isHoliday(dateStr);
-
-          if (!holidayCheck.isHoliday) {
-            // Missing regular workday = debt (holidays are neutral)
-            balanceChange -= targetHours;
-          }
-        }
-      }
+      balanceChange += (day.actual - day.target);
 
       currentDate.setDate(currentDate.getDate() + 1);
     }
