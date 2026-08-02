@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.26.1';
+const APP_VERSION = '1.27.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -4890,59 +4890,22 @@ class App {
       return dateB.localeCompare(dateA);
     });
 
-    // Calculate statistics
+    // Kennzahlen für die aktuelle Woche und den aktuellen Monat.
+    // Bewusst über dieselbe Funktion wie die Statistik-Ansicht - vorher lief
+    // hier eine eigene Schleife, die nach oben offen war (zukünftige Einträge
+    // zählten mit) und jeden Eintrag als Arbeitstag wertete, auch Urlaub.
     const now = new Date();
-    const currentWeekStart = new Date(now);
-    // Get Monday of current week (handle Sunday correctly: 0 -> -6 days, not +1)
-    const dayOfWeek = now.getDay();
-    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    currentWeekStart.setDate(now.getDate() - daysToSubtract);
-    currentWeekStart.setHours(0, 0, 0, 0);
+    const week = statistics.getWeekBounds(now);
+    const month = callouts.getMonthBounds(now.getFullYear(), now.getMonth() + 1);
 
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const weekSummary = await statistics.calculatePeriodSummary(
+      week.start, week.end, ui.settings, this.session
+    );
+    const monthSummary = await statistics.calculatePeriodSummary(
+      month.start, month.end, ui.settings, this.session
+    );
 
-    let weekHours = 0;
-    let weekDays = 0;
-    let monthHours = 0;
-    let monthDays = 0;
-
-    entries.forEach(entry => {
-      const [day, month, year] = entry.date.split('.');
-      const entryDate = new Date(year, month - 1, day);
-      const workHours = callouts.getNetWorkHours(entry);
-
-      if (entryDate >= currentWeekStart) {
-        weekHours += workHours;
-        weekDays++;
-      }
-
-      if (entryDate >= currentMonthStart) {
-        monthHours += workHours;
-        monthDays++;
-      }
-    });
-
-    // Add current session if active
-    let isSessionActive = false;
-    if (this.session) {
-      const sessionStart = new Date(this.session.start);
-      const sessionDate = new Date(sessionStart.getFullYear(), sessionStart.getMonth(), sessionStart.getDate());
-
-      // Calculate current session duration (in hours)
-      const currentDuration = (Date.now() - sessionStart.getTime()) / (1000 * 60 * 60);
-
-      // Check if session is in current week
-      if (sessionDate >= currentWeekStart) {
-        weekHours += currentDuration;
-        isSessionActive = true;
-      }
-
-      // Check if session is in current month
-      if (sessionDate >= currentMonthStart) {
-        monthHours += currentDuration;
-        isSessionActive = true;
-      }
-    }
+    const isSessionActive = !!this.session;
 
     // Work Time Tracking Widget (if enabled)
     let wttWidgetHtml = '';
@@ -4997,20 +4960,40 @@ class App {
       ? `<span class="absolute top-3 right-3 text-gray-500 dark:text-gray-400">${ui.icon('chevron-right', 'w-4 h-4')}</span>`
       : '';
 
+    // Untere Zeile der Kachel: mit Arbeitszeiterfassung der Saldo, sonst
+    // nur die Zahl der Arbeitstage - ohne Soll wäre ein Saldo bedeutungslos
+    const tileFooter = (summary) => {
+      if (!statsLinked) {
+        return `<div class="text-xs text-gray-500 mt-1">${summary.workDays} ${summary.workDays === 1 ? 'Tag' : 'Tage'}</div>`;
+      }
+
+      const color = summary.balance >= 0
+        ? 'text-green-600 dark:text-green-400'
+        : 'text-red-600 dark:text-red-400';
+      const sign = summary.balance >= 0 ? '+' : '';
+
+      return `
+        <div class="text-xs mt-1">
+          <span class="font-semibold ${color}">${sign}${callouts.hoursToHHMM(summary.balance)}</span>
+          <span class="text-gray-500"> · ${ui.t('target')} ${callouts.hoursToHHMM(summary.targetHours)}</span>
+        </div>
+      `;
+    };
+
     const statsHtml = `
       ${wttWidgetHtml}
       <div class="grid grid-cols-2 gap-3 mb-4">
         <${tileTag} ${statsLinked ? 'id="stats-week-tile"' : ''} class="relative bg-primary bg-opacity-20 rounded-lg p-4 text-left w-full${statsLinked ? ' hover:bg-opacity-30 transition-colors btn-press' : ''}">
           ${tileArrow}
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('thisWeek')}</div>
-          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${ui.formatHours(weekHours)}h${liveIndicator}</div>
-          <div class="text-xs text-gray-500 mt-1">${weekDays} ${weekDays === 1 ? 'Tag' : 'Tage'}</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${callouts.hoursToHHMM(weekSummary.actualHours)}${liveIndicator}</div>
+          ${tileFooter(weekSummary)}
         </${tileTag}>
         <${tileTag} ${statsLinked ? 'id="stats-month-tile"' : ''} class="relative bg-blue-100 dark:bg-blue-900 rounded-lg p-4 text-left w-full${statsLinked ? ' hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors btn-press' : ''}">
           ${tileArrow}
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('thisMonth')}</div>
-          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${ui.formatHours(monthHours)}h${liveIndicator}</div>
-          <div class="text-xs text-gray-500 mt-1">${monthDays} ${monthDays === 1 ? 'Tag' : 'Tage'}</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${callouts.hoursToHHMM(monthSummary.actualHours)}${liveIndicator}</div>
+          ${tileFooter(monthSummary)}
         </${tileTag}>
       </div>
     `;
