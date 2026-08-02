@@ -4421,23 +4421,6 @@ class App {
 
   // ===== History =====
 
-  // Helper function: Convert HH:MM to hours
-  timeToHours(timeStr) {
-    if (!timeStr) return 0;
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours + (minutes / 60);
-  }
-
-  // Helper function: Calculate work hours (total time - pause, travel time is INCLUDED)
-  calculateWorkHours(entry) {
-    const startHours = this.timeToHours(entry.startTime);
-    const endHours = this.timeToHours(entry.endTime);
-    const pauseHours = this.timeToHours(entry.pause);
-
-    // Total time - pause (travel time stays in)
-    return (endHours - startHours) - pauseHours;
-  }
-
   async showHistory() {
     const entries = await storage.getAllWorklogEntries();
 
@@ -4487,7 +4470,7 @@ class App {
     entries.forEach(entry => {
       const [day, month, year] = entry.date.split('.');
       const entryDate = new Date(year, month - 1, day);
-      const workHours = this.calculateWorkHours(entry);
+      const workHours = callouts.getNetWorkHours(entry);
 
       if (entryDate >= currentWeekStart) {
         weekHours += workHours;
@@ -4599,7 +4582,7 @@ class App {
         ? entry.tasks.map(t => `${t.type}: ${t.description}`).join('<br>')
         : '';
 
-      const workHours = this.calculateWorkHours(entry);
+      const workHours = callouts.getNetWorkHours(entry);
 
       return `
         <div class="border-b border-gray-200 dark:border-gray-700 py-3 last:border-0" data-entry-id="${entry.id}">
