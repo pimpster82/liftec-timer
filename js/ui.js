@@ -145,6 +145,24 @@ class UI {
         onCallTime: 'Bereitschaftszeit',
         onCallSummary: 'Bereitschaft: {start} bis {end}',
         onCallTotal: 'Insgesamt: {hours}',
+        // Bereitschaftseinsätze (Callouts)
+        callouts: 'Einsätze',
+        calloutAdd: 'Einsatz erfassen',
+        calloutTitle: 'Bereitschaftseinsatz',
+        calloutDate: 'Datum',
+        calloutFrom: 'Von',
+        calloutTo: 'Bis',
+        calloutDescription: 'Beschreibung',
+        calloutSave: 'Einsatz speichern',
+        calloutSaved: 'Einsatz gespeichert',
+        calloutDeleted: 'Einsatz gelöscht',
+        calloutNone: 'Noch keine Einsätze erfasst',
+        calloutRecorded: 'Erfasste Einsätze',
+        calloutInvalidTime: 'Bitte Von- und Bis-Zeit angeben',
+        calloutZeroDuration: 'Von und Bis dürfen nicht gleich sein',
+        calloutOvernightHint: 'Bis vor Von = Einsatz über Mitternacht',
+        calloutNoDoubleEntry: 'Einsätze nicht zusätzlich als Sitzung erfassen – sie würden sonst doppelt von der Bereitschaft abgezogen.',
+        calloutDeleteConfirm: 'Diesen Einsatz löschen?',
         // Calendar View
         startTime: 'Startzeit',
         clickToToggle: 'Zum Wechseln tippen',
@@ -528,6 +546,24 @@ class UI {
         onCallTime: 'On-Call Time',
         onCallSummary: 'On-Call: {start} to {end}',
         onCallTotal: 'Total: {hours}',
+        // Callouts
+        callouts: 'Callouts',
+        calloutAdd: 'Log callout',
+        calloutTitle: 'On-call callout',
+        calloutDate: 'Date',
+        calloutFrom: 'From',
+        calloutTo: 'To',
+        calloutDescription: 'Description',
+        calloutSave: 'Save callout',
+        calloutSaved: 'Callout saved',
+        calloutDeleted: 'Callout deleted',
+        calloutNone: 'No callouts logged yet',
+        calloutRecorded: 'Logged callouts',
+        calloutInvalidTime: 'Please enter a start and end time',
+        calloutZeroDuration: 'From and To must not be identical',
+        calloutOvernightHint: 'To before From = callout across midnight',
+        calloutNoDoubleEntry: 'Do not also log callouts as a session – they would be deducted from on-call twice.',
+        calloutDeleteConfirm: 'Delete this callout?',
         // Calendar View
         startTime: 'Start Time',
         clickToToggle: 'Click to toggle',
@@ -911,6 +947,24 @@ class UI {
         onCallTime: 'Vrijeme dežurstva',
         onCallSummary: 'Dežurstvo: {start} do {end}',
         onCallTotal: 'Ukupno: {hours}',
+        // Intervencije tijekom dežurstva
+        callouts: 'Intervencije',
+        calloutAdd: 'Unesi intervenciju',
+        calloutTitle: 'Intervencija u dežurstvu',
+        calloutDate: 'Datum',
+        calloutFrom: 'Od',
+        calloutTo: 'Do',
+        calloutDescription: 'Opis',
+        calloutSave: 'Spremi intervenciju',
+        calloutSaved: 'Intervencija spremljena',
+        calloutDeleted: 'Intervencija obrisana',
+        calloutNone: 'Još nema unesenih intervencija',
+        calloutRecorded: 'Unesene intervencije',
+        calloutInvalidTime: 'Molimo unesite vrijeme od i do',
+        calloutZeroDuration: 'Od i Do ne smiju biti isti',
+        calloutOvernightHint: 'Do prije Od = intervencija preko ponoći',
+        calloutNoDoubleEntry: 'Intervencije nemojte dodatno unositi kao sesiju – inače bi se dvaput oduzele od dežurstva.',
+        calloutDeleteConfirm: 'Obrisati ovu intervenciju?',
         // Calendar View
         startTime: 'Početak vremena',
         clickToToggle: 'Kliknite za promjenu',
@@ -1429,6 +1483,17 @@ class UI {
           </button>
           ${periodBadge}
         </div>
+      `);
+    }
+
+    // Einsatz-Button - nur während einer laufenden Bereitschaft
+    if (this.settings?.onCallEnabled && onCallStatus?.active) {
+      buttons.push(`
+        <button id="callout-btn"
+                class="bg-orange-500 hover:bg-orange-600 text-white rounded-full p-2 transition-colors btn-press"
+                title="${this.t('calloutAdd')}">
+          ${this.icon('plus', 'w-5 h-5')}
+        </button>
       `);
     }
 

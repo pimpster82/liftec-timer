@@ -1,9 +1,15 @@
 {
-  "version": "1.20.9",
-  "releaseDate": "2026-04-20",
+  "version": "1.21.0",
+  "releaseDate": "2026-08-02",
   "changelog": [
-    "Fix: Update-Banner erscheint nur bei tatsächlichem Update",
-    "Fix: Update-Banner blockiert Navigation nicht mehr"
+    "Fix: Bereitschaft zieht nur noch den überlappenden Teil einer Schicht ab",
+    "Fix: Nachtschichten werden bei Bereitschaft und Zeitkonto korrekt gerechnet",
+    "Fix: Zeitkonto springt nicht mehr – nur noch eine Saldo-Berechnung",
+    "Fix: Feiertag und Zeitausgleich bleiben beim Bearbeiten erhalten",
+    "Fix: Live-Saldo zieht das Tagessoll nicht mehr doppelt ab",
+    "Neu: Bereitschaftseinsätze erfassen (Button in der Hero-Card)",
+    "Neu: Summen-Block und Einsätze-Tabelle in CSV- und Excel-Export",
+    "Neu: Laufende Bereitschaft erscheint im Monatsexport"
   ],
   "critical": false
 }

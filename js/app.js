@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.20.9';
+const APP_VERSION = '1.21.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -806,6 +806,12 @@ class App {
       }
     }
 
+    // Add event listener for callout button (only shown during active on-call)
+    const calloutBtn = document.getElementById('callout-btn');
+    if (calloutBtn) {
+      calloutBtn.addEventListener('click', () => this.showCalloutDialog(onCallStatus));
+    }
+
     // Add event listener for calendar button
     const calendarBtn = document.getElementById('hero-calendar-btn');
     if (calendarBtn) {
@@ -1566,7 +1572,10 @@ class App {
   }
 
   /**
-   * Calculate on-call time (24h - actual work hours during period)
+   * Calculate on-call time for a period.
+   * Bereitschaft = Fensterdauer - überlappende Arbeitszeit - überlappende Einsätze.
+   * Die eigentliche Rechnung liegt in callouts.calculateOnCallHours() - dort gibt
+   * es genau eine Implementierung, die auch Nachtschichten korrekt behandelt.
    * @param {string} startDate - Start date in DD.MM.YYYY format
    * @param {string} startTime - Start time in HH:MM format
    * @param {string} endDate - End date in DD.MM.YYYY format
@@ -1575,40 +1584,192 @@ class App {
    */
   async calculateOnCallTime(startDate, startTime, endDate, endTime) {
     try {
-      // Parse start and end date-time
       const start = this.parseDateTime(startDate, startTime);
       const end = this.parseDateTime(endDate, endTime);
 
-      // Calculate total hours in the period
-      const totalHours = (end - start) / 3600000; // milliseconds to hours
-
-      // Get all worklog entries in the date range
-      const entries = await storage.getEntriesByDateRange(startDate, endDate);
-
-      // Sum up actual work hours (endTime - startTime, not including pause/travel)
-      let workHours = 0;
-      for (const entry of entries) {
-        if (entry.startTime && entry.endTime) {
-          // Parse HH:MM format to decimal hours
-          const [startH, startM] = entry.startTime.split(':').map(Number);
-          const [endH, endM] = entry.endTime.split(':').map(Number);
-          const startHours = startH + (startM / 60);
-          const endHours = endH + (endM / 60);
-
-          // Calculate work hours for this day
-          const dayWork = endHours - startHours;
-          workHours += dayWork;
-        }
-      }
-
-      // On-call time = Total time - Work time
-      const onCallHours = Math.max(0, totalHours - workHours);
-
-      return onCallHours;
+      return await callouts.calculateOnCallHours(start, end);
     } catch (error) {
       console.error('Error calculating on-call time:', error);
       return 0;
     }
+  }
+
+  // ===== Bereitschaftseinsätze (Callouts) =====
+
+  /**
+   * Dialog zum Erfassen von Einsätzen während einer laufenden Bereitschaft.
+   * Zeigt zusätzlich die bereits erfassten Einsätze dieser Bereitschaft.
+   */
+  async showCalloutDialog(onCallStatus) {
+    const status = (onCallStatus && onCallStatus.active)
+      ? onCallStatus
+      : await this.getOnCallStatus();
+
+    if (!status || !status.active) {
+      ui.showToast('Keine aktive Bereitschaft', 'error');
+      return;
+    }
+
+    const escapeHtml = (value) => String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+    const now = new Date();
+    const todayValue = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // Bereits erfasste Einsätze dieser Bereitschaft rendern
+    const renderList = async () => {
+      const container = document.getElementById('callout-list');
+      if (!container) return;
+
+      const segments = await callouts.getCalloutsForPeriod(status.id);
+
+      if (segments.length === 0) {
+        container.innerHTML = `<p class="text-sm text-gray-500 dark:text-gray-400">${ui.t('calloutNone')}</p>`;
+        return;
+      }
+
+      // Segmente eines über Mitternacht laufenden Einsatzes zusammenfassen
+      const groups = new Map();
+      for (const segment of segments) {
+        if (!groups.has(segment.groupId)) groups.set(segment.groupId, []);
+        groups.get(segment.groupId).push(segment);
+      }
+
+      container.innerHTML = Array.from(groups.entries()).map(([groupId, group]) => {
+        const first = group[0];
+        const last = group[group.length - 1];
+        const hours = group.reduce((sum, s) => sum + callouts.getCalloutHours(s), 0);
+        const range = group.length > 1
+          ? `${first.date} ${first.startTime} – ${last.date} ${last.endTime}`
+          : `${first.date} ${first.startTime} – ${first.endTime}`;
+
+        return `
+          <div class="flex items-center justify-between gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg p-2">
+            <div class="min-w-0">
+              <div class="text-sm text-gray-900 dark:text-white truncate">${range}</div>
+              ${first.description ? `<div class="text-xs text-gray-500 dark:text-gray-400 truncate">${escapeHtml(first.description)}</div>` : ''}
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span class="text-sm font-semibold text-primary">${ui.hoursToHHMM(hours)}</span>
+              <button class="callout-delete-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1" data-group="${groupId}" title="${ui.t('delete')}">
+                ${ui.icon('trash')}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.callout-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const groupId = e.currentTarget.dataset.group;
+          await callouts.deleteCallout(groupId);
+          ui.showToast(ui.t('calloutDeleted'), 'success');
+          await renderList();
+        });
+      });
+    };
+
+    const contentHtml = `
+      <div class="space-y-4">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div>
+            <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('calloutDate')}</label>
+            <input type="date" id="callout-date" value="${todayValue}"
+              class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <div>
+              <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('calloutFrom')}</label>
+              <input type="time" id="callout-start"
+                class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('calloutTo')}</label>
+              <input type="time" id="callout-end"
+                class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${ui.t('calloutOvernightHint')}</p>
+
+          <div class="mt-3">
+            <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('calloutDescription')}</label>
+            <input type="text" id="callout-description" placeholder="${ui.t('calloutDescription')}"
+              class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+          </div>
+        </div>
+
+        <p class="text-xs text-gray-500 dark:text-gray-400">${ui.t('calloutNoDoubleEntry')}</p>
+
+        <div>
+          <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${ui.t('calloutRecorded')}</div>
+          <div id="callout-list" class="space-y-2"></div>
+        </div>
+      </div>
+    `;
+
+    const footerHtml = `
+      <button type="button" id="callout-save" class="w-full px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2">
+        ${ui.icon('check', 'w-4 h-4')}
+        <span>${ui.t('calloutSave')}</span>
+      </button>
+    `;
+
+    ui.showModalWithHeader({
+      title: `${ui.t('calloutTitle')} · ${ui.t('onCall')} #${status.id}`,
+      icon: 'plus',
+      content: contentHtml,
+      footer: footerHtml
+    });
+
+    await renderList();
+
+    document.getElementById('callout-save').addEventListener('click', async () => {
+      const dateValue = document.getElementById('callout-date').value;
+      const startTime = document.getElementById('callout-start').value;
+      const endTime = document.getElementById('callout-end').value;
+      const description = document.getElementById('callout-description').value.trim();
+
+      if (!dateValue || !startTime || !endTime) {
+        ui.showToast(ui.t('calloutInvalidTime'), 'error');
+        return;
+      }
+
+      if (startTime === endTime) {
+        ui.showToast(ui.t('calloutZeroDuration'), 'error');
+        return;
+      }
+
+      // 'YYYY-MM-DD' -> 'DD.MM.YYYY'
+      const [year, month, day] = dateValue.split('-');
+      const dateStr = `${day}.${month}.${year}`;
+
+      try {
+        await callouts.addCallout({
+          onCallPeriodId: status.id,
+          date: dateStr,
+          startTime,
+          endTime,
+          description
+        });
+
+        ui.showToast(ui.t('calloutSaved'), 'success');
+
+        // Eingabefelder für den nächsten Einsatz leeren
+        document.getElementById('callout-start').value = '';
+        document.getElementById('callout-end').value = '';
+        document.getElementById('callout-description').value = '';
+
+        await renderList();
+      } catch (error) {
+        console.error('Error saving callout:', error);
+        ui.showToast(ui.t('error'), 'error');
+      }
+    });
   }
 
   /**
@@ -1796,6 +1957,37 @@ class App {
     ui.showToast(ui.t('absenceEntriesSaved').replace('{count}', entries.length), 'success');
   }
 
+  /**
+   * Stichtag ('YYYY-MM-DD') als lokales Datum parsen.
+   * new Date('2025-08-01') würde als UTC gelesen und in Österreich um Stunden
+   * verschoben - deshalb hier explizit als Lokalzeit aufbauen.
+   * Gibt null zurück, wenn kein gültiger Stichtag gesetzt ist.
+   */
+  parseReferenceDate(value) {
+    if (!value || typeof value !== 'string') return null;
+
+    const parts = value.split('-');
+    if (parts.length !== 3) return null;
+
+    const [year, month, day] = parts.map(Number);
+    if (!year || !month || !day) return null;
+
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  /**
+   * Date -> 'YYYY-MM-DD' in Lokalzeit.
+   * NICHT toISOString() verwenden - das rechnet nach UTC und macht in
+   * Österreich aus dem 1. eines Monats den 31. des Vormonats.
+   */
+  formatReferenceDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   // Recalculate vacation remaining days holistically
   async recalculateVacationDays() {
     if (!ui.settings?.workTimeTracking?.enabled) {
@@ -1803,15 +1995,24 @@ class App {
     }
 
     const vacation = ui.settings.workTimeTracking.vacation;
-    const referenceDate = new Date(vacation.referenceDate);
-    const referenceRemaining = vacation.referenceRemaining || vacation.annualDays || 25;
+    const referenceDate = this.parseReferenceDate(vacation.referenceDate);
 
-    // Get all entries after reference date
+    // Ohne Stichtag gibt es keine Basis zum Rechnen (Onboarding nicht abgeschlossen)
+    if (!referenceDate) {
+      console.warn('recalculateVacationDays: kein Stichtag gesetzt, übersprungen');
+      return;
+    }
+
+    const referenceRemaining = vacation.referenceRemaining !== undefined && vacation.referenceRemaining !== null
+      ? vacation.referenceRemaining
+      : (vacation.annualDays || 25);
+
+    // Get all entries from reference date onwards (Stichtag inklusive)
     const allEntries = await storage.getAllWorklogEntries();
     const entriesAfterReference = allEntries.filter(entry => {
       const [d, m, y] = entry.date.split('.');
       const entryDate = new Date(y, m - 1, d);
-      return entryDate > referenceDate;
+      return entryDate >= referenceDate;
     });
 
     // Calculate vacation days used
@@ -1835,8 +2036,16 @@ class App {
     }
 
     const timeAccountSettings = ui.settings.workTimeTracking.timeAccount;
-    const referenceDate = new Date(timeAccountSettings.referenceDate);
+    const referenceDate = this.parseReferenceDate(timeAccountSettings.referenceDate);
     const referenceBalance = timeAccountSettings.referenceBalance || 0;
+
+    // Ohne Stichtag gibt es keine Basis zum Rechnen. Ohne diesen Guard würde
+    // new Date(null) den 01.01.1970 ergeben und die Schleife unten über
+    // 20.000 Tage laufen - mit absurd negativem Saldo als Ergebnis.
+    if (!referenceDate) {
+      console.warn('recalculateTimeAccountBalance: kein Stichtag gesetzt, übersprungen');
+      return;
+    }
 
     // Get all entries for quick lookup
     const allEntries = await storage.getAllWorklogEntries();
@@ -1850,8 +2059,9 @@ class App {
     today.setHours(23, 59, 59, 999); // End of today to ensure today is included
 
     let balanceChange = 0;
+    // Ab dem Stichtag selbst - der Saldo gilt zum Ende des Vormonats,
+    // der 1. des Folgemonats zählt also bereits mit
     const currentDate = new Date(referenceDate);
-    currentDate.setDate(currentDate.getDate() + 1); // Start day after reference
 
     while (currentDate <= today) {
       const dateStr = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
@@ -3104,6 +3314,12 @@ class App {
     const saveSettings = async () => {
       const workTimeTrackingEnabled = document.getElementById('setting-worktime-enabled')?.checked || false;
       const wasEnabled = ui.settings.workTimeTracking?.enabled || false;
+      const onboardingDone = ui.settings.workTimeTracking?.onboardingCompleted || false;
+
+      // Erstaktivierung: noch NICHT aktiv schalten. Ohne abgeschlossenes
+      // Onboarding gibt es keinen Stichtag, und die Saldo-Berechnung hätte
+      // keine Basis. Schritt 3 des Onboardings setzt enabled auf true.
+      const needsOnboarding = workTimeTrackingEnabled && !wasEnabled && !onboardingDone;
 
       const newSettings = {
         username: document.getElementById('setting-username')?.value || '',
@@ -3114,7 +3330,7 @@ class App {
         onCallEnabled: document.getElementById('setting-oncall-enabled')?.checked || false,
         workTimeTracking: {
           ...(ui.settings.workTimeTracking || {}),
-          enabled: workTimeTrackingEnabled
+          enabled: needsOnboarding ? false : workTimeTrackingEnabled
         }
       };
 
@@ -3125,7 +3341,7 @@ class App {
       ui.hideModal();
 
       // If workTimeTracking was just enabled for the first time, show onboarding
-      if (workTimeTrackingEnabled && !wasEnabled && !newSettings.workTimeTracking.onboardingCompleted) {
+      if (needsOnboarding) {
         this.showWorkTimeTrackingOnboarding();
       } else {
         ui.showToast(ui.t('settingsSaved'), 'success');
@@ -4261,11 +4477,12 @@ class App {
       if (this.session) {
         const sessionStart = new Date(this.session.start);
         const currentDuration = (Date.now() - sessionStart.getTime()) / (1000 * 60 * 60);
-        const targetHours = timeAccount.getDailyTargetHours(new Date(), ui.settings);
 
-        // Live balance = brutto hours - target
-        // (Approximate since pause hasn't been entered yet)
-        timeAccountBalance += (currentDuration - targetHours);
+        // Nur die gelaufene Dauer addieren. Das Tagessoll ist im gespeicherten
+        // Saldo bereits abgezogen, weil für heute noch kein Eintrag existiert
+        // (recalculateTimeAccountBalance bucht Tage ohne Eintrag als Schuld).
+        // Ein zweiter Abzug hier würde den Live-Saldo um ein Tagessoll drücken.
+        timeAccountBalance += currentDuration;
       }
 
       const timeAccountColor = timeAccountBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
@@ -4444,7 +4661,10 @@ class App {
           'Urlaub': 'vacation',
           'Krankenstand': 'sick',
           'Feiertag': 'holiday',
-          'Zeitausgleich': 'unpaid'
+          // 'timeoff' - identisch zur Massenerfassung in showAbsenceEntry().
+          // Früher stand hier 'unpaid', wodurch derselbe Eintrag je nach
+          // Codepfad zwei verschiedene Typen hatte.
+          'Zeitausgleich': 'timeoff'
         };
         mappedEntryType = absenceMapping[absenceType] || 'vacation';
       }
@@ -4479,11 +4699,11 @@ class App {
       const weekdayName = entryDateObj.toLocaleDateString('de-DE', { weekday: 'long' });
       const dateDisplay = `${weekdayName}, ${entry.date}`;
 
-      // Simplify entry type to 3 options: work, vacation, sick
-      let selectedTileType = 'work';
-      if (currentEntryType === 'vacation') selectedTileType = 'vacation';
-      else if (currentEntryType === 'sick') selectedTileType = 'sick';
-      else selectedTileType = 'work';
+      // Alle Typen, die eine eigene Kachel haben. Ein Typ ohne Kachel würde
+      // beim Speichern auf 'work' zurückfallen - genau dadurch verlor ein
+      // Feiertag früher seine Soll-Nullung und kostete plötzlich ein Tagessoll.
+      const TILE_TYPES = ['work', 'vacation', 'sick', 'holiday', 'timeoff'];
+      const selectedTileType = TILE_TYPES.includes(currentEntryType) ? currentEntryType : 'work';
 
       const contentHtml = `
         <div class="space-y-4">
@@ -4510,6 +4730,14 @@ class App {
               <button type="button" class="entry-type-tile px-2 py-2.5 rounded-lg border-2 transition-all ${selectedTileType === 'sick' ? 'bg-red-500 border-red-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-red-400'}" data-type="sick">
                 ${ui.icon('heart', 'w-4 h-4 mx-auto mb-0.5')}
                 <div class="text-xs font-semibold">Krankenstand</div>
+              </button>
+              <button type="button" class="entry-type-tile px-2 py-2.5 rounded-lg border-2 transition-all ${selectedTileType === 'holiday' ? 'bg-purple-500 border-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-purple-400'}" data-type="holiday">
+                ${ui.icon('calendar', 'w-4 h-4 mx-auto mb-0.5')}
+                <div class="text-xs font-semibold">Feiertag</div>
+              </button>
+              <button type="button" class="entry-type-tile px-2 py-2.5 rounded-lg border-2 transition-all ${selectedTileType === 'timeoff' ? 'bg-amber-500 border-amber-600 text-white' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-amber-400'}" data-type="timeoff">
+                ${ui.icon('clock', 'w-4 h-4 mx-auto mb-0.5')}
+                <div class="text-xs font-semibold">Zeitausgleich</div>
               </button>
             </div>
           </div>
@@ -4607,7 +4835,7 @@ class App {
         // Get selected tile type instead of dropdown
         let currentEntryType = 'work';
         if (isWTTEnabled) {
-          const selectedTile = document.querySelector('.entry-type-tile.bg-green-500, .entry-type-tile.bg-blue-500, .entry-type-tile.bg-red-500');
+          const selectedTile = document.querySelector('.entry-type-tile.bg-green-500, .entry-type-tile.bg-blue-500, .entry-type-tile.bg-red-500, .entry-type-tile.bg-purple-500, .entry-type-tile.bg-amber-500');
           currentEntryType = selectedTile?.getAttribute('data-type') || 'work';
         }
 
@@ -4668,6 +4896,17 @@ class App {
         const startTimeInput = document.getElementById('edit-start');
         const endTimeInput = document.getElementById('edit-end');
 
+        // Farbschema je Eintragsart - muss zu den Kacheln im HTML passen
+        const TILE_COLORS = {
+          work:     { bg: 'bg-green-500',  border: 'border-green-600',  hover: 'hover:border-green-400' },
+          vacation: { bg: 'bg-blue-500',   border: 'border-blue-600',   hover: 'hover:border-blue-400' },
+          sick:     { bg: 'bg-red-500',    border: 'border-red-600',    hover: 'hover:border-red-400' },
+          holiday:  { bg: 'bg-purple-500', border: 'border-purple-600', hover: 'hover:border-purple-400' },
+          timeoff:  { bg: 'bg-amber-500',  border: 'border-amber-600',  hover: 'hover:border-amber-400' }
+        };
+        const ALL_TILE_CLASSES = Object.values(TILE_COLORS)
+          .flatMap(c => [c.bg, c.border, c.hover]);
+
         tiles.forEach(tile => {
           tile.addEventListener('click', (e) => {
             const selectedType = tile.getAttribute('data-type');
@@ -4675,26 +4914,18 @@ class App {
             // Update tile visual states
             tiles.forEach(t => {
               const type = t.getAttribute('data-type');
-              t.classList.remove('bg-green-500', 'border-green-600', 'bg-blue-500', 'border-blue-600', 'bg-red-500', 'border-red-600', 'text-white');
+              t.classList.remove(...ALL_TILE_CLASSES, 'text-white');
               t.classList.add('bg-gray-100', 'dark:bg-gray-800', 'border-gray-300', 'dark:border-gray-600', 'text-gray-600', 'dark:text-gray-400');
 
-              if (type === 'work') {
-                t.classList.add('hover:border-green-400');
-              } else if (type === 'vacation') {
-                t.classList.add('hover:border-blue-400');
-              } else if (type === 'sick') {
-                t.classList.add('hover:border-red-400');
+              if (TILE_COLORS[type]) {
+                t.classList.add(TILE_COLORS[type].hover);
               }
             });
 
             // Highlight selected tile
-            tile.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'border-gray-300', 'dark:border-gray-600', 'text-gray-600', 'dark:text-gray-400', 'hover:border-green-400', 'hover:border-blue-400', 'hover:border-red-400');
-            if (selectedType === 'work') {
-              tile.classList.add('bg-green-500', 'border-green-600', 'text-white');
-            } else if (selectedType === 'vacation') {
-              tile.classList.add('bg-blue-500', 'border-blue-600', 'text-white');
-            } else if (selectedType === 'sick') {
-              tile.classList.add('bg-red-500', 'border-red-600', 'text-white');
+            tile.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'border-gray-300', 'dark:border-gray-600', 'text-gray-600', 'dark:text-gray-400', ...ALL_TILE_CLASSES);
+            if (TILE_COLORS[selectedType]) {
+              tile.classList.add(TILE_COLORS[selectedType].bg, TILE_COLORS[selectedType].border, 'text-white');
             }
 
             // Show/hide time card
@@ -4845,7 +5076,7 @@ class App {
         // Get entry type from selected tile (not dropdown)
         let entryType = 'work';
         if (isWTTEnabled) {
-          const selectedTile = document.querySelector('.entry-type-tile.bg-green-500, .entry-type-tile.bg-blue-500, .entry-type-tile.bg-red-500');
+          const selectedTile = document.querySelector('.entry-type-tile.bg-green-500, .entry-type-tile.bg-blue-500, .entry-type-tile.bg-red-500, .entry-type-tile.bg-purple-500, .entry-type-tile.bg-amber-500');
           entryType = selectedTile?.getAttribute('data-type') || 'work';
         }
         const oldEntryType = entry.entryType || 'work';
@@ -4880,8 +5111,9 @@ class App {
             updatedEntry.actualHours = updatedEntry.targetHours;
             // Vacation only counts if this day has target hours (not weekends)
             updatedEntry.vacationDays = (entryType === 'vacation' && updatedEntry.targetHours > 0) ? 1 : 0;
-          } else if (entryType === 'unpaid') {
-            // Unpaid leave: no work time, doesn't count as fulfilled
+          } else if (entryType === 'timeoff' || entryType === 'unpaid') {
+            // Zeitausgleich / unbezahlter Urlaub: keine Arbeitszeit, Soll bleibt
+            // stehen -> der Tag verbraucht angesammelte Überstunden
             updatedEntry.startTime = '';
             updatedEntry.endTime = '';
             updatedEntry.pause = '';
@@ -6590,6 +6822,14 @@ class App {
     return parseFloat(normalized) || 0;
   }
 
+  // Helper: Parse a number of days (NICHT als Uhrzeit interpretieren).
+  // parseTimeInput würde aus "25:30" 25,5 Tage machen - hier zählt nur die Zahl.
+  parseDaysInput(value) {
+    if (value === null || value === undefined || value === '') return 0;
+    const normalized = String(value).trim().replace(',', '.');
+    return parseFloat(normalized) || 0;
+  }
+
   async showWorkTimeTrackingOnboarding() {
     let currentStep = 1;
     const totalSteps = 3;
@@ -6802,7 +7042,7 @@ class App {
     document.getElementById('wtt-step2-next').addEventListener('click', () => {
       // Save data with parsing
       data.timeAccountBalance = this.parseTimeInput(document.getElementById('wtt-balance').value);
-      data.remainingVacation = this.parseTimeInput(document.getElementById('wtt-vacation-remaining').value);
+      data.remainingVacation = this.parseDaysInput(document.getElementById('wtt-vacation-remaining').value);
       data.annualVacation = parseInt(document.getElementById('wtt-vacation-annual').value) || 25;
       data.referenceMonth = selectedMonth;
       onNext();
@@ -6872,7 +7112,7 @@ class App {
       if (data.referenceMonth) {
         const [year, month] = data.referenceMonth.split('-').map(Number);
         referenceDate = new Date(year, month, 1); // First day of next month (month is 1-based in input, becomes correct in Date constructor)
-        referenceDateStr = referenceDate.toISOString().split('T')[0];
+        referenceDateStr = this.formatReferenceDate(referenceDate);
       }
 
       // Save all settings
@@ -6899,6 +7139,12 @@ class App {
 
       await storage.saveSettings(settings);
       ui.settings = settings;
+
+      // Saldo und Resturlaub direkt auf Basis der vorhandenen Einträge
+      // hochrechnen, sonst zeigt das Widget bis zum nächsten gespeicherten
+      // Eintrag den reinen Lohnzettel-Stand
+      await this.recalculateVacationDays();
+      await this.recalculateTimeAccountBalance();
 
       ui.hideModal();
       ui.showToast(ui.t('workTimeTracking') + ' aktiviert!', 'success');
@@ -7011,12 +7257,12 @@ class App {
 
     document.getElementById('adjustment-save').addEventListener('click', async () => {
       const balanceInput = this.parseTimeInput(document.getElementById('payroll-balance').value);
-      const vacationInput = this.parseTimeInput(document.getElementById('payroll-vacation').value);
+      const vacationInput = this.parseDaysInput(document.getElementById('payroll-vacation').value);
 
       // Calculate reference date (first day of NEXT month)
       const [year, month] = selectedMonth.split('-').map(Number);
       const referenceDate = new Date(year, month, 1); // First day of next month
-      const referenceDateStr = referenceDate.toISOString().split('T')[0];
+      const referenceDateStr = this.formatReferenceDate(referenceDate);
 
       // Update settings with reference values
       const settings = ui.settings;
@@ -7027,39 +7273,16 @@ class App {
       settings.workTimeTracking.vacation.referenceDate = referenceDateStr;
       settings.workTimeTracking.vacation.referenceRemaining = vacationInput;
 
-      // Recalculate current balance based on reference date
-      const allEntries = await storage.getAllWorklogEntries();
-      const entriesAfterReference = allEntries.filter(entry => {
-        const [d, m, y] = entry.date.split('.');
-        const entryDate = new Date(y, m - 1, d);
-        return entryDate > referenceDate;
-      });
-
-      // Calculate changes since reference date
-      let balanceChange = 0;
-      let vacationChange = 0;
-
-      for (const entry of entriesAfterReference) {
-        const [d, m, y] = entry.date.split('.');
-        const entryDate = new Date(y, m - 1, d);
-
-        const targetHours = timeAccount.getDailyTargetHours(entryDate, settings);
-        const actualHours = timeAccount.getActualHours(entry, settings);
-
-        balanceChange += (actualHours - targetHours);
-
-        // Only count vacation days if explicitly set (respects targetHours check)
-        if (entry.vacationDays && entry.vacationDays > 0) {
-          vacationChange -= entry.vacationDays;
-        }
-      }
-
-      // Set current values = reference + changes
-      settings.workTimeTracking.timeAccount.currentBalance = balanceInput + balanceChange;
-      settings.workTimeTracking.vacation.remainingDays = vacationInput + vacationChange;
-
       await storage.saveSettings(settings);
       ui.settings = settings;
+
+      // Neuberechnung über die zentralen Funktionen. Früher rechnete dieser
+      // Dialog selbst - mit einem anderen Algorithmus als
+      // recalculateTimeAccountBalance(). Dadurch sprang der Saldo, sobald
+      // danach irgendein Eintrag gespeichert wurde. Jetzt gibt es nur noch
+      // eine Wahrheit.
+      await this.recalculateVacationDays();
+      await this.recalculateTimeAccountBalance();
 
       ui.hideModal();
       ui.showToast(ui.t('adjustmentSaved'), 'success');

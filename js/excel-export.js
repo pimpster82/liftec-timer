@@ -31,7 +31,8 @@ class ExcelExport {
       orientation: 'landscape',    // Querformat
       fitToPage: true,
       fitToWidth: 1,
-      fitToHeight: 1,
+      fitToHeight: 0,             // Breite auf 1 Seite, Höhe darf umbrechen
+                                  // (sonst schrumpfen Summen + Einsätze das Raster)
       horizontalCentered: true,    // horizontal zentriert
       verticalCentered: true,      // vertikal zentriert
       margins: {
@@ -281,8 +282,14 @@ class ExcelExport {
       currentRow++;
     }
 
+    // Summen-Block (Arbeitszeit / Einsätze / Gesamt)
+    currentRow = await this.addTotalsBlock(worksheet, currentRow, entries, year, month);
+
     // Add on-call summary if applicable
-    await this.addOnCallSummary(worksheet, currentRow, year, month);
+    currentRow = await this.addOnCallSummary(worksheet, currentRow, year, month);
+
+    // Bereitschaftseinsätze
+    currentRow = await this.addCalloutsTable(worksheet, currentRow, year, month);
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
@@ -295,68 +302,118 @@ class ExcelExport {
     return { buffer, blob, filename };
   }
 
-  // Add on-call summary section to worksheet
-  // Handles multiple periods and adjusts dates to month boundaries
-  async addOnCallSummary(worksheet, startRow, year, month) {
+  // Summen-Block: Arbeitszeit, Einsätze, Gesamt
+  // Gibt die nächste freie Zeile zurück
+  async addTotalsBlock(worksheet, startRow, entries, year, month) {
     try {
-      // Get all on-call periods
-      const allPeriods = await storage.getAllOnCallPeriods();
+      const workHours = callouts.getWorkHoursForEntries(entries);
+      const calloutHours = await callouts.getCalloutHoursForMonth(year, month);
+      const totalHours = workHours + calloutHours;
 
-      // Filter periods that are completed (have endDate)
-      const completedPeriods = allPeriods.filter(p => p.endDate);
+      // Leerzeile als Abstand
+      startRow++;
 
-      if (completedPeriods.length === 0) {
-        return;
-      }
+      const rows = [
+        { label: 'Summe Arbeitszeit', hours: workHours, highlight: false },
+        { label: 'Summe Einsätze', hours: calloutHours, highlight: false },
+        { label: 'Gesamt', hours: totalHours, highlight: true }
+      ];
 
-      // Get month boundaries
-      // Month start: first day at 00:01
-      // Month end: last day at 23:59
-      const monthStart = new Date(year, month - 1, 1, 0, 1);
-      const monthEnd = new Date(year, month, 0, 23, 59);
+      for (const item of rows) {
+        const row = worksheet.getRow(startRow);
 
-      // Collect periods that overlap with this month
-      const overlappingPeriods = [];
+        worksheet.mergeCells(startRow, 1, startRow, 2);
 
-      for (const period of completedPeriods) {
-        // Parse period dates (with times)
-        const periodStart = this.parseDateTime(period.startDate, period.startTime);
-        const periodEnd = this.parseDateTime(period.endDate, period.endTime);
+        const labelCell = row.getCell(1);
+        labelCell.value = item.label;
+        labelCell.font = { bold: true, size: 10 };
+        labelCell.alignment = { vertical: 'middle', horizontal: 'left' };
+        labelCell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
 
-        // Check if period overlaps with this month
-        if (periodEnd < monthStart || periodStart > monthEnd) {
-          continue; // No overlap, skip this period
+        const valueCell = row.getCell(3);
+        valueCell.value = item.hours / 24;
+        valueCell.numFmt = '[h]:mm';
+        valueCell.font = { bold: true, size: 10 };
+        this.formatDataCell(valueCell);
+
+        // "Gesamt" bekommt den Akzent-Grünton der Kopfzelle
+        if (item.highlight) {
+          const fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF92D050' }
+          };
+          labelCell.fill = fill;
+          valueCell.fill = fill;
         }
 
-        // Adjust period boundaries to fit within the month
+        startRow++;
+      }
+
+      return startRow;
+    } catch (error) {
+      console.error('Error adding totals block to Excel:', error);
+      // Silent fail - don't break export if totals fail
+      return startRow;
+    }
+  }
+
+  // Add on-call summary section to worksheet.
+  // Handles multiple periods and adjusts dates to month boundaries.
+  // Laufende Perioden werden mitgenommen und auf "jetzt" bzw. Monatsende geclamped.
+  // Gibt die nächste freie Zeile zurück.
+  async addOnCallSummary(worksheet, startRow, year, month) {
+    try {
+      const allPeriods = await storage.getAllOnCallPeriods();
+
+      if (!allPeriods || allPeriods.length === 0) {
+        return startRow;
+      }
+
+      // Monatsgrenzen, Ende exklusiv (Mitternacht des Folgemonats)
+      const { start: monthStart, end: monthEnd } = callouts.getMonthBounds(year, month);
+      const now = new Date();
+
+      const overlappingPeriods = [];
+
+      for (const period of allPeriods) {
+        if (!period.startDate || !period.startTime) continue;
+
+        const periodStart = this.parseDateTime(period.startDate, period.startTime);
+        const isRunning = !period.endDate;
+
+        // Laufende Bereitschaft: bis jetzt, höchstens bis Monatsende
+        const periodEnd = isRunning
+          ? new Date(Math.min(now.getTime(), monthEnd.getTime()))
+          : this.parseDateTime(period.endDate, period.endTime);
+
+        if (periodEnd <= monthStart || periodStart >= monthEnd) {
+          continue; // Keine Überlappung mit diesem Monat
+        }
+
         const adjustedStart = periodStart < monthStart ? monthStart : periodStart;
         const adjustedEnd = periodEnd > monthEnd ? monthEnd : periodEnd;
 
-        // Calculate on-call hours for this adjusted period
-        const onCallHours = await this.calculateMonthlyOnCallHours(
-          period,
-          adjustedStart,
-          adjustedEnd
-        );
+        if (adjustedEnd <= adjustedStart) continue;
+
+        const onCallHours = await callouts.calculateOnCallHours(adjustedStart, adjustedEnd);
 
         overlappingPeriods.push({
           id: period.id,
-          startDate: this.formatDate(adjustedStart),
-          startTime: this.formatTime(adjustedStart),
-          endDate: this.formatDate(adjustedEnd),
-          endTime: this.formatTime(adjustedEnd),
+          from: `${this.formatDate(adjustedStart)} ${this.formatTime(adjustedStart)}`,
+          to: callouts.formatEndLabel(adjustedEnd) + (isRunning ? ' (laufend)' : ''),
           hours: onCallHours
         });
       }
 
       if (overlappingPeriods.length === 0) {
-        return;
+        return startRow;
       }
-
-      // Convert hours to Excel time format
-      const timeToExcelTime = (hours) => {
-        return hours / 24;
-      };
 
       // Add empty row for spacing
       startRow++;
@@ -379,23 +436,94 @@ class ExcelExport {
         this.formatDataCell(dataRow.getCell(1));
 
         // Column 2: Von (date + time)
-        dataRow.getCell(2).value = `${period.startDate} ${period.startTime}`;
+        dataRow.getCell(2).value = period.from;
         this.formatDataCell(dataRow.getCell(2));
 
         // Column 3: Bis (date + time)
-        dataRow.getCell(3).value = `${period.endDate} ${period.endTime}`;
+        dataRow.getCell(3).value = period.to;
         this.formatDataCell(dataRow.getCell(3));
 
         // Column 4: Hours
-        dataRow.getCell(4).value = timeToExcelTime(period.hours);
+        dataRow.getCell(4).value = period.hours / 24;
         dataRow.getCell(4).numFmt = '[h]:mm';
         this.formatDataCell(dataRow.getCell(4));
 
         startRow++;
       }
+
+      return startRow;
     } catch (error) {
       console.error('Error adding on-call summary to Excel:', error);
       // Silent fail - don't break export if on-call summary fails
+      return startRow;
+    }
+  }
+
+  // Tabelle der Bereitschaftseinsätze des Monats
+  // Gibt die nächste freie Zeile zurück
+  async addCalloutsTable(worksheet, startRow, year, month) {
+    try {
+      const monthCallouts = await callouts.getCalloutsForMonth(year, month);
+
+      if (monthCallouts.length === 0) {
+        return startRow;
+      }
+
+      // Leerzeile als Abstand
+      startRow++;
+
+      const headerRow = worksheet.getRow(startRow);
+      this.formatHeaderCell(headerRow.getCell(1), 'Einsätze');
+      this.formatHeaderCell(headerRow.getCell(2), 'Datum');
+      this.formatHeaderCell(headerRow.getCell(3), 'Von');
+      this.formatHeaderCell(headerRow.getCell(4), 'Bis');
+      this.formatHeaderCell(headerRow.getCell(5), 'Dauer');
+
+      worksheet.mergeCells(startRow, 6, startRow, 12);
+      this.formatHeaderCell(headerRow.getCell(6), 'Beschreibung');
+
+      startRow++;
+
+      let index = 1;
+      for (const callout of monthCallouts) {
+        const dataRow = worksheet.getRow(startRow);
+
+        dataRow.getCell(1).value = `Einsatz #${index}`;
+        this.formatDataCell(dataRow.getCell(1));
+
+        dataRow.getCell(2).value = callout.date;
+        this.formatDataCell(dataRow.getCell(2));
+
+        dataRow.getCell(3).value = callout.startTime;
+        this.formatDataCell(dataRow.getCell(3));
+
+        dataRow.getCell(4).value = callout.endTime;
+        this.formatDataCell(dataRow.getCell(4));
+
+        dataRow.getCell(5).value = callouts.getCalloutHours(callout) / 24;
+        dataRow.getCell(5).numFmt = '[h]:mm';
+        this.formatDataCell(dataRow.getCell(5));
+
+        worksheet.mergeCells(startRow, 6, startRow, 12);
+        const descCell = dataRow.getCell(6);
+        descCell.value = callout.description || '';
+        descCell.alignment = { vertical: 'middle', horizontal: 'left' };
+        descCell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+
+        startRow++;
+        index++;
+      }
+
+      return startRow;
+    } catch (error) {
+      console.error('Error adding callouts table to Excel:', error);
+      // Silent fail - don't break export if callouts table fails
+      return startRow;
     }
   }
 
@@ -450,40 +578,10 @@ class ExcelExport {
     return `${hours}:${minutes}`;
   }
 
-  // Calculate on-call hours for a period within month boundaries
-  // Returns: total_hours_in_range - work_hours_in_range
+  // Calculate on-call hours for a period within month boundaries.
+  // Delegiert an callouts.calculateOnCallHours() - die einzige Implementierung.
   async calculateMonthlyOnCallHours(period, adjustedStart, adjustedEnd) {
-    // Calculate total hours in adjusted range
-    const totalHours = (adjustedEnd - adjustedStart) / 3600000; // milliseconds to hours
-
-    // Get worklog entries in the adjusted range
-    const adjustedStartDate = this.formatDate(adjustedStart);
-    const adjustedEndDate = this.formatDate(adjustedEnd);
-
-    const entries = await storage.getEntriesByDateRange(
-      adjustedStartDate,
-      adjustedEndDate
-    );
-
-    // Sum up actual work hours (endTime - startTime, not including pause/travel)
-    let workHours = 0;
-    for (const entry of entries) {
-      if (entry.startTime && entry.endTime) {
-        // Parse HH:MM format to decimal hours
-        const [startH, startM] = entry.startTime.split(':').map(Number);
-        const [endH, endM] = entry.endTime.split(':').map(Number);
-        const startHours = startH + (startM / 60);
-        const endHours = endH + (endM / 60);
-
-        // Calculate work hours for this day
-        const dayWork = endHours - startHours;
-        workHours += dayWork;
-      }
-    }
-
-    // Calculate on-call time (total time minus work time)
-    const onCallHours = Math.max(0, totalHours - workHours);
-    return onCallHours;
+    return callouts.calculateOnCallHours(adjustedStart, adjustedEnd);
   }
 
   // === NEU: EXACT WIE BEIM CSV – MAIL & SHARE ===

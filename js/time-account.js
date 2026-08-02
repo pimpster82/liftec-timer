@@ -59,20 +59,32 @@ class TimeAccount {
     }
 
     const start = this._parseTimeToMinutes(entry.startTime);
-    const end = this._parseTimeToMinutes(entry.endTime);
+    let end = this._parseTimeToMinutes(entry.endTime);
     const pause = this._parseTimeToMinutes(entry.pause || '00:00');
 
     if (end < start) {
-      // End is next day (e.g., night shift) - not implemented yet, treat as 0
-      return 0;
+      // Nachtschicht: Ende liegt am Folgetag (z.B. 22:00 -> 06:00)
+      end += 24 * 60;
     }
 
     const totalMinutes = (end - start) - pause;
-    return totalMinutes / 60;  // Convert to hours
+    return Math.max(0, totalMinutes) / 60;  // Convert to hours
   }
+
+  // ===================================================================
+  // ACHTUNG - der folgende Block wird nirgends aufgerufen (Stand v1.21.0):
+  // calculateWeeklySummary, calculateMonthlySummary,
+  // updateEntryWithCalculations, recalculateTimeAccount,
+  // isAustrianHoliday, setAustrianHolidays, getWeekNumber, getEntriesForWeek
+  //
+  // Die gültige Saldo-Berechnung ist app.recalculateTimeAccountBalance().
+  // recalculateTimeAccount() unten ist eine ALTE, abweichende Variante -
+  // nicht als Referenz verwenden.
+  // ===================================================================
 
   /**
    * Calculate weekly summary
+   * UNGENUTZT - siehe Hinweis oben
    * @param {Array} entries - Worklog entries for the week
    * @param {Object} settings - Work time tracking settings
    * @returns {Object} Summary with actual, target, and balance

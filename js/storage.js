@@ -4,7 +4,7 @@
 class Storage {
   constructor() {
     this.dbName = 'LiftecTimerDB';
-    this.version = 4;  // Incremented for work time tracking feature
+    this.version = 5;  // Incremented for callouts (Bereitschaftseinsätze)
     this.db = null;
   }
 
@@ -70,6 +70,17 @@ class Storage {
           notesStore.createIndex('categoryId', 'categoryId', { unique: false });
           notesStore.createIndex('type', 'type', { unique: false });
           notesStore.createIndex('createdAt', 'createdAt', { unique: false });
+        }
+
+        // Callouts / Bereitschaftseinsätze (v1.21.0)
+        // Segmente sind bereits an Mitternacht gesplittet, groupId hält
+        // zusammengehörige Segmente eines Einsatzes zusammen
+        if (!db.objectStoreNames.contains('callouts')) {
+          const calloutStore = db.createObjectStore('callouts', { keyPath: 'id', autoIncrement: true });
+          calloutStore.createIndex('date', 'date', { unique: false });
+          calloutStore.createIndex('yearMonth', 'yearMonth', { unique: false });
+          calloutStore.createIndex('onCallPeriodId', 'onCallPeriodId', { unique: false });
+          calloutStore.createIndex('groupId', 'groupId', { unique: false });
         }
 
         console.log('Database setup complete');
@@ -603,6 +614,7 @@ class Storage {
     const settings = await this.getSettings();
     const worklog = await this.getAllWorklogEntries();
     const onCall = await this.getOnCallStatus();
+    const callouts = await this.getAll('callouts');
 
     return {
       version: this.version,
@@ -612,7 +624,8 @@ class Storage {
         currentSession,
         settings,
         worklog,
-        onCall
+        onCall,
+        callouts
       }
     };
   }
@@ -622,13 +635,14 @@ class Storage {
       throw new Error('Invalid import data');
     }
 
-    const { sessions, currentSession, settings, worklog, onCall } = importData.data;
+    const { sessions, currentSession, settings, worklog, onCall, callouts } = importData.data;
 
     // Clear existing data
     await this.clear('sessions');
     await this.clear('currentSession');
     await this.clear('worklog');
     await this.clear('onCall');
+    await this.clear('callouts');
 
     // Import sessions
     if (sessions && sessions.length > 0) {
@@ -657,6 +671,13 @@ class Storage {
     // Import on-call
     if (onCall && onCall.id) {
       await this.put('onCall', onCall);
+    }
+
+    // Import callouts (Bereitschaftseinsätze)
+    if (callouts && callouts.length > 0) {
+      for (const callout of callouts) {
+        await this.put('callouts', callout);
+      }
     }
 
     return true;
