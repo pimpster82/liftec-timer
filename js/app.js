@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.23.0';
+const APP_VERSION = '1.24.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1068,19 +1068,9 @@ class App {
     // Calculate surcharge
     let surchargePercent = ui.settings.surchargePercent;
 
-    // Check for office tasks
-    const hasOfficeTask = this.session.tasks.some(t =>
-      t.type === '' ||
-      t.description.toLowerCase().includes('office') ||
-      t.description.toLowerCase().includes('büro')
-    );
-
-    // ABWEICHUNG zum Bearbeiten-Dialog: Hier wird nach dem Prozentsatz GEFRAGT,
-    // in calculateSurcharge() (Bearbeiten) werden hart 0 % gesetzt. Derselbe Tag
-    // bekommt dadurch je nach Erfassungsweg einen anderen Zuschlag - wird ein per
-    // Session erfasster Büro-Tag später bearbeitet, fällt er auf 00:00.
-    // Welche Variante gilt, ist eine Frage der Lohnverrechnung und noch offen.
-    if (hasOfficeTask) {
+    // Bei Büro-Aufgaben nachfragen. Der gewählte Satz wird am Eintrag
+    // gespeichert, damit der Bearbeiten-Dialog ihn später übernehmen kann.
+    if (this.hasOfficeTask(this.session.tasks)) {
       const customSurcharge = await this.showInputDialog(
         `Büro-Aufgabe erkannt. Zuschlag anpassen? (Standard: ${surchargePercent}%)`,
         String(surchargePercent)
@@ -1118,6 +1108,9 @@ class App {
       pause: ui.hoursToHHMM(pauseHours),
       travelTime: ui.hoursToHHMM(travelHours),
       surcharge: ui.hoursToHHMM(surchargeHours),
+      // Den verwendeten Satz mitspeichern, sonst kann der Bearbeiten-Dialog
+      // einen hier abweichend gewählten Wert später nicht rekonstruieren
+      surchargePercent,
       tasks: this.session.tasks
     };
 
@@ -1444,6 +1437,10 @@ class App {
             pause: '00:00',
             travelTime: '00:00',
             surcharge: '00:00',
+            // Standardsatz explizit setzen. Ohne ihn würde die Vorbelegung im
+            // Bearbeiten-Dialog den leeren Zuschlag als "Büro-Tag" deuten
+            // und auf 0 % gehen.
+            surchargePercent: ui.settings?.surchargePercent || 0,
             tasks: isHoliday ? [{ type: '', description: 'Feiertag' }] : [],
             entryType: 'work'
           };
@@ -1833,6 +1830,38 @@ class App {
   }
 
   // ===== Absence Entry =====
+
+  /**
+   * Erkennt Büro-Aufgaben. Bei ihnen wird beim Session-Ende nach dem
+   * Zuschlags-Prozentsatz gefragt, statt still den Standardsatz zu nehmen.
+   * Eine Aufgabe ohne Typ zählt ebenfalls als Büro.
+   */
+  /**
+   * Vorbelegung des Zuschlags-Prozentsatzes im Bearbeiten-Dialog.
+   *
+   * Reihenfolge ist wichtig: Ein gespeicherter Satz gewinnt immer. Fehlt er
+   * (Altbestand vor v1.24.0), ist ein Zuschlag von 00:00 als Absicht zu lesen -
+   * das war ein Büro-Tag und darf beim Öffnen nicht auf 80 % hochspringen.
+   */
+  getInitialSurchargePercent(entry, settings) {
+    if (typeof entry.surchargePercent === 'number') {
+      return entry.surchargePercent;
+    }
+
+    if (!entry.surcharge || entry.surcharge === '00:00') {
+      return 0;
+    }
+
+    return settings?.surchargePercent || 0;
+  }
+
+  hasOfficeTask(tasks) {
+    return (tasks || []).some(t =>
+      t.type === '' ||
+      (t.description || '').toLowerCase().includes('office') ||
+      (t.description || '').toLowerCase().includes('büro')
+    );
+  }
 
   /**
    * Priorität einer Abwesenheitsart.
@@ -4748,6 +4777,8 @@ class App {
       const TILE_TYPES = ['work', 'vacation', 'sick', 'holiday', 'timeoff'];
       const selectedTileType = TILE_TYPES.includes(currentEntryType) ? currentEntryType : 'work';
 
+      const initialSurchargePercent = this.getInitialSurchargePercent(entry, ui.settings);
+
       const contentHtml = `
         <div class="space-y-4">
           <!-- Header: Date Display -->
@@ -4804,7 +4835,7 @@ class App {
                 </div>
               </div>
 
-              <div class="grid grid-cols-3 gap-2 mt-3">
+              <div class="grid grid-cols-2 gap-2 mt-3">
                 <div>
                   <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Pause</label>
                   <input type="time" id="edit-pause" value="${entry.pause || '00:00'}"
@@ -4815,13 +4846,22 @@ class App {
                   <input type="time" id="edit-travel" value="${entry.travelTime || '00:00'}"
                     class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
                 </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 mt-3">
+                <div>
+                  <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">${ui.t('surchargePercent')}</label>
+                  <input type="number" id="edit-surcharge-percent" min="0" max="200" step="1"
+                    value="${initialSurchargePercent}"
+                    class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                </div>
                 <div>
                   <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Zuschlag</label>
                   <input type="time" id="edit-surcharge" value="${entry.surcharge || '00:00'}" readonly
                     class="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-not-allowed">
                 </div>
               </div>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${ui.icon('info', 'w-3 h-3 inline')} Zuschlag wird automatisch berechnet</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${ui.icon('info', 'w-3 h-3 inline')} ${ui.t('surchargeFromPercent')}</p>
             </div>
           </div>
 
@@ -4986,6 +5026,12 @@ class App {
         });
       }
 
+      // Prozentsatz aus dem Feld lesen und auf 0-200 begrenzen
+      const readSurchargePercent = () => {
+        const raw = document.getElementById('edit-surcharge-percent')?.value;
+        return Math.min(200, Math.max(0, parseFloat(raw) || 0));
+      };
+
       // Auto-calculate surcharge when time fields change
       const calculateSurcharge = () => {
         const startTime = document.getElementById('edit-start')?.value;
@@ -5020,19 +5066,12 @@ class App {
 
         const netHours = workMinutes / 60;
 
-        // Check for office tasks (type empty OR description contains "office"/"büro")
-        const taskElements = document.querySelectorAll('#edit-tasks-list .flex');
-        const hasOfficeTask = Array.from(taskElements).some(el => {
-          const type = el.querySelector('.task-type')?.value || '';
-          const desc = el.querySelector('.task-desc')?.value || '';
-          return type === '' || desc.toLowerCase().includes('office') || desc.toLowerCase().includes('büro');
-        });
-
-        // Office tasks get 0% surcharge, others use settings
-        // ABWEICHUNG zu endSession(): Dort wird bei Büro-Aufgaben nach dem
-        // Prozentsatz gefragt, hier werden hart 0 % gesetzt. Siehe Kommentar
-        // in endSession() - offene Frage der Lohnverrechnung.
-        const surchargePercent = hasOfficeTask ? 0 : (ui.settings?.surchargePercent || 0);
+        // Der Prozentsatz kommt aus dem Feld. Früher wurde hier aus den
+        // Aufgaben auf "Büro" geschlossen und hart 0 % gesetzt - dadurch
+        // verlor ein per Session mit abweichendem Satz erfasster Tag seinen
+        // Wert, sobald er bearbeitet wurde. Ausserdem galt eine gerade erst
+        // hinzugefügte, noch leere Aufgabenzeile bereits als Büro.
+        const surchargePercent = readSurchargePercent();
         // Auf halbe Stunden runden - genau wie in endSession(). Vorher wurde
         // hier minutengenau gerundet, wodurch ein bearbeiteter Tag einen
         // anderen Zuschlag bekam als ein per Session-Ende erfasster.
@@ -5046,7 +5085,7 @@ class App {
       };
 
       // Attach listeners to time fields
-      ['edit-start', 'edit-end', 'edit-pause', 'edit-travel'].forEach(id => {
+      ['edit-start', 'edit-end', 'edit-pause', 'edit-travel', 'edit-surcharge-percent'].forEach(id => {
         const input = document.getElementById(id);
         if (input) {
           input.addEventListener('change', calculateSurcharge);
@@ -5173,6 +5212,7 @@ class App {
             updatedEntry.pause = '';
             updatedEntry.travelTime = '';
             updatedEntry.surcharge = '';
+            updatedEntry.surchargePercent = 0;
             updatedEntry.actualHours = updatedEntry.targetHours;
             // Vacation only counts if this day has target hours (not weekends)
             updatedEntry.vacationDays = (entryType === 'vacation' && updatedEntry.targetHours > 0) ? 1 : 0;
@@ -5184,6 +5224,7 @@ class App {
             updatedEntry.pause = '';
             updatedEntry.travelTime = '';
             updatedEntry.surcharge = '';
+            updatedEntry.surchargePercent = 0;
             updatedEntry.actualHours = 0;
             updatedEntry.vacationDays = 0;
           } else {
@@ -5193,6 +5234,7 @@ class App {
             updatedEntry.pause = document.getElementById('edit-pause').value;
             updatedEntry.travelTime = document.getElementById('edit-travel').value;
             updatedEntry.surcharge = document.getElementById('edit-surcharge').value;
+            updatedEntry.surchargePercent = readSurchargePercent();
             updatedEntry.actualHours = timeAccount.getActualHours(updatedEntry, ui.settings);
             updatedEntry.vacationDays = 0;
           }
@@ -5203,6 +5245,7 @@ class App {
           updatedEntry.pause = document.getElementById('edit-pause').value;
           updatedEntry.travelTime = document.getElementById('edit-travel').value;
           updatedEntry.surcharge = document.getElementById('edit-surcharge').value;
+          updatedEntry.surchargePercent = readSurchargePercent();
         }
 
         // Check if this is a new entry (no ID) or existing entry (has ID)
@@ -5535,6 +5578,7 @@ class App {
         pause: entry.pause,
         travelTime: entry.travelTime,
         surcharge: entry.surcharge,
+        surchargePercent: entry.surchargePercent,
         tasks: entry.tasks || [],
         // Work Time Tracking fields (v1.1+)
         entryType: entry.entryType,
@@ -5590,6 +5634,7 @@ class App {
           pause: entry.pause,
           travelTime: entry.travelTime,
           surcharge: entry.surcharge,
+          surchargePercent: entry.surchargePercent,
           tasks: entry.tasks || [],
           // Work Time Tracking fields (v1.1+)
           // NOTE: targetHours not included - recipient will calculate from their settings
@@ -5706,6 +5751,7 @@ class App {
         pause: data.pause || '00:00',
         travelTime: data.travelTime || '00:00',
         surcharge: data.surcharge || '00:00',
+        surchargePercent: data.surchargePercent ?? (ui.settings?.surchargePercent || 0),
         tasks: data.tasks || []
       };
 

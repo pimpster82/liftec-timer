@@ -1,7 +1,10 @@
 {
-  "version": "1.23.0",
+  "version": "1.24.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Neu: Zuschlags-Prozentsatz ist im Bearbeiten-Dialog sichtbar und änderbar",
+    "Fix: Ein per Session gewählter Zuschlagssatz geht beim Bearbeiten nicht mehr verloren",
+    "Fix: Eine leere Aufgabenzeile setzt den Zuschlag nicht mehr auf null",
     "Aufräumen: mehrfach vorhandene Rechenlogik zusammengeführt",
     "Fix: Nachtschichten werden in der Verlaufsliste positiv statt negativ gezählt",
     "Intern: toter Code entfernt, rund 350 Zeilen weniger",
