@@ -323,17 +323,19 @@ class Storage {
         enabled: false,  // Feature disabled by default
         onboardingCompleted: false,  // Show onboarding when first enabled
 
-        // Weekly target hours and daily breakdown
-        weeklyTargetHours: 0,
-        dailyTargetHours: {
-          monday: 0,
-          tuesday: 0,
-          wednesday: 0,
-          thursday: 0,
-          friday: 0,
-          saturday: 0,
-          sunday: 0
-        },
+        weeklyTargetHours: 0,   // nur für die Anzeige im Onboarding
+
+        // Sollstunden und Sätze mit Gültigkeitsdatum.
+        // Ändert sich der Lohn oder die Wochenarbeitszeit, kommt ein neuer
+        // Eintrag dazu - alte Monate rechnen dadurch weiter mit ihren
+        // damaligen Werten, auch wenn die Änderung rückwirkend erfasst wird.
+        //   { validFrom: 'YYYY-MM-DD',
+        //     dailyTargetHours: { monday: 8, ... },
+        //     onCallRate: 4.00,      Bereitschaft EUR/h
+        //     hourlyWage: 22.90 }    Stundenlohn, 0 = nicht gepflegt
+        // Bewusst KEIN separates dailyTargetHours daneben - genau solche
+        // Doppelquellen haben in dieser App schon mehrfach für Fehler gesorgt.
+        rateHistory: [],
 
         // Time account (Zeitkonto)
         timeAccount: {

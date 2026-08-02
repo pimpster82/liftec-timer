@@ -30,6 +30,9 @@ class App {
       // Einmalige Korrektur alter Stichtage (siehe migrateReferenceDates)
       await this.migrateReferenceDates();
 
+      // Flache Sollstunden in die Satz-Historie überführen
+      await this.migrateRateHistory();
+
       // Initialize Firebase
       if (typeof firebaseService !== 'undefined') {
         await firebaseService.init();
@@ -2077,6 +2080,37 @@ class App {
     if (changed) {
       await storage.saveSettings(ui.settings);
     }
+  }
+
+  /**
+   * Überführt die flachen Sollstunden in die Satz-Historie.
+   *
+   * Bis v1.24.0 gab es genau einen Satz Sollstunden, der für ALLE Zeiträume
+   * galt. Wer seine Wochenstunden änderte, verschob damit rückwirkend die
+   * Fehltags-Schuld aller Altmonate. Ab jetzt hat jeder Satz ein Gültig-ab-
+   * Datum; der migrierte Alteintrag gilt ab 2000, deckt also alles Bisherige
+   * unverändert ab.
+   */
+  async migrateRateHistory() {
+    const wtt = ui.settings?.workTimeTracking;
+    if (!wtt) return;
+
+    if (Array.isArray(wtt.rateHistory) && wtt.rateHistory.length > 0) {
+      return; // schon migriert
+    }
+
+    wtt.rateHistory = [{
+      validFrom: '2000-01-01',
+      dailyTargetHours: { ...(wtt.dailyTargetHours || {}) },
+      onCallRate: 0,     // 0 = nicht gepflegt, Euro-Anzeige bleibt aus
+      hourlyWage: 0
+    }];
+
+    // Die flache Variante entfernen, damit es keine zweite Quelle gibt
+    delete wtt.dailyTargetHours;
+
+    console.log('Sollstunden in die Satz-Historie überführt');
+    await storage.saveSettings(ui.settings);
   }
 
   /**
@@ -7232,7 +7266,15 @@ class App {
         enabled: true,
         onboardingCompleted: true,
         weeklyTargetHours: weeklyTotal,
-        dailyTargetHours: data.dailyHours,
+        // Erster Satz, gültig ab 2000 - deckt damit auch Einträge ab, die
+        // vor dem Stichtag liegen. Weitere Sätze legt man in den
+        // Einstellungen mit eigenem Gültig-ab-Datum an.
+        rateHistory: [{
+          validFrom: '2000-01-01',
+          dailyTargetHours: data.dailyHours,
+          onCallRate: 0,
+          hourlyWage: 0
+        }],
         timeAccount: {
           currentBalance: data.timeAccountBalance,
           lastUpdated: new Date().toISOString(),

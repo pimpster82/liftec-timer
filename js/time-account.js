@@ -19,19 +19,69 @@ class TimeAccount {
       return 0;
     }
 
-    const wtSettings = settings.workTimeTracking;
+    const rate = this.getRateForDate(date, settings);
     const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
 
     // Map to our settings keys
     const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const dayKey = dayMap[dayOfWeek];
 
-    // Get target hours for this weekday
-    const targetHours = wtSettings.dailyTargetHours[dayKey] || 0;
-
     // Holidays: Keep the normal target (will be counted as fulfilled in getActualHours)
     // If target hours = 0 (e.g., weekend), holiday doesn't change anything
-    return targetHours;
+    return rate.dailyTargetHours?.[dayKey] || 0;
+  }
+
+  /**
+   * Den zu einem Datum gültigen Satz finden: der jüngste Eintrag, dessen
+   * validFrom nicht in der Zukunft liegt.
+   *
+   * Der Vergleich läuft über 'YYYY-MM-DD'-Strings. Das ist lexikografisch
+   * korrekt und umgeht die Zeitzonen-Fallen, die es bei Date-Objekten schon
+   * einmal gab (der Stichtag verschob sich per toISOString um einen Tag).
+   *
+   * @param {Date} date
+   * @param {Object} settings
+   * @returns {{dailyTargetHours: Object, onCallRate: number, hourlyWage: number}}
+   */
+  getRateForDate(date, settings) {
+    const wtSettings = settings?.workTimeTracking;
+    const history = wtSettings?.rateHistory;
+
+    const empty = { dailyTargetHours: {}, onCallRate: 0, hourlyWage: 0 };
+
+    if (!Array.isArray(history) || history.length === 0) {
+      // Fallback auf den flachen Altbestand, solange die Migration noch nicht
+      // gelaufen ist (siehe app.migrateRateHistory)
+      return wtSettings?.dailyTargetHours
+        ? { ...empty, dailyTargetHours: wtSettings.dailyTargetHours }
+        : empty;
+    }
+
+    const target = this._toDateKey(date);
+
+    let best = null;
+    let oldest = history[0];
+
+    for (const rate of history) {
+      if (rate.validFrom < oldest.validFrom) oldest = rate;
+      if (rate.validFrom <= target && (!best || rate.validFrom > best.validFrom)) {
+        best = rate;
+      }
+    }
+
+    // Liegt das Datum vor dem ersten Satz, gilt der älteste - sonst stünde
+    // für frühe Einträge plötzlich ein Soll von 0 in der Rechnung
+    return best || oldest;
+  }
+
+  /**
+   * Date -> 'YYYY-MM-DD' in Lokalzeit (nicht toISOString, das rechnet nach UTC)
+   */
+  _toDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   /**
