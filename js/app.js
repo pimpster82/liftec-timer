@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.21.0';
+const APP_VERSION = '1.21.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -26,6 +26,9 @@ class App {
 
       // Load settings
       ui.settings = await storage.getSettings();
+
+      // Einmalige Korrektur alter Stichtage (siehe migrateReferenceDates)
+      await this.migrateReferenceDates();
 
       // Initialize Firebase
       if (typeof firebaseService !== 'undefined') {
@@ -1974,6 +1977,52 @@ class App {
 
     const date = new Date(year, month - 1, day, 0, 0, 0, 0);
     return isNaN(date.getTime()) ? null : date;
+  }
+
+  /**
+   * Einmalige Korrektur alter Stichtage.
+   *
+   * Bis v1.20.9 wurde der Stichtag mit toISOString() geschrieben. Das rechnet
+   * nach UTC und machte in Österreich (UTC+1/+2) aus dem 1. eines Monats den
+   * letzten Tag des Vormonats. Beim Lesen hob ein zweiter Fehler das wieder
+   * auf: die Schleife startete einen Tag nach dem Stichtag. Beide Fehler sind
+   * jetzt behoben - dadurch wäre ein alter, verschobener Stichtag um einen Tag
+   * zu früh und würde einen zusätzlichen Tag in den Saldo rechnen.
+   *
+   * Ein Stichtag ist per Definition immer der 1. eines Monats (der Dialog
+   * erzeugt ihn als "erster Tag des Folgemonats"). Alles andere stammt aus der
+   * alten Schreibweise und wird um einen Tag nach vorne gerückt.
+   */
+  async migrateReferenceDates() {
+    const wtt = ui.settings?.workTimeTracking;
+    if (!wtt) return;
+
+    const shiftIfLegacy = (value) => {
+      const date = this.parseReferenceDate(value);
+      if (!date || date.getDate() === 1) return null;  // schon korrekt
+      date.setDate(date.getDate() + 1);
+      return this.formatReferenceDate(date);
+    };
+
+    let changed = false;
+
+    const fixedTimeAccount = shiftIfLegacy(wtt.timeAccount?.referenceDate);
+    if (fixedTimeAccount) {
+      console.log(`Stichtag Zeitkonto migriert: ${wtt.timeAccount.referenceDate} -> ${fixedTimeAccount}`);
+      wtt.timeAccount.referenceDate = fixedTimeAccount;
+      changed = true;
+    }
+
+    const fixedVacation = shiftIfLegacy(wtt.vacation?.referenceDate);
+    if (fixedVacation) {
+      console.log(`Stichtag Urlaub migriert: ${wtt.vacation.referenceDate} -> ${fixedVacation}`);
+      wtt.vacation.referenceDate = fixedVacation;
+      changed = true;
+    }
+
+    if (changed) {
+      await storage.saveSettings(ui.settings);
+    }
   }
 
   /**
