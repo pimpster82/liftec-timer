@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.21.2';
+const APP_VERSION = '1.21.3';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -5009,11 +5009,19 @@ class App {
         const [travelHour, travelMin] = travelTime.split(':').map(Number);
 
         const startMinutes = startHour * 60 + startMin;
-        const endMinutes = endHour * 60 + endMin;
+        let endMinutes = endHour * 60 + endMin;
         const pauseMinutes = pauseHour * 60 + pauseMin;
         const travelMinutes = travelHour * 60 + travelMin;
 
-        let workMinutes = endMinutes - startMinutes - pauseMinutes + travelMinutes;
+        // Nachtschicht: Ende liegt am Folgetag
+        if (endMinutes < startMinutes) {
+          endMinutes += 24 * 60;
+        }
+
+        // Die Schmutzzulage wird nur für Arbeitszeit OHNE Fahrt bezahlt,
+        // die Fahrtzeit wird also abgezogen. Muss identisch zu endSession()
+        // sein - dort steht dieselbe Formel.
+        let workMinutes = endMinutes - startMinutes - pauseMinutes - travelMinutes;
         if (workMinutes < 0) workMinutes = 0;
 
         const netHours = workMinutes / 60;
@@ -5028,7 +5036,10 @@ class App {
 
         // Office tasks get 0% surcharge, others use settings
         const surchargePercent = hasOfficeTask ? 0 : (ui.settings?.surchargePercent || 0);
-        const surchargeHours = netHours * (surchargePercent / 100);
+        // Auf halbe Stunden runden - genau wie in endSession(). Vorher wurde
+        // hier minutengenau gerundet, wodurch ein bearbeiteter Tag einen
+        // anderen Zuschlag bekam als ein per Session-Ende erfasster.
+        const surchargeHours = Math.round(netHours * (surchargePercent / 100) * 2) / 2;
         const surchargeMinutes = Math.round(surchargeHours * 60);
 
         const surchHours = Math.floor(surchargeMinutes / 60);

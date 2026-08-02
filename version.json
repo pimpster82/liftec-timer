@@ -1,7 +1,8 @@
 {
-  "version": "1.21.2",
+  "version": "1.21.3",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Fix: Schmutzzulage beim Bearbeiten rechnet die Fahrtzeit jetzt korrekt heraus",
     "Fix: Bereitschaft zieht nur noch den überlappenden Teil einer Schicht ab",
     "Fix: Nachtschichten werden bei Bereitschaft und Zeitkonto korrekt gerechnet",
     "Fix: Zeitkonto springt nicht mehr – nur noch eine Saldo-Berechnung",
