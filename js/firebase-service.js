@@ -1019,6 +1019,13 @@ class FirebaseService {
           pause: entry.pause || '00:00',
           travelTime: entry.travelTime || '00:00',
           surcharge: entry.surcharge || '00:00',
+          // Diese drei fehlten hier, obwohl der Datei-Weg sie mitschickt.
+          // Ohne entryType wurde ein geteilter Urlaubstag beim Empfänger zum
+          // Arbeitstag. targetHours bleibt bewusst draussen - das rechnet der
+          // Empfänger nach SEINEN Sollstunden neu.
+          surchargePercent: entry.surchargePercent ?? null,
+          entryType: entry.entryType || 'work',
+          vacationDays: entry.vacationDays ?? 0,
           tasks: entry.tasks || []
         },
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),

@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.28.0';
+const APP_VERSION = '1.29.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -415,73 +415,82 @@ class App {
     });
   }
 
+  /**
+   * Posteingang für geteilte Einträge.
+   *
+   * Zeigt jeden Eintrag mit voller Vorschau, damit man sieht was man annimmt,
+   * bevor man es annimmt. Bereits belegte Tage werden vorab markiert.
+   */
   async showSharedEntriesInbox() {
     try {
       const sharedEntries = await firebaseService.getSharedEntries();
 
+      // Belegte Tage vorab ermitteln, damit die Karte es anzeigen kann
+      const conflicts = new Map();
+      for (const share of sharedEntries) {
+        const existing = await storage.getWorklogEntryByDate(share.entry.date);
+        if (existing) conflicts.set(share.id, existing);
+      }
+
+      const escapeHtml = (value) => String(value || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
       const entriesHtml = sharedEntries.length > 0
-        ? sharedEntries.map(share => `
-            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-2">
-              <div class="flex items-start justify-between mb-2">
-                <div>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">${ui.t('sharedBy')}: @${share.fromNickname} (${share.fromName})</p>
-                  <p class="text-sm font-medium text-gray-900 dark:text-white mt-1">${share.entry.date}</p>
-                  <p class="text-xs text-gray-600 dark:text-gray-400">
-                    ${share.entry.startTime} - ${share.entry.endTime}
-                  </p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">
-                    ${share.entry.tasks?.length || 0} ${ui.t('tasks')}
-                  </p>
-                </div>
-              </div>
-              <div class="flex gap-2 mt-2">
-                <button class="accept-share-btn flex-1 px-3 py-1.5 bg-green-500 text-white rounded text-xs font-semibold hover:bg-green-600" data-share-id="${share.id}">
-                  ${ui.t('acceptShare')}
-                </button>
-                <button class="decline-share-btn px-3 py-1.5 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white rounded text-xs hover:bg-gray-400 dark:hover:bg-gray-500" data-share-id="${share.id}">
-                  ${ui.t('declineShare')}
-                </button>
-              </div>
-            </div>
-          `).join('')
-        : `<p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">${ui.t('noSharedEntries')}</p>`;
-
-      const content = `
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-            ${ui.icon('inbox')}
-            <span>${ui.t('sharedEntriesTitle')}</span>
-          </h3>
-
-          <div class="max-h-96 overflow-y-auto">
-            ${entriesHtml}
+        ? sharedEntries.map(share => this.renderSharedEntryCard(share, conflicts.get(share.id), escapeHtml)).join('')
+        : `
+          <div class="text-center py-8">
+            <div class="text-gray-400 dark:text-gray-500 mb-2">${ui.icon('inbox', 'w-10 h-10 mx-auto')}</div>
+            <p class="text-sm text-gray-500 dark:text-gray-400">${ui.t('noSharedEntries')}</p>
           </div>
+        `;
 
-          <button id="inbox-close-btn" class="w-full mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-            ${ui.t('close')}
+      const contentHtml = `<div class="space-y-3">${entriesHtml}</div>`;
+
+      // Sammelaktionen erst ab zwei Einträgen - bei einem wären sie nur Lärm
+      const acceptable = sharedEntries.filter(s => !conflicts.has(s.id)).length;
+      const footerHtml = sharedEntries.length > 1 ? `
+        <div class="flex gap-2">
+          <button type="button" id="inbox-accept-all" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  ${acceptable === 0 ? 'disabled' : ''}>
+            ${ui.icon('check', 'w-4 h-4')}
+            <span>${ui.t('acceptAll')} (${acceptable})</span>
+          </button>
+          <button type="button" id="inbox-decline-all" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+            ${ui.t('declineAll')}
           </button>
         </div>
-      `;
+        ${acceptable < sharedEntries.length
+          ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${ui.t('acceptAllSkipsConflicts')}</p>` : ''}
+      ` : '';
 
-      ui.showModal(content);
+      ui.showModalWithHeader({
+        title: `${ui.t('sharedEntriesTitle')}${sharedEntries.length ? ` (${sharedEntries.length})` : ''}`,
+        icon: 'inbox',
+        content: contentHtml,
+        footer: footerHtml
+      });
 
-      // Attach event listeners
+      // currentTarget statt target - in den Buttons stecken Icons, ein Klick
+      // darauf hätte sonst kein data-share-id
       document.querySelectorAll('.accept-share-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-          const shareId = e.target.getAttribute('data-share-id');
-          await this.acceptSharedEntry(shareId, sharedEntries);
+          await this.acceptSharedEntry(e.currentTarget.dataset.shareId, sharedEntries);
         });
       });
 
       document.querySelectorAll('.decline-share-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-          const shareId = e.target.getAttribute('data-share-id');
-          await this.declineSharedEntry(shareId);
+          await this.declineSharedEntry(e.currentTarget.dataset.shareId);
         });
       });
 
-      document.getElementById('inbox-close-btn').addEventListener('click', () => {
-        ui.hideModal();
+      document.getElementById('inbox-accept-all')?.addEventListener('click', async () => {
+        await this.acceptAllSharedEntries(sharedEntries, conflicts);
+      });
+
+      document.getElementById('inbox-decline-all')?.addEventListener('click', async () => {
+        await this.declineAllSharedEntries(sharedEntries);
       });
 
     } catch (error) {
@@ -490,69 +499,134 @@ class App {
     }
   }
 
+  /**
+   * Eine Karte im Posteingang - mit allem, was den Eintrag ausmacht.
+   */
+  renderSharedEntryCard(share, existingEntry, escapeHtml) {
+    const entry = share.entry;
+
+    const [d, m, y] = (entry.date || '').split('.');
+    const dateObj = (d && m && y) ? new Date(y, m - 1, d) : null;
+    const weekday = dateObj
+      ? dateObj.toLocaleDateString('de-DE', { weekday: 'long' })
+      : '';
+
+    const net = callouts.getNetWorkHours(entry);
+
+    // Nebenzeiten nur zeigen, wenn sie auch gesetzt sind
+    const details = [];
+    if (entry.pause && entry.pause !== '00:00') details.push(`${ui.t('pause')} ${entry.pause}`);
+    if (entry.travelTime && entry.travelTime !== '00:00') details.push(`${ui.t('travelTime')} ${entry.travelTime}`);
+    if (entry.surcharge && entry.surcharge !== '00:00') details.push(`${ui.t('surcharge')} ${entry.surcharge}`);
+
+    const tasksHtml = (entry.tasks || []).length > 0
+      ? `<div class="mt-2 space-y-1">
+           ${entry.tasks.map(t => `
+             <div class="flex items-start gap-2 text-sm">
+               ${t.type
+                 ? `<span class="flex-shrink-0 px-1.5 py-0.5 bg-primary bg-opacity-30 text-gray-900 dark:text-white rounded text-xs font-semibold" title="${TASK_TYPES[t.type] || t.type}">${t.type}</span>`
+                 : ''}
+               <span class="text-gray-700 dark:text-gray-300">${escapeHtml(t.description)}</span>
+             </div>
+           `).join('')}
+         </div>`
+      : `<p class="text-sm text-gray-500 dark:text-gray-400 mt-2">${ui.t('noTasks')}</p>`;
+
+    const conflictHtml = existingEntry
+      ? `<div class="mt-2 flex items-start gap-2 text-xs text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 rounded p-2">
+           ${ui.icon('warning', 'w-4 h-4 flex-shrink-0')}
+           <span>${ui.t('dateAlreadyUsed')}</span>
+         </div>`
+      : '';
+
+    return `
+      <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+          ${ui.t('sharedBy')} @${escapeHtml(share.fromNickname)}${share.fromName ? ` · ${escapeHtml(share.fromName)}` : ''}
+        </div>
+
+        <div class="flex items-baseline justify-between gap-2">
+          <div class="font-semibold text-gray-900 dark:text-white">
+            ${entry.date}${weekday ? `<span class="text-sm font-normal text-gray-500 dark:text-gray-400"> · ${weekday}</span>` : ''}
+          </div>
+          ${net > 0 ? `<div class="text-lg font-bold text-primary flex-shrink-0">${ui.formatHours(net)}</div>` : ''}
+        </div>
+
+        ${entry.startTime && entry.endTime
+          ? `<div class="text-sm text-gray-600 dark:text-gray-400">${entry.startTime} – ${entry.endTime}</div>` : ''}
+
+        ${details.length
+          ? `<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${details.join(' · ')}</div>` : ''}
+
+        ${tasksHtml}
+        ${conflictHtml}
+
+        <div class="flex gap-2 mt-3">
+          <button class="accept-share-btn flex-1 px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 flex items-center justify-center gap-2" data-share-id="${share.id}">
+            ${ui.icon('check', 'w-4 h-4')}
+            <span>${ui.t('acceptShare')}</span>
+          </button>
+          <button class="decline-share-btn px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600" data-share-id="${share.id}">
+            ${ui.t('declineShare')}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Übernimmt einen geteilten Eintrag in den Verlauf.
+   * Reine Datenoperation ohne UI - damit sie auch für die Sammelaktion taugt.
+   *
+   * @returns {'imported'|'skipped'} skipped, wenn der Nutzer abbricht
+   */
+  async importSharedEntry(share, existingEntry) {
+    const entry = { ...share.entry };
+
+    // Sollstunden nach den Einstellungen des EMPFÄNGERS, nicht des Absenders
+    if (ui.settings?.workTimeTracking?.enabled && entry.date) {
+      const [d, m, y] = entry.date.split('.');
+      entry.targetHours = timeAccount.getDailyTargetHours(new Date(y, m - 1, d), ui.settings);
+    }
+
+    if (existingEntry) {
+      const choice = await this.showDuplicateEntryDialog(
+        entry, existingEntry, `@${share.fromNickname} (${share.fromName})`
+      );
+
+      if (choice === 'cancel') return 'skipped';
+
+      if (choice === 'overwrite') {
+        await storage.updateWorklogEntry({ ...entry, id: existingEntry.id });
+      } else {
+        await storage.addWorklogEntry(entry);
+      }
+    } else {
+      await storage.addWorklogEntry(entry);
+    }
+
+    await firebaseService.deleteSharedEntry(share.id);
+    return 'imported';
+  }
+
   async acceptSharedEntry(shareId, sharedEntries) {
     try {
       const share = sharedEntries.find(s => s.id === shareId);
       if (!share) return;
 
-      // Calculate targetHours for this entry (based on recipient's settings)
-      if (ui.settings?.workTimeTracking?.enabled && share.entry.date) {
-        const [d, m, y] = share.entry.date.split('.');
-        const entryDate = new Date(y, m - 1, d);
-        share.entry.targetHours = timeAccount.getDailyTargetHours(entryDate, ui.settings);
+      const existing = await storage.getWorklogEntryByDate(share.entry.date);
+      const result = await this.importSharedEntry(share, existing);
+
+      if (result === 'skipped') {
+        await this.showSharedEntriesInbox();
+        return;
       }
 
-      // Check for duplicate
-      const existingEntry = await storage.getWorklogEntryByDate(share.entry.date);
-
-      if (existingEntry) {
-        // Show duplicate warning dialog
-        const choice = await this.showDuplicateEntryDialog(share.entry, existingEntry, `@${share.fromNickname} (${share.fromName})`);
-
-        if (choice === 'cancel') {
-          return;
-        } else if (choice === 'overwrite') {
-          // Replace existing entry - keep the existing ID but update all fields
-          const updatedEntry = {
-            ...share.entry,
-            id: existingEntry.id
-          };
-          await storage.updateWorklogEntry(updatedEntry);
-          await this.recalculateVacationDays();
-          await this.recalculateTimeAccountBalance();
-        } else if (choice === 'keep-both') {
-          // Add as new entry
-          await storage.addWorklogEntry(share.entry);
-          await this.recalculateVacationDays();
-          await this.recalculateTimeAccountBalance();
-        }
-      } else {
-        // No duplicate, just add
-        await storage.addWorklogEntry(share.entry);
-        await this.recalculateVacationDays();
-        await this.recalculateTimeAccountBalance();
-      }
-
-      // Delete from Firestore (cleanup old shares)
-      await firebaseService.deleteSharedEntry(shareId);
+      await this.recalculateVacationDays();
+      await this.recalculateTimeAccountBalance();
 
       ui.showToast(ui.t('entryImported'), 'success');
-
-      // Check if there are more shares to process
-      const remainingShares = await firebaseService.getSharedEntries();
-
-      if (remainingShares.length === 0) {
-        // No more shares - close modal
-        ui.hideModal();
-      } else {
-        // Refresh inbox to show remaining entries (keep modal open)
-        await this.showSharedEntriesInbox();
-      }
-
-      // Refresh history if we're on that screen
-      if (this.currentView === 'history') {
-        await this.showHistory();
-      }
+      await this.refreshInbox();
 
     } catch (error) {
       console.error('Failed to accept shared entry:', error);
@@ -560,26 +634,90 @@ class App {
     }
   }
 
+  /**
+   * Nimmt alle Einträge an, deren Datum noch frei ist.
+   *
+   * Einträge mit belegtem Datum bleiben bewusst liegen: Bei einer
+   * Sammelaktion soll nicht für jeden Konflikt ein Dialog aufpoppen, und
+   * stillschweigend überschreiben wäre das Letzte, was man will.
+   */
+  async acceptAllSharedEntries(sharedEntries, conflicts) {
+    try {
+      const free = sharedEntries.filter(s => !conflicts.has(s.id));
+      if (free.length === 0) return;
+
+      let imported = 0;
+      for (const share of free) {
+        await this.importSharedEntry(share, null);
+        imported++;
+      }
+
+      await this.recalculateVacationDays();
+      await this.recalculateTimeAccountBalance();
+
+      const skipped = sharedEntries.length - imported;
+      ui.showToast(
+        skipped > 0
+          ? ui.t('acceptAllDone').replace('{imported}', imported).replace('{skipped}', skipped)
+          : ui.t('acceptAllDoneAll').replace('{imported}', imported),
+        'success'
+      );
+
+      await this.refreshInbox();
+
+    } catch (error) {
+      console.error('Failed to accept all shared entries:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
   async declineSharedEntry(shareId) {
     try {
-      // Delete from Firestore (cleanup old shares)
       await firebaseService.deleteSharedEntry(shareId);
       ui.showToast(ui.t('shareDeclined'), 'success');
-
-      // Check if there are more shares to process
-      const remainingShares = await firebaseService.getSharedEntries();
-
-      if (remainingShares.length === 0) {
-        // No more shares - close modal
-        ui.hideModal();
-      } else {
-        // Refresh inbox to show remaining entries (keep modal open)
-        await this.showSharedEntriesInbox();
-      }
+      await this.refreshInbox();
 
     } catch (error) {
       console.error('Failed to decline shared entry:', error);
       ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  async declineAllSharedEntries(sharedEntries) {
+    try {
+      const confirmed = await this.showConfirmDialog(
+        ui.t('declineAll'),
+        ui.t('declineAllConfirm').replace('{count}', sharedEntries.length)
+      );
+      if (!confirmed) return;
+
+      for (const share of sharedEntries) {
+        await firebaseService.deleteSharedEntry(share.id);
+      }
+
+      ui.showToast(ui.t('shareDeclined'), 'success');
+      await this.refreshInbox();
+
+    } catch (error) {
+      console.error('Failed to decline all shared entries:', error);
+      ui.showToast(ui.t('error'), 'error');
+    }
+  }
+
+  /**
+   * Nach einer Aktion: Posteingang neu aufbauen oder schliessen, wenn leer.
+   */
+  async refreshInbox() {
+    const remaining = await firebaseService.getSharedEntries();
+
+    if (remaining.length === 0) {
+      ui.hideModal();
+    } else {
+      await this.showSharedEntriesInbox();
+    }
+
+    if (this.currentView === 'history') {
+      await this.showHistory();
     }
   }
 

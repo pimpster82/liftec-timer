@@ -1,7 +1,11 @@
 {
-  "version": "1.28.0",
+  "version": "1.29.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Posteingang zeigt jetzt Tätigkeiten, Pause, Fahrt und Zuschlag im Klartext",
+    "Neu: Alle geteilten Einträge auf einmal übernehmen oder ablehnen",
+    "Neu: Bereits belegte Tage werden im Posteingang vorab markiert",
+    "Fix: Urlaub und Krankenstand behielten beim Teilen ihre Art nicht",
     "Alle Zeitangaben durchgehend im Format HH:MM statt Dezimalstunden",
     "Fix: Negative Zeiteingaben wie -04:48 wurden falsch gelesen",
     "Die Kacheln in den Aufzeichnungen rechnen jetzt wie die Statistik",
