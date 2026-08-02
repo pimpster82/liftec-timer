@@ -1,7 +1,10 @@
 {
-  "version": "1.22.1",
+  "version": "1.23.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Aufräumen: mehrfach vorhandene Rechenlogik zusammengeführt",
+    "Fix: Nachtschichten werden in der Verlaufsliste positiv statt negativ gezählt",
+    "Intern: toter Code entfernt, rund 350 Zeilen weniger",
     "Fix: Zuschlag wird beim Öffnen eines Eintrags neu berechnet",
     "Neu: Einsätze können nachträglich erfasst werden (Menü → Einsätze)",
     "Fix: Schmutzzulage beim Bearbeiten rechnet die Fahrtzeit jetzt korrekt heraus",

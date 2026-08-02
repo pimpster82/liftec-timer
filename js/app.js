@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.22.1';
+const APP_VERSION = '1.23.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1075,6 +1075,11 @@ class App {
       t.description.toLowerCase().includes('büro')
     );
 
+    // ABWEICHUNG zum Bearbeiten-Dialog: Hier wird nach dem Prozentsatz GEFRAGT,
+    // in calculateSurcharge() (Bearbeiten) werden hart 0 % gesetzt. Derselbe Tag
+    // bekommt dadurch je nach Erfassungsweg einen anderen Zuschlag - wird ein per
+    // Session erfasster Büro-Tag später bearbeitet, fällt er auf 00:00.
+    // Welche Variante gilt, ist eine Frage der Lohnverrechnung und noch offen.
     if (hasOfficeTask) {
       const customSurcharge = await this.showInputDialog(
         `Büro-Aufgabe erkannt. Zuschlag anpassen? (Standard: ${surchargePercent}%)`,
@@ -5024,6 +5029,9 @@ class App {
         });
 
         // Office tasks get 0% surcharge, others use settings
+        // ABWEICHUNG zu endSession(): Dort wird bei Büro-Aufgaben nach dem
+        // Prozentsatz gefragt, hier werden hart 0 % gesetzt. Siehe Kommentar
+        // in endSession() - offene Frage der Lohnverrechnung.
         const surchargePercent = hasOfficeTask ? 0 : (ui.settings?.surchargePercent || 0);
         // Auf halbe Stunden runden - genau wie in endSession(). Vorher wurde
         // hier minutengenau gerundet, wodurch ein bearbeiteter Tag einen
