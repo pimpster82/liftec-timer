@@ -1829,6 +1829,31 @@ class App {
 
   // ===== Absence Entry =====
 
+  /**
+   * Priorität einer Abwesenheitsart.
+   * Reihenfolge: Arbeitszeit > Feiertag > Krankenstand > Urlaub > Zeitausgleich
+   */
+  getAbsencePriority(absenceType) {
+    const priorities = {
+      'Feiertag': 4,
+      'Krankenstand': 3,
+      'Urlaub': 2,
+      'Zeitausgleich': 1
+    };
+    return priorities[absenceType] || 0;
+  }
+
+  /**
+   * Priorität eines bestehenden Eintrags. Erfasste Arbeitszeit schlägt jede
+   * Abwesenheit und wird deshalb nie automatisch überschrieben.
+   */
+  getEntryPriority(entry) {
+    if (entry.startTime && entry.endTime) {
+      return 100;
+    }
+    return this.getAbsencePriority(entry.tasks?.[0]?.description);
+  }
+
   async showAbsenceEntry() {
     // Step 1: Choose absence type
     const absenceType = await this.showAbsenceTypeDialog();
@@ -1863,34 +1888,11 @@ class App {
         // Restart flow
         return this.showAbsenceEntry();
       } else if (action === 'overwrite') {
-        // Define priority: Work > Feiertag > Krankenstand > Urlaub > Zeitausgleich
-        const getPriority = (entry) => {
-          // Work entries with actual times have highest priority
-          if (entry.startTime && entry.endTime) {
-            return 100; // Arbeitszeit has highest priority
-          }
-
-          // Absence types
-          const absenceType = entry.tasks?.[0]?.description;
-          const priorities = {
-            'Feiertag': 4,
-            'Krankenstand': 3,
-            'Urlaub': 2,
-            'Zeitausgleich': 1
-          };
-          return priorities[absenceType] || 0;
-        };
-
-        const newPriority = {
-          'Feiertag': 4,
-          'Krankenstand': 3,
-          'Urlaub': 2,
-          'Zeitausgleich': 1
-        }[absenceType] || 0;
+        const newPriority = this.getAbsencePriority(absenceType);
 
         // Only delete conflicting entries with LOWER priority
         for (const conflict of conflicts) {
-          const conflictPriority = getPriority(conflict);
+          const conflictPriority = this.getEntryPriority(conflict);
 
           if (conflictPriority < newPriority) {
             await storage.deleteWorklogEntry(conflict.id);
@@ -1903,29 +1905,7 @@ class App {
     const entries = [];
     const currentDate = new Date(startDate);
 
-    const getPriority = (entry) => {
-      // Work entries with actual times have highest priority
-      if (entry.startTime && entry.endTime) {
-        return 100; // Arbeitszeit has highest priority
-      }
-
-      // Absence types
-      const absenceType = entry.tasks?.[0]?.description;
-      const priorities = {
-        'Feiertag': 4,
-        'Krankenstand': 3,
-        'Urlaub': 2,
-        'Zeitausgleich': 1
-      };
-      return priorities[absenceType] || 0;
-    };
-
-    const newPriority = {
-      'Feiertag': 4,
-      'Krankenstand': 3,
-      'Urlaub': 2,
-      'Zeitausgleich': 1
-    }[absenceType] || 0;
+    const newPriority = this.getAbsencePriority(absenceType);
 
     while (currentDate <= endDate) {
       const dateStr = formatDate(currentDate);
@@ -1952,7 +1932,7 @@ class App {
       // Check if this day already has an entry with higher priority
       const existing = await storage.getWorklogEntryByDate(dateStr);
       if (existing) {
-        const existingPriority = getPriority(existing);
+        const existingPriority = this.getEntryPriority(existing);
 
         if (existingPriority >= newPriority) {
           // Skip this day - higher or equal priority already exists
