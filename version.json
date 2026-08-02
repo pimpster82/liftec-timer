@@ -1,7 +1,8 @@
 {
-  "version": "1.26.0",
+  "version": "1.26.1",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Neu: Die Kacheln in den Aufzeichnungen öffnen die passende Statistik-Ansicht",
     "Neu: Statistik für Woche und Monat (Menü → Statistik)",
     "Neu: Bereitschaft in Euro und Zeitausgleich umgerechnet",
     "Fix: Negative Stunden wurden falsch dargestellt (-19:-23 statt -18:23)",

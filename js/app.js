@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.26.0';
+const APP_VERSION = '1.26.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -4988,19 +4988,30 @@ class App {
 
     // Statistics HTML
     const liveIndicator = isSessionActive ? `<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse ml-1"></span>` : '';
+    // Die Kacheln führen in die Statistik - aber nur mit aktivierter
+    // Arbeitszeiterfassung. Ohne sie gäbe es dort kein Soll und der Saldo
+    // würde bloss die Iststunden wiederholen.
+    const statsLinked = ui.settings?.workTimeTracking?.enabled;
+    const tileTag = statsLinked ? 'button' : 'div';
+    const tileArrow = statsLinked
+      ? `<span class="absolute top-3 right-3 text-gray-500 dark:text-gray-400">${ui.icon('chevron-right', 'w-4 h-4')}</span>`
+      : '';
+
     const statsHtml = `
       ${wttWidgetHtml}
       <div class="grid grid-cols-2 gap-3 mb-4">
-        <div class="bg-primary bg-opacity-20 rounded-lg p-4">
+        <${tileTag} ${statsLinked ? 'id="stats-week-tile"' : ''} class="relative bg-primary bg-opacity-20 rounded-lg p-4 text-left w-full${statsLinked ? ' hover:bg-opacity-30 transition-colors btn-press' : ''}">
+          ${tileArrow}
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('thisWeek')}</div>
           <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${ui.formatHours(weekHours)}h${liveIndicator}</div>
           <div class="text-xs text-gray-500 mt-1">${weekDays} ${weekDays === 1 ? 'Tag' : 'Tage'}</div>
-        </div>
-        <div class="bg-blue-100 dark:bg-blue-900 rounded-lg p-4">
+        </${tileTag}>
+        <${tileTag} ${statsLinked ? 'id="stats-month-tile"' : ''} class="relative bg-blue-100 dark:bg-blue-900 rounded-lg p-4 text-left w-full${statsLinked ? ' hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors btn-press' : ''}">
+          ${tileArrow}
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('thisMonth')}</div>
           <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${ui.formatHours(monthHours)}h${liveIndicator}</div>
           <div class="text-xs text-gray-500 mt-1">${monthDays} ${monthDays === 1 ? 'Tag' : 'Tage'}</div>
-        </div>
+        </${tileTag}>
       </div>
     `;
 
@@ -5104,6 +5115,17 @@ class App {
           await this.showHistory(); // Refresh history
         }
       });
+    });
+
+    // Kacheln führen in die Statistik, jeweils in die passende Ansicht
+    document.getElementById('stats-week-tile')?.addEventListener('click', () => {
+      ui.hideModal();
+      this.showStatistics('week');
+    });
+
+    document.getElementById('stats-month-tile')?.addEventListener('click', () => {
+      ui.hideModal();
+      this.showStatistics('month');
     });
 
     // Add event listener for time account adjustment button (if exists)
