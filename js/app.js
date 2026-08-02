@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.22.0';
+const APP_VERSION = '1.22.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -5116,6 +5116,14 @@ class App {
         });
       };
       attachTaskListeners(); // Initial attach
+
+      // Zuschlag einmal beim Öffnen berechnen.
+      // Ohne das behält ein Eintrag seinen gespeicherten Wert, solange kein
+      // Zeitfeld angefasst wird - ein mit falscher Formel erfasster Zuschlag
+      // liesse sich dann durch Öffnen und Speichern gar nicht korrigieren.
+      if (isWTTEnabled ? selectedTileType === 'work' : true) {
+        calculateSurcharge();
+      }
 
       // Add task button
       document.getElementById('add-task-to-entry').addEventListener('click', () => {
