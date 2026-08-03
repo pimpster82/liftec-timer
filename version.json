@@ -1,7 +1,8 @@
 {
-  "version": "1.30.0",
+  "version": "1.30.1",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Fix: Das Info-Symbol in den Einstellungen war riesig",
     "Teilen geht jetzt in zwei Schritten: Vorschau prüfen, senden",
     "Der zuletzt verwendete Empfänger wird vorgeschlagen",
     "Kein Auswahldialog mehr, wenn man nur einen Friend hat",
