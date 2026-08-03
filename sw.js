@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.34.1';
+const CACHE_VERSION = '1.34.2';
 const CACHE_NAME = `liftec-timer-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
@@ -12,6 +12,7 @@ const STATIC_ASSETS = [
   './js/time-account.js',
   './js/callouts.js',
   './js/statistics.js',
+  './js/chart.js',
   './js/csv.js',
   './js/excel-export.js',
   './js/ui.js',

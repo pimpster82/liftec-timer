@@ -7,12 +7,58 @@
   --success: #4CAF50;
   --warning: #FF6B35;
   --danger: #F44336;
+
+  /* Diagramm-Farben.
+   *
+   * Bewusst als CSS-Variablen und nicht als Tailwind-Klassen: das Diagramm
+   * ist dynamisch eingefuegtes SVG, und svg-fill kennt keine Klassen. Ausserdem
+   * muesste Tailwind (CDN) die Klassen erst zur Laufzeit erzeugen - faellt es
+   * nach einem Offline-Start aus, waere das Diagramm farblos. Diese Datei ist
+   * dagegen immer lokal gecacht.
+   *
+   * Die Werte sind NICHT erfunden, sondern die Hex-Entsprechungen der Klassen,
+   * die die App bereits benutzt (Eintragsart-Kacheln in app.js). */
+  --chart-work: #22C55E;          /* green-500  - Arbeit */
+  --chart-vacation: #3B82F6;      /* blue-500   - Urlaub */
+  --chart-sick: #EF4444;          /* red-500    - Krankenstand */
+  --chart-holiday: #A855F7;       /* purple-500 - Feiertag */
+  --chart-timeoff: #F59E0B;       /* amber-500  - Zeitausgleich */
+
+  /* Fehltage als Geist: kaum sichtbare Flaeche mit duennem Rand. Ein Fehltag
+   * ist gerade KEINE Erfassung - und Rot ist bereits durch Krankenstand
+   * belegt, gestapelt waeren die beiden nicht zu trennen. */
+  --chart-missing: rgba(107, 114, 128, 0.10);
+  --chart-missing-border: #9CA3AF;   /* gray-400 */
+
+  --chart-plus: #16A34A;          /* green-600 - wie timeAccountColorClass */
+  --chart-minus: #DC2626;         /* red-600 */
+  --chart-line: #111827;          /* gray-900 - Haupttext, bewusst neutral */
+  --chart-grid: #E5E7EB;          /* gray-200 - wie die Kartenrahmen */
+  --chart-muted: #6B7280;         /* gray-500 - wie gedaempfter Text */
+  --chart-sel: rgba(255, 179, 0, 0.20);   /* primary 20%, wie die Wochenkachel */
 }
 
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
+
+    /* Jeweils die dark:-Entsprechung derselben Klasse */
+    --chart-work: #4ADE80;        /* green-400 */
+    --chart-vacation: #60A5FA;    /* blue-400 */
+    --chart-sick: #F87171;        /* red-400 */
+    --chart-holiday: #C084FC;     /* purple-400 */
+    --chart-timeoff: #FBBF24;     /* amber-400 */
+
+    --chart-missing: rgba(156, 163, 175, 0.14);
+    --chart-missing-border: #6B7280;   /* gray-500 */
+
+    --chart-plus: #4ADE80;        /* green-400 */
+    --chart-minus: #F87171;       /* red-400 */
+    --chart-line: #F9FAFB;        /* gray-50 - Haupttext im Dunkeln */
+    --chart-grid: #374151;        /* gray-700 */
+    --chart-muted: #9CA3AF;       /* gray-400 */
+    --chart-sel: rgba(255, 179, 0, 0.16);
   }
 }
 

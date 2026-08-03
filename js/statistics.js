@@ -264,6 +264,255 @@ class Statistics {
     return result;
   }
 
+  // ===== Zeitreihe über viele Zeiträume =====
+
+  /**
+   * Baut das Raster zusammenhängender Zeiträume, rückwärts von endDate.
+   *
+   * Bewusst über setMonth/setDate und die vorhandenen Bounds-Funktionen, nicht
+   * über Millisekunden-Subtraktion: sonst verschiebt die Sommerzeitumstellung
+   * das ganze Raster um eine Stunde.
+   */
+  buildBuckets(mode, endDate, count) {
+    const isWeek = mode === 'week';
+    const bounds = [];
+    const cursor = new Date(endDate);
+
+    for (let i = 0; i < count; i++) {
+      bounds.unshift(isWeek
+        ? this.getWeekBounds(cursor)
+        : callouts.getMonthBounds(cursor.getFullYear(), cursor.getMonth() + 1));
+
+      // Beim Monat erst auf den 1. setzen - sonst springt der 31. in den
+      // übernächsten Monat zurück
+      if (isWeek) cursor.setDate(cursor.getDate() - 7);
+      else cursor.setMonth(cursor.getMonth() - 1, 1);
+    }
+
+    const now = new Date();
+
+    return bounds.map((b, index) => ({
+      index,
+      start: b.start,
+      end: b.end,                       // exklusiv
+      year: b.start.getFullYear(),
+      month: b.start.getMonth(),        // 0-11
+      weekNumber: this.getWeekNumber(b.start),
+      key: isWeek
+        ? `${b.start.getFullYear()}-W${String(this.getWeekNumber(b.start)).padStart(2, '0')}`
+        : `${b.start.getFullYear()}-${String(b.start.getMonth() + 1).padStart(2, '0')}`,
+      isCurrent: now >= b.start && now < b.end,
+      ...this.emptyTotals(),
+      accountBalance: null,             // Zeitkonto am Ende, null vor dem Stichtag
+      onCallHours: 0,
+      calloutHours: 0,
+      runningHours: 0,
+      hasRunningSession: false
+    }));
+  }
+
+  /**
+   * Zeitreihe über mehrere Zeiträume - in EINEM Durchgang.
+   *
+   * Lädt genau einmal und rechnet danach nur noch. Die Tagesrechnung kommt
+   * unverändert aus getDayBalance() über accumulateDay(), dieselbe wie in
+   * calculatePeriodSummary().
+   *
+   * Die Zeitkonto-Linie entsteht als Nebenprodukt derselben Schleife: der
+   * laufende Saldo wird ab dem Stichtag mitgeführt und an jeder Zeitraums-
+   * grenze abgelesen. Sie ist damit die Zerlegung genau der Summe, die
+   * calculateTimeAccountBalance() als Endwert liefert - keine zweite Rechnung.
+   *
+   * @returns {Promise<Object>} { mode, buckets, scale, accountAvailable, data }
+   */
+  async calculateSeries({ mode = 'month', endDate = new Date(), count = null,
+                          settings, session = null, includeOnCall = false } = {}) {
+    const isWeek = mode === 'week';
+    const bucketCount = count ?? (isWeek ? 26 : 24);
+
+    // Einmal laden - das ist der ganze Punkt dieser Funktion
+    const [entries, calloutList, periodList] = await Promise.all([
+      storage.getAllWorklogEntries(),
+      includeOnCall ? callouts.getAllCallouts() : Promise.resolve([]),
+      includeOnCall ? storage.getAllOnCallPeriods() : Promise.resolve([])
+    ]);
+
+    const data = { entries, callouts: calloutList, periods: periodList };
+    const entryMap = new Map(entries.map(e => [e.date, e]));
+
+    const timeAccountSettings = settings?.workTimeTracking?.timeAccount;
+    const referenceDate = timeAccount.parseReferenceDate(timeAccountSettings?.referenceDate);
+    const referenceBalance = timeAccountSettings?.referenceBalance || 0;
+
+    let buckets = this.buildBuckets(mode, endDate, bucketCount);
+
+    // Zeiträume abschneiden, in denen es weder Einträge noch ein Zeitkonto
+    // geben kann - sonst klebt links eine Reihe leerer Balken
+    const oldest = this.getEarliestEntryDate(entries);
+    const dataStart = (oldest && referenceDate)
+      ? (oldest < referenceDate ? oldest : referenceDate)
+      : (oldest || referenceDate);
+
+    if (dataStart) {
+      while (buckets.length > 1 && buckets[0].end <= dataStart) buckets.shift();
+      buckets.forEach((b, i) => { b.index = i; });
+    }
+
+    const gridStart = buckets[0].start;
+    const gridEnd = buckets[buckets.length - 1].end;
+
+    // Laufende Session: wie in calculatePeriodSummary
+    let runningDateStr = null;
+    let runningHours = 0;
+    if (session?.start) {
+      const start = new Date(session.start);
+      if (start >= gridStart && start < gridEnd) {
+        runningDateStr = callouts.formatDate(start);
+        runningHours = Math.max(0, (Date.now() - start.getTime()) / 3600000);
+      }
+    }
+
+    let running = 0;
+
+    // Phase A - Vorlauf vom Stichtag bis zum Rasterbeginn. Nur der Saldo
+    // läuft mit, es werden keine Zähler gefüllt.
+    if (referenceDate && referenceDate < gridStart) {
+      const cursor = new Date(referenceDate);
+      const scratch = this.emptyTotals();
+
+      while (cursor < gridStart) {
+        const day = this.accumulateDay(
+          scratch, cursor, entryMap.get(callouts.formatDate(cursor)), settings
+        );
+        running += (day.actual - day.target);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    // Phase B - das Raster selbst
+    const cursor = new Date(gridStart);
+    let i = 0;
+
+    while (cursor < gridEnd) {
+      while (i < buckets.length - 1 && cursor >= buckets[i].end) {
+        this._closeBucket(buckets[i], referenceDate, referenceBalance, running);
+        i++;
+      }
+
+      const bucket = buckets[i];
+      const dateStr = callouts.formatDate(cursor);
+      const day = this.accumulateDay(
+        bucket, cursor, entryMap.get(dateStr), settings, runningDateStr, runningHours
+      );
+
+      if (dateStr === runningDateStr) {
+        bucket.runningHours = runningHours;
+        bucket.hasRunningSession = true;
+      }
+
+      // Der Saldo zählt erst ab dem Stichtag
+      if (referenceDate && cursor >= referenceDate) {
+        running += (day.actual - day.target);
+      }
+
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    this._closeBucket(buckets[i], referenceDate, referenceBalance, running);
+
+    for (const bucket of buckets) {
+      bucket.balance = bucket.actualHours - bucket.targetHours;
+    }
+
+    // Bereitschaft: Perioden EINMAL für das ganze Raster, dann je Zeitraum
+    // zuschneiden - nach demselben Muster wie getOnCallHoursByDay()
+    if (includeOnCall) {
+      const periods = await callouts.getOnCallPeriodsInWindow(gridStart, gridEnd, data);
+
+      for (const bucket of buckets) {
+        for (const period of periods) {
+          const from = period.start > bucket.start ? period.start : bucket.start;
+          const to = period.end < bucket.end ? period.end : bucket.end;
+          if (to <= from) continue;
+
+          bucket.onCallHours += await callouts.calculateOnCallHours(from, to, data);
+          bucket.calloutHours += callouts.sumCalloutOverlapHours(calloutList, from, to);
+        }
+      }
+    }
+
+    return {
+      mode,
+      buckets,
+      accountAvailable: !!referenceDate && buckets.some(b => b.accountBalance !== null),
+      scale: this.getSeriesScale(buckets),
+      data
+    };
+  }
+
+  /**
+   * Saldo am Ende eines Zeitraums festhalten. Vor dem Stichtag bleibt er
+   * null - die Linie beginnt dort, wo sie definiert ist, statt eine Null
+   * vorzutäuschen.
+   */
+  _closeBucket(bucket, referenceDate, referenceBalance, running) {
+    bucket.accountBalance = (referenceDate && bucket.end > referenceDate)
+      ? referenceBalance + running
+      : null;
+  }
+
+  /**
+   * Ältester Eintrag als Date. 'DD.MM.YYYY' muss geparst werden - ein
+   * String-Vergleich lieferte hier falsche Ergebnisse.
+   */
+  getEarliestEntryDate(entries) {
+    let earliest = null;
+
+    for (const entry of entries || []) {
+      if (!entry.date) continue;
+
+      const [d, m, y] = entry.date.split('.').map(Number);
+      if (!d || !m || !y) continue;
+
+      const date = new Date(y, m - 1, d);
+      if (!earliest || date < earliest) earliest = date;
+    }
+
+    return earliest;
+  }
+
+  /**
+   * Achsengrenzen über die ganze Reihe. Bewusst hier und nicht im Renderer:
+   * die Balken müssen über alle Zeiträume gemeinsam normalisiert sein, sonst
+   * sähe ein Monat mit drei erfassten Tagen aus wie ein voller.
+   */
+  getSeriesScale(buckets) {
+    const stack = (b) => b.workDays + b.vacationDays + b.sickDays
+                       + b.holidayDays + b.timeoffDays + b.missingDays;
+
+    const scale = {
+      maxStackDays: 0, maxHours: 0,
+      balanceMin: 0, balanceMax: 0,
+      accountMin: 0, accountMax: 0,
+      maxOnCallHours: 0
+    };
+
+    for (const b of buckets) {
+      scale.maxStackDays = Math.max(scale.maxStackDays, stack(b));
+      scale.maxHours = Math.max(scale.maxHours, b.actualHours, b.targetHours);
+      scale.balanceMin = Math.min(scale.balanceMin, b.balance);
+      scale.balanceMax = Math.max(scale.balanceMax, b.balance);
+      scale.maxOnCallHours = Math.max(scale.maxOnCallHours, b.onCallHours);
+
+      if (b.accountBalance !== null) {
+        scale.accountMin = Math.min(scale.accountMin, b.accountBalance);
+        scale.accountMax = Math.max(scale.accountMax, b.accountBalance);
+      }
+    }
+
+    return scale;
+  }
+
   /**
    * Bereitschaft in Euro und den daraus folgenden Zeitausgleich.
    *
