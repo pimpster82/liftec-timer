@@ -1,7 +1,9 @@
 {
-  "version": "1.30.1",
+  "version": "1.31.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Neu: Mehrere Einträge auf einmal teilen (Aufzeichnungen \u2192 Mehrere teilen)",
+    "Mehrere Einträge gehen als Stapel raus - alle kommen an oder keiner",
     "Fix: Das Info-Symbol in den Einstellungen war riesig",
     "Teilen geht jetzt in zwei Schritten: Vorschau prüfen, senden",
     "Der zuletzt verwendete Empfänger wird vorgeschlagen",

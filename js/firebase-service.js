@@ -977,14 +977,60 @@ class FirebaseService {
   // ===== Share Entry Functions =====
 
   /**
-   * Share worklog entry with a friend
-   * @param {Object} entry - Worklog entry to share
-   * @param {string} friendUserId - Friend's user ID
-   * @returns {Promise<Object>} Share result with ID and recipient info
+   * Baut die Nutzlast einer Freigabe.
+   *
+   * Bewusst an einer Stelle: einzeln und im Stapel muss beim Empfänger
+   * exakt dasselbe ankommen. Genau solche Zwillinge sind in dieser App
+   * schon mehrfach auseinandergelaufen.
    */
-  async shareWorklogEntry(entry, friendUserId) {
+  _buildShareData(entry, myProfile, friendUserId, friendData) {
+    return {
+      from: this.currentUser.uid,
+      fromNickname: myProfile.nickname,
+      fromName: myProfile.displayName,
+      recipientId: friendUserId,
+      recipientNickname: friendData.nickname,
+      recipientName: friendData.displayName,
+      entry: {
+        date: entry.date,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        pause: entry.pause || '00:00',
+        travelTime: entry.travelTime || '00:00',
+        surcharge: entry.surcharge || '00:00',
+        // Diese drei fehlten hier, obwohl der Datei-Weg sie mitschickt.
+        // Ohne entryType wurde ein geteilter Urlaubstag beim Empfänger zum
+        // Arbeitstag. targetHours bleibt bewusst draussen - das rechnet der
+        // Empfänger nach SEINEN Sollstunden neu.
+        surchargePercent: entry.surchargePercent ?? null,
+        entryType: entry.entryType || 'work',
+        vacationDays: entry.vacationDays ?? 0,
+        tasks: entry.tasks || []
+      },
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      status: 'pending', // pending|imported|declined
+      importedAt: null
+    };
+  }
+
+  /**
+   * Einträge an einen Friend senden - einer oder viele, derselbe Weg.
+   *
+   * Als Batch, damit entweder alle ankommen oder keiner - eine halb
+   * übertragene Woche wäre beim Empfänger nicht von "der Rest kommt noch"
+   * zu unterscheiden.
+   *
+   * @param {Object[]} entries - Worklog-Einträge
+   * @param {string} friendUserId - User-ID des Empfängers
+   * @returns {Promise<Object>} shareIds und Empfängerdaten
+   */
+  async shareWorklogEntries(entries, friendUserId) {
     if (!this.db || !this.currentUser) {
       throw new Error('Not signed in');
+    }
+
+    if (!entries || entries.length === 0) {
+      throw new Error('No entries to share');
     }
 
     try {
@@ -1003,41 +1049,27 @@ class FirebaseService {
       }
 
       const friendData = friendProfile.data();
+      const shareIds = [];
 
-      // Create shared entry
-      const shareData = {
-        from: this.currentUser.uid,
-        fromNickname: myProfile.nickname,
-        fromName: myProfile.displayName,
-        recipientId: friendUserId,
-        recipientNickname: friendData.nickname,
-        recipientName: friendData.displayName,
-        entry: {
-          date: entry.date,
-          startTime: entry.startTime,
-          endTime: entry.endTime,
-          pause: entry.pause || '00:00',
-          travelTime: entry.travelTime || '00:00',
-          surcharge: entry.surcharge || '00:00',
-          // Diese drei fehlten hier, obwohl der Datei-Weg sie mitschickt.
-          // Ohne entryType wurde ein geteilter Urlaubstag beim Empfänger zum
-          // Arbeitstag. targetHours bleibt bewusst draussen - das rechnet der
-          // Empfänger nach SEINEN Sollstunden neu.
-          surchargePercent: entry.surchargePercent ?? null,
-          entryType: entry.entryType || 'work',
-          vacationDays: entry.vacationDays ?? 0,
-          tasks: entry.tasks || []
-        },
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        status: 'pending', // pending|imported|declined
-        importedAt: null
-      };
+      // Firestore nimmt höchstens 500 Schreibvorgänge je Batch. In der Praxis
+      // wählt niemand so viele Tage aus, aber die Grenze kostet nichts.
+      const BATCH_LIMIT = 500;
+      for (let i = 0; i < entries.length; i += BATCH_LIMIT) {
+        const batch = this.db.batch();
 
-      const shareRef = await this.db.collection('shared_entries').add(shareData);
-      console.log('✅ Entry shared with friend:', shareRef.id);
+        for (const entry of entries.slice(i, i + BATCH_LIMIT)) {
+          const shareRef = this.db.collection('shared_entries').doc();
+          batch.set(shareRef, this._buildShareData(entry, myProfile, friendUserId, friendData));
+          shareIds.push(shareRef.id);
+        }
+
+        await batch.commit();
+      }
+
+      console.log(`✅ ${shareIds.length} entr${shareIds.length === 1 ? 'y' : 'ies'} shared with friend`);
 
       return {
-        shareId: shareRef.id,
+        shareIds,
         recipientNickname: friendData.nickname,
         recipientName: friendData.displayName
       };

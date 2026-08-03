@@ -204,6 +204,9 @@ class UI {
         monthNames: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
         // Share Entry Feature
         shareEntry: 'Teilen',
+        shareMultiple: 'Mehrere teilen',
+        entriesLabel: 'Einträge',
+        sharedMultipleWithUser: '{count} Einträge an {user} gesendet',
         shareEntryTitle: 'Eintrag teilen',
         shareEntryDesc: 'Zeiteintrag mit anderen teilen (WhatsApp, AirDrop, etc.)',
         importEntry: 'Eintrag importieren',
@@ -639,6 +642,9 @@ class UI {
         monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
         // Share Entry Feature
         shareEntry: 'Share',
+        shareMultiple: 'Share multiple',
+        entriesLabel: 'entries',
+        sharedMultipleWithUser: 'Sent {count} entries to {user}',
         shareEntryTitle: 'Share entry',
         shareEntryDesc: 'Share time entry with others (WhatsApp, AirDrop, etc.)',
         importEntry: 'Import entry',
@@ -1074,6 +1080,9 @@ class UI {
         monthNames: ['Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipanj', 'Srpanj', 'Kolovoz', 'Rujan', 'Listopad', 'Studeni', 'Prosinac'],
         // Share Entry Feature
         shareEntry: 'Dijeli',
+        shareMultiple: 'Podijeli više',
+        entriesLabel: 'unosa',
+        sharedMultipleWithUser: '{count} unosa poslano korisniku {user}',
         shareEntryTitle: 'Dijeli unos',
         shareEntryDesc: 'Dijeli unos vremena s drugima (WhatsApp, AirDrop, itd.)',
         importEntry: 'Uvezi unos',

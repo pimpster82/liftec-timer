@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.30.1';
+const APP_VERSION = '1.31.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -5149,20 +5149,25 @@ class App {
       const workHours = callouts.getNetWorkHours(entry);
 
       return `
-        <div class="border-b border-gray-200 dark:border-gray-700 py-3 last:border-0" data-entry-id="${entry.id}">
+        <div class="history-entry border-b border-gray-200 dark:border-gray-700 py-3 last:border-0" data-entry-id="${entry.id}">
           <div class="flex justify-between items-start mb-1">
-            <span class="font-medium text-gray-900 dark:text-white">${dateStr}${holidayBadge}</span>
+            <div class="flex items-center gap-2 min-w-0">
+              <input type="checkbox" class="entry-checkbox hidden w-5 h-5 flex-shrink-0 accent-primary" data-id="${entry.id}">
+              <span class="font-medium text-gray-900 dark:text-white">${dateStr}${holidayBadge}</span>
+            </div>
             <div class="flex items-center gap-2">
               <span class="font-semibold text-primary">${ui.formatHours(workHours)}</span>
-              <button class="history-share-btn text-green-500 hover:text-green-700 dark:hover:text-green-400 p-1" data-id="${entry.id}" title="${ui.t('shareEntry')}">
-                ${ui.icon('share')}
-              </button>
-              <button class="history-edit-btn text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 p-1" data-id="${entry.id}" title="Bearbeiten">
-                ${ui.icon('edit')}
-              </button>
-              <button class="history-delete-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1" data-id="${entry.id}" title="Löschen">
-                ${ui.icon('trash')}
-              </button>
+              <div class="entry-actions flex items-center gap-2">
+                <button class="history-share-btn text-green-500 hover:text-green-700 dark:hover:text-green-400 p-1" data-id="${entry.id}" title="${ui.t('shareEntry')}">
+                  ${ui.icon('share')}
+                </button>
+                <button class="history-edit-btn text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 p-1" data-id="${entry.id}" title="Bearbeiten">
+                  ${ui.icon('edit')}
+                </button>
+                <button class="history-delete-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1" data-id="${entry.id}" title="Löschen">
+                  ${ui.icon('trash')}
+                </button>
+              </div>
             </div>
           </div>
           <div class="text-sm text-gray-600 dark:text-gray-400">
@@ -5188,11 +5193,37 @@ class App {
       </div>
     `;
 
+    // Mehrfachauswahl nur mit Cloud - der Datei-Weg kennt pro Datei einen Eintrag
+    const canShareMultiple = firebaseService.isSignedIn();
+
+    const footerHtml = canShareMultiple ? `
+      <div id="history-footer-normal">
+        <button type="button" id="history-select-btn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-2">
+          ${ui.icon('share-2', 'w-5 h-5')}
+          <span>${ui.t('shareMultiple')}</span>
+        </button>
+      </div>
+      <div id="history-footer-select" class="hidden flex gap-2">
+        <button type="button" id="history-share-selected" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled>
+          ${ui.icon('share-2', 'w-5 h-5')}
+          <span>${ui.t('shareEntry')} (<span id="history-selected-count">0</span>)</span>
+        </button>
+        <button type="button" id="history-cancel-select" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600">
+          ${ui.t('cancel')}
+        </button>
+      </div>
+    ` : '';
+
     ui.showModalWithHeader({
       title: ui.t('recordings'),
       icon: 'history',
-      content: contentHtml
+      content: contentHtml,
+      footer: footerHtml
     });
+
+    if (canShareMultiple) {
+      this.setupHistorySelection(entries);
+    }
 
     // Add event listeners for share buttons
     document.querySelectorAll('.history-share-btn').forEach(btn => {
@@ -5250,6 +5281,68 @@ class App {
         this.showTimeAccountAdjustment();
       });
     }
+  }
+
+  /**
+   * Auswahlmodus in den Aufzeichnungen, um mehrere Einträge auf einmal
+   * zu teilen.
+   *
+   * Die Kästchen stehen von Anfang an im Markup und werden nur ein- und
+   * ausgeblendet. So überlebt eine getroffene Auswahl das Umschalten und
+   * die Liste muss nicht neu gebaut werden.
+   */
+  setupHistorySelection(entries) {
+    const checkboxes = [...document.querySelectorAll('.entry-checkbox')];
+    const footerNormal = document.getElementById('history-footer-normal');
+    const footerSelect = document.getElementById('history-footer-select');
+    const shareBtn = document.getElementById('history-share-selected');
+    const countEl = document.getElementById('history-selected-count');
+
+    let selectionMode = false;
+
+    const selectedIds = () => checkboxes.filter(cb => cb.checked).map(cb => parseInt(cb.dataset.id));
+
+    const updateCount = () => {
+      const count = selectedIds().length;
+      countEl.textContent = count;
+      shareBtn.disabled = count === 0;
+    };
+
+    const setMode = (on) => {
+      selectionMode = on;
+      checkboxes.forEach(cb => {
+        cb.classList.toggle('hidden', !on);
+        if (!on) cb.checked = false;
+      });
+      document.querySelectorAll('.entry-actions').forEach(el => el.classList.toggle('hidden', on));
+      footerNormal.classList.toggle('hidden', on);
+      footerSelect.classList.toggle('hidden', !on);
+      updateCount();
+    };
+
+    document.getElementById('history-select-btn').addEventListener('click', () => setMode(true));
+    document.getElementById('history-cancel-select').addEventListener('click', () => setMode(false));
+
+    // Im Auswahlmodus zählt die ganze Zeile als Ziel - ein kleines Kästchen
+    // mit dem Daumen zu treffen ist auf dem Handy nichts
+    document.querySelectorAll('.history-entry').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (!selectionMode) return;
+
+        const checkbox = row.querySelector('.entry-checkbox');
+        // Traf der Klick das Kästchen selbst, hat es schon umgeschaltet
+        if (e.target !== checkbox) checkbox.checked = !checkbox.checked;
+        updateCount();
+      });
+    });
+
+    shareBtn.addEventListener('click', async () => {
+      const ids = selectedIds();
+      const selected = entries.filter(entry => ids.includes(entry.id));
+      if (selected.length === 0) return;
+
+      await this.shareWorklogEntries(selected);
+    });
   }
 
   async editWorklogEntry(entry) {
@@ -5871,7 +5964,7 @@ class App {
 
     if (isSignedIn) {
       // Signed in → direkt zu Freunde-Auswahl
-      await this.shareWorklogEntryToUser(entry);
+      await this.shareWorklogEntriesToUser([entry]);
     } else {
       // Nicht signed in → direkt zu File-Share
       await this.shareWorklogEntryViaFile(entry);
@@ -5879,13 +5972,30 @@ class App {
   }
 
   /**
-   * Eintrag an einen Friend senden.
+   * Mehrere Einträge auf einmal teilen.
+   *
+   * Nur über die Cloud: der Datei-Weg kennt pro Datei genau einen Eintrag,
+   * und der Empfänger könnte eine Sammeldatei gar nicht lesen.
+   */
+  async shareWorklogEntries(entries) {
+    if (!entries || entries.length === 0) return;
+
+    if (!firebaseService.isSignedIn()) {
+      ui.showToast(ui.t('mustBeSignedIn'), 'error');
+      return;
+    }
+
+    await this.shareWorklogEntriesToUser(entries);
+  }
+
+  /**
+   * Einträge an einen Friend senden.
    *
    * Vorgeschlagen wird immer der zuletzt verwendete Empfänger - in der Praxis
    * geht fast alles an dieselbe Person. Gewechselt wird nur, wenn man den
    * Empfänger antippt; bei genau einem Friend gibt es nichts zu wechseln.
    */
-  async shareWorklogEntryToUser(entry) {
+  async shareWorklogEntriesToUser(entries) {
     let friends;
     try {
       friends = await firebaseService.getFriends();
@@ -5908,7 +6018,7 @@ class App {
 
     // Der Empfängerwechsel führt zurück ins Blatt, deshalb die Schleife
     while (true) {
-      const action = await this.showShareConfirmDialog(entry, recipient, friends.length > 1);
+      const action = await this.showShareConfirmDialog(entries, recipient, friends.length > 1);
 
       if (action === 'cancel') return false;
 
@@ -5918,19 +6028,27 @@ class App {
         continue;
       }
 
-      return await this.sendSharedEntry(entry, recipient);
+      return await this.sendSharedEntries(entries, recipient);
     }
   }
 
   /**
    * Bestätigungsblatt vor dem Senden.
+   *
+   * Ein Eintrag bekommt die volle Vorschau, mehrere eine Liste mit Summe -
+   * bei zehn Tagen zählt, ob die richtigen dabei sind, nicht jede Tätigkeit.
+   *
    * @returns {Promise<'send'|'change'|'cancel'>}
    */
-  showShareConfirmDialog(entry, recipient, canChange) {
+  showShareConfirmDialog(entries, recipient, canChange) {
     return new Promise((resolve) => {
+      const previewHtml = entries.length === 1
+        ? this.renderEntryPreview(entries[0])
+        : this.renderEntryListPreview(entries);
+
       const content = `
         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          ${this.renderEntryPreview(entry)}
+          ${previewHtml}
         </div>
 
         <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-4 mb-2">${ui.t('recipient')}</p>
@@ -6063,16 +6181,59 @@ class App {
     });
   }
 
-  async sendSharedEntry(entry, recipient) {
+  /**
+   * Vorschau mehrerer Einträge: Datum und Stunden je Zeile, oben die Summe.
+   */
+  renderEntryListPreview(entries) {
+    const sorted = [...entries].sort((a, b) =>
+      a.date.split('.').reverse().join('-').localeCompare(b.date.split('.').reverse().join('-'))
+    );
+
+    const total = sorted.reduce((sum, entry) => sum + callouts.getNetWorkHours(entry), 0);
+
+    return `
+      <div class="flex items-baseline justify-between gap-2 mb-2">
+        <div class="font-semibold text-gray-900 dark:text-white">${sorted.length} ${ui.t('entriesLabel')}</div>
+        <div class="text-lg font-bold text-primary flex-shrink-0">${ui.formatHours(total)}</div>
+      </div>
+
+      <div class="space-y-1">
+        ${sorted.map(entry => {
+          const [d, m, y] = (entry.date || '').split('.');
+          const dateObj = (d && m && y) ? new Date(y, m - 1, d) : null;
+          const weekday = dateObj ? dateObj.toLocaleDateString('de-DE', { weekday: 'short' }) : '';
+          const net = callouts.getNetWorkHours(entry);
+
+          return `
+            <div class="flex justify-between gap-2 text-sm">
+              <span class="text-gray-700 dark:text-gray-300 truncate">
+                ${entry.date}${weekday ? `<span class="text-gray-500 dark:text-gray-400"> · ${weekday}</span>` : ''}
+              </span>
+              <span class="text-gray-500 dark:text-gray-400 flex-shrink-0">${net > 0 ? ui.formatHours(net) : '–'}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  async sendSharedEntries(entries, recipient) {
     try {
       ui.hideModal();
-      const result = await firebaseService.shareWorklogEntry(entry, recipient.uid);
+      const result = await firebaseService.shareWorklogEntries(entries, recipient.uid);
 
       // Merken, damit beim nächsten Mal derselbe Empfänger vorgeschlagen wird
       ui.settings.lastShareRecipient = recipient.uid;
       await storage.saveSettings(ui.settings);
 
-      ui.showToast(ui.t('sharedWithUser').replace('{user}', `@${result.recipientNickname}`), 'success');
+      ui.showToast(
+        entries.length === 1
+          ? ui.t('sharedWithUser').replace('{user}', `@${result.recipientNickname}`)
+          : ui.t('sharedMultipleWithUser')
+              .replace('{count}', entries.length)
+              .replace('{user}', `@${result.recipientNickname}`),
+        'success'
+      );
       return true;
     } catch (error) {
       console.error('Cloud share failed:', error);
