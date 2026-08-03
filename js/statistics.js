@@ -96,7 +96,7 @@ class Statistics {
     const timeAccountSettings = settings?.workTimeTracking?.timeAccount;
     if (!timeAccountSettings) return null;
 
-    const referenceDate = app.parseReferenceDate(timeAccountSettings.referenceDate);
+    const referenceDate = timeAccount.parseReferenceDate(timeAccountSettings.referenceDate);
 
     // Ohne Stichtag gibt es keine Basis. Ohne diesen Guard liefe die Schleife
     // ab dem 01.01.1970 über 20.000 Tage - mit absurdem Ergebnis.

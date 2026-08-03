@@ -1,7 +1,8 @@
 {
-  "version": "1.33.0",
+  "version": "1.33.1",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Fix: Aufzeichnungen liessen sich nicht mehr \u00f6ffnen und das Session-Ende schlug fehl",
     "Das Zeitkonto in den Aufzeichnungen l\u00e4uft w\u00e4hrend einer Session mit",
     "Fix: Das Zeitkonto in den Aufzeichnungen war w\u00e4hrend einer Session um ein Tagessoll zu hoch",
     "Die Pause z\u00e4hlt jetzt als Bereitschaft \u2013 abgezogen wird nur die Nettoarbeitszeit",

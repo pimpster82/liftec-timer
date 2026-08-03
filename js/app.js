@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.33.0';
+const APP_VERSION = '1.33.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2200,19 +2200,6 @@ class App {
    * verschoben - deshalb hier explizit als Lokalzeit aufbauen.
    * Gibt null zurück, wenn kein gültiger Stichtag gesetzt ist.
    */
-  parseReferenceDate(value) {
-    if (!value || typeof value !== 'string') return null;
-
-    const parts = value.split('-');
-    if (parts.length !== 3) return null;
-
-    const [year, month, day] = parts.map(Number);
-    if (!year || !month || !day) return null;
-
-    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-    return isNaN(date.getTime()) ? null : date;
-  }
-
   /**
    * Einmalige Korrektur alter Stichtage.
    *
@@ -2232,7 +2219,7 @@ class App {
     if (!wtt) return;
 
     const shiftIfLegacy = (value) => {
-      const date = this.parseReferenceDate(value);
+      const date = timeAccount.parseReferenceDate(value);
       if (!date || date.getDate() === 1) return null;  // schon korrekt
       date.setDate(date.getDate() + 1);
       return this.formatReferenceDate(date);
@@ -2687,7 +2674,7 @@ class App {
     }
 
     const vacation = ui.settings.workTimeTracking.vacation;
-    const referenceDate = this.parseReferenceDate(vacation.referenceDate);
+    const referenceDate = timeAccount.parseReferenceDate(vacation.referenceDate);
 
     // Ohne Stichtag gibt es keine Basis zum Rechnen (Onboarding nicht abgeschlossen)
     if (!referenceDate) {

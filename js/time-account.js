@@ -75,6 +75,26 @@ class TimeAccount {
   }
 
   /**
+   * 'YYYY-MM-DD' -> Date in Lokalzeit, null bei allem Ungültigen.
+   *
+   * Bewusst hier und nicht im UI-Controller: die Stichtage werden auch von
+   * der Saldo-Berechnung in statistics.js gebraucht, und die darf nicht auf
+   * app zugreifen - dort gibt es gar kein globales app.
+   */
+  parseReferenceDate(value) {
+    if (!value || typeof value !== 'string') return null;
+
+    const parts = value.split('-');
+    if (parts.length !== 3) return null;
+
+    const [year, month, day] = parts.map(Number);
+    if (!year || !month || !day) return null;
+
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  /**
    * Date -> 'YYYY-MM-DD' in Lokalzeit (nicht toISOString, das rechnet nach UTC)
    */
   _toDateKey(date) {
