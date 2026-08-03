@@ -1,7 +1,8 @@
 {
-  "version": "1.34.0",
+  "version": "1.34.1",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Intern: Auswertungen k\u00f6nnen Daten wiederverwenden statt sie neu zu laden",
     "Woche, Monat und Saldo laufen w\u00e4hrend einer Session mit - auch in der Statistik",
     "Fix: Aufzeichnungen liessen sich nicht mehr \u00f6ffnen und das Session-Ende schlug fehl",
     "Das Zeitkonto in den Aufzeichnungen l\u00e4uft w\u00e4hrend einer Session mit",

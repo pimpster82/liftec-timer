@@ -139,8 +139,16 @@ class Callouts {
    * Die Pause hat keinen Zeitstempel, nur eine Dauer. Ragt eine Schicht nur
    * teilweise ins Fenster, wird sie anteilig angerechnet - liegt die Schicht
    * ganz im Fenster (der Normalfall), ist das die volle Pause.
+   *
+   * @param {Date} windowStart
+   * @param {Date} windowEnd
+   * @param {{entries: Array, callouts: Array}} [data] - bereits geladene Daten.
+   *   Ohne sie lädt die Funktion selbst, wie bisher. Das Ergebnis ist in beiden
+   *   Fällen identisch: die Datenbankabfrage ist hier nur ein Vorfilter, kein
+   *   Teil der Formel - Einträge ausserhalb des Fensters haben overlap 0 und
+   *   werden übersprungen. Man darf also gefahrlos alles durchreichen.
    */
-  async calculateOnCallHours(windowStart, windowEnd) {
+  async calculateOnCallHours(windowStart, windowEnd, data = null) {
     const totalHours = (windowEnd - windowStart) / 3600000;
     if (totalHours <= 0) return 0;
 
@@ -152,7 +160,7 @@ class Callouts {
     let deducted = 0;
 
     try {
-      const entries = await storage.getEntriesByDateRange(
+      const entries = data?.entries ?? await storage.getEntriesByDateRange(
         this.formatDate(queryFrom),
         this.formatDate(windowEnd)
       );
@@ -175,7 +183,9 @@ class Callouts {
     }
 
     // Einsätze zählen als Arbeit, nicht als Bereitschaft
-    deducted += await this.getCalloutHoursInWindow(windowStart, windowEnd);
+    deducted += data
+      ? this.sumCalloutOverlapHours(data.callouts, windowStart, windowEnd)
+      : await this.getCalloutHoursInWindow(windowStart, windowEnd);
 
     return Math.max(0, totalHours - deducted);
   }
@@ -193,10 +203,12 @@ class Callouts {
    *
    * @param {Date} windowStart
    * @param {Date} windowEnd - exklusiv
+   * @param {{entries: Array, callouts: Array, periods: Array}} [data] - bereits
+   *   geladene Daten, siehe calculateOnCallHours()
    * @returns {Promise<Array>} [{ id, isRunning, start, end, from, to, hours }]
    */
-  async getOnCallPeriodsInWindow(windowStart, windowEnd) {
-    const allPeriods = await storage.getAllOnCallPeriods();
+  async getOnCallPeriodsInWindow(windowStart, windowEnd, data = null) {
+    const allPeriods = data?.periods ?? await storage.getAllOnCallPeriods();
 
     if (!allPeriods || allPeriods.length === 0) {
       return [];
@@ -230,7 +242,7 @@ class Callouts {
         end,
         from: `${this.formatDate(start)} ${this.formatTime(start)}`,
         to: this.formatEndLabel(end) + (isRunning ? ' (laufend)' : ''),
-        hours: await this.calculateOnCallHours(start, end)
+        hours: await this.calculateOnCallHours(start, end, data)
       });
     }
 
@@ -406,17 +418,25 @@ class Callouts {
     return Math.max(0, (end - start) / 3600000);
   }
 
-  // Summe aller Einsatz-Anteile, die in ein Zeitfenster fallen
-  async getCalloutHoursInWindow(windowStart, windowEnd) {
-    const all = await this.getAllCallouts();
-
+  /**
+   * Summe der Einsatz-Anteile in einem Zeitfenster - über eine bereits
+   * geladene Liste. Herausgezogen, damit eine Auswertung über viele Fenster
+   * die Einsätze einmal laden und dann nur noch rechnen kann.
+   */
+  sumCalloutOverlapHours(calloutList, windowStart, windowEnd) {
     let hours = 0;
-    for (const callout of all) {
+
+    for (const callout of calloutList || []) {
       const interval = this.getCalloutInterval(callout);
       hours += this.overlapHours(windowStart, windowEnd, interval.start, interval.end);
     }
 
     return hours;
+  }
+
+  // Summe aller Einsatz-Anteile, die in ein Zeitfenster fallen
+  async getCalloutHoursInWindow(windowStart, windowEnd) {
+    return this.sumCalloutOverlapHours(await this.getAllCallouts(), windowStart, windowEnd);
   }
 
   // Alle Segmente eines Monats, chronologisch sortiert

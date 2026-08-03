@@ -90,9 +90,10 @@ class Statistics {
    *
    * @param {Object} settings
    * @param {Date} [upTo] - letzter Tag, der zählt (Vorgabe: heute)
+   * @param {Object|null} [data] - bereits geladene Daten {entries}
    * @returns {Promise<number|null>} Saldo in Stunden, null ohne Stichtag
    */
-  async calculateTimeAccountBalance(settings, upTo = new Date()) {
+  async calculateTimeAccountBalance(settings, upTo = new Date(), data = null) {
     const timeAccountSettings = settings?.workTimeTracking?.timeAccount;
     if (!timeAccountSettings) return null;
 
@@ -102,7 +103,7 @@ class Statistics {
     // ab dem 01.01.1970 über 20.000 Tage - mit absurdem Ergebnis.
     if (!referenceDate) return null;
 
-    const allEntries = await storage.getAllWorklogEntries();
+    const allEntries = data?.entries ?? await storage.getAllWorklogEntries();
     const entryMap = new Map();
     for (const entry of allEntries) {
       entryMap.set(entry.date, entry);
@@ -126,15 +127,71 @@ class Statistics {
   // ===== Auswertung eines Zeitraums =====
 
   /**
+   * Leerer Zähler-Satz. An einer Stelle, damit Zeitraum und Zeitreihe
+   * dieselben Felder haben.
+   */
+  emptyTotals() {
+    return {
+      actualHours: 0, targetHours: 0, balance: 0,
+      workDays: 0, vacationDays: 0, sickDays: 0,
+      holidayDays: 0, timeoffDays: 0, missingDays: 0
+    };
+  }
+
+  /**
+   * Verbucht EINEN Tag in einen Zähler-Satz.
+   *
+   * Die einzige Stelle, an der aus getDayBalance() Kennzahlen werden -
+   * calculatePeriodSummary() und calculateSeries() teilen sie sich. Eine
+   * zweite Fassung wäre genau der Fehler, vor dem der Kopfkommentar warnt.
+   *
+   * @returns {{actual: number, target: number}} der Tag selbst, damit der
+   *   Aufrufer (actual - target) für die Zeitkonto-Linie weiterrechnen kann
+   */
+  accumulateDay(totals, date, entry, settings, runningDateStr = null, runningHours = 0) {
+    const dateStr = callouts.formatDate(date);
+    const day = this.getDayBalance(date, entry, settings);
+
+    let actual = day.actual;
+    let missing = day.missing;
+
+    if (dateStr === runningDateStr) {
+      actual += runningHours;
+      missing = false;                     // Tag läuft noch, keine Schuld
+    }
+
+    totals.actualHours += actual;
+    totals.targetHours += day.target;
+
+    if (missing) {
+      totals.missingDays++;
+    } else if (entry) {
+      switch (entry.entryType) {
+        case 'vacation': totals.vacationDays += (entry.vacationDays ?? 1); break;
+        case 'sick':     totals.sickDays++; break;
+        case 'holiday':  totals.holidayDays++; break;
+        case 'timeoff':
+        case 'unpaid':   totals.timeoffDays++; break;
+        default:
+          if (entry.startTime && entry.endTime) totals.workDays++;
+      }
+    }
+
+    return { actual, target: day.target };
+  }
+
+  /**
    * Alle Kennzahlen für einen Zeitraum.
    *
    * @param {Date} from - inklusive
    * @param {Date} to   - exklusiv
    * @param {Object} settings
    * @param {Object|null} session - laufende Session, falls vorhanden
+   * @param {Object|null} data - bereits geladene Daten {entries, callouts, periods},
+   *   siehe callouts.calculateOnCallHours(). Ohne sie lädt die Funktion selbst.
    */
-  async calculatePeriodSummary(from, to, settings, session = null) {
-    const allEntries = await storage.getAllWorklogEntries();
+  async calculatePeriodSummary(from, to, settings, session = null, data = null) {
+    const allEntries = data?.entries ?? await storage.getAllWorklogEntries();
 
     const entryMap = new Map();
     for (const entry of allEntries) {
@@ -142,9 +199,7 @@ class Statistics {
     }
 
     const result = {
-      actualHours: 0, targetHours: 0, balance: 0,
-      workDays: 0, vacationDays: 0, sickDays: 0,
-      holidayDays: 0, timeoffDays: 0, missingDays: 0,
+      ...this.emptyTotals(),
       onCallHours: 0, calloutHours: 0, calloutCount: 0,
       onCallEuro: null, onCallZaHours: null,
       hasRunningOnCall: false,
@@ -174,31 +229,10 @@ class Statistics {
     current.setHours(0, 0, 0, 0);
 
     while (current < to) {
-      const dateStr = callouts.formatDate(current);
-      const entry = entryMap.get(dateStr);
-      const day = this.getDayBalance(current, entry, settings);
-
-      result.actualHours += day.actual;
-      result.targetHours += day.target;
-
-      if (dateStr === runningDateStr) {
-        result.actualHours += runningHours;
-        if (day.missing) day.missing = false;   // Tag läuft noch, keine Schuld
-      }
-
-      if (day.missing) {
-        result.missingDays++;
-      } else if (entry) {
-        switch (entry.entryType) {
-          case 'vacation': result.vacationDays += (entry.vacationDays ?? 1); break;
-          case 'sick':     result.sickDays++; break;
-          case 'holiday':  result.holidayDays++; break;
-          case 'timeoff':
-          case 'unpaid':   result.timeoffDays++; break;
-          default:
-            if (entry.startTime && entry.endTime) result.workDays++;
-        }
-      }
+      this.accumulateDay(
+        result, current, entryMap.get(callouts.formatDate(current)),
+        settings, runningDateStr, runningHours
+      );
 
       current.setDate(current.getDate() + 1);
     }
@@ -207,12 +241,12 @@ class Statistics {
 
     // Bereitschaft: EIN Aufruf über den ganzen Zeitraum, exakt dieselbe
     // Funktion wie im Export - damit können beide nicht auseinanderlaufen
-    const periods = await callouts.getOnCallPeriodsInWindow(from, to);
+    const periods = await callouts.getOnCallPeriodsInWindow(from, to, data);
     result.onCallHours = periods.reduce((sum, p) => sum + p.hours, 0);
     result.hasRunningOnCall = periods.some(p => p.isRunning);
 
     // Einsätze
-    const allCallouts = await callouts.getAllCallouts();
+    const allCallouts = data?.callouts ?? await callouts.getAllCallouts();
     const groups = new Set();
     for (const callout of allCallouts) {
       const interval = callouts.getCalloutInterval(callout);
@@ -225,7 +259,7 @@ class Statistics {
     result.calloutCount = groups.size;
 
     // Umrechnung in Euro und Zeitausgleich
-    Object.assign(result, await this.calculateOnCallValue(from, to, settings));
+    Object.assign(result, await this.calculateOnCallValue(from, to, settings, data));
 
     return result;
   }
@@ -242,7 +276,7 @@ class Statistics {
    * Summe von der Fensterrechnung abweichen. Satzwechsel sind selten,
    * Tagesgrenzen gibt es 30-mal pro Monat.
    */
-  async calculateOnCallValue(from, to, settings) {
+  async calculateOnCallValue(from, to, settings, data = null) {
     const history = settings?.workTimeTracking?.rateHistory || [];
 
     // Schnittpunkte: Fensteranfang plus jeder Satzwechsel innerhalb des Fensters
@@ -268,7 +302,7 @@ class Statistics {
       const rate = timeAccount.getRateForDate(sliceStart, settings);
       if (!rate.onCallRate) continue;
 
-      const periods = await callouts.getOnCallPeriodsInWindow(sliceStart, sliceEnd);
+      const periods = await callouts.getOnCallPeriodsInWindow(sliceStart, sliceEnd, data);
       const hours = periods.reduce((sum, p) => sum + p.hours, 0);
 
       euro += hours * rate.onCallRate;
