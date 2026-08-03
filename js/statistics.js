@@ -81,6 +81,48 @@ class Statistics {
     return { actual: 0, target: 0, missing: false };
   }
 
+  /**
+   * Zeitkonto-Saldo vom Stichtag bis einschliesslich eines Tages.
+   *
+   * Der laufende Tag zählt mit: ein Werktag ohne Eintrag ist eine Schuld in
+   * Höhe des Tagessolls. Wer heute noch arbeitet, hat also erst einmal ein
+   * Minus, das die laufende Session Stunde um Stunde auffüllt.
+   *
+   * @param {Object} settings
+   * @param {Date} [upTo] - letzter Tag, der zählt (Vorgabe: heute)
+   * @returns {Promise<number|null>} Saldo in Stunden, null ohne Stichtag
+   */
+  async calculateTimeAccountBalance(settings, upTo = new Date()) {
+    const timeAccountSettings = settings?.workTimeTracking?.timeAccount;
+    if (!timeAccountSettings) return null;
+
+    const referenceDate = app.parseReferenceDate(timeAccountSettings.referenceDate);
+
+    // Ohne Stichtag gibt es keine Basis. Ohne diesen Guard liefe die Schleife
+    // ab dem 01.01.1970 über 20.000 Tage - mit absurdem Ergebnis.
+    if (!referenceDate) return null;
+
+    const allEntries = await storage.getAllWorklogEntries();
+    const entryMap = new Map();
+    for (const entry of allEntries) {
+      entryMap.set(entry.date, entry);
+    }
+
+    const last = new Date(upTo);
+    last.setHours(23, 59, 59, 999);
+
+    let change = 0;
+    const cursor = new Date(referenceDate);
+
+    while (cursor <= last) {
+      const day = this.getDayBalance(cursor, entryMap.get(callouts.formatDate(cursor)), settings);
+      change += (day.actual - day.target);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return (timeAccountSettings.referenceBalance || 0) + change;
+  }
+
   // ===== Auswertung eines Zeitraums =====
 
   /**

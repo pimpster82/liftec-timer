@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.32.0';
+const APP_VERSION = '1.32.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2691,46 +2691,39 @@ class App {
       return; // Work time tracking not enabled
     }
 
-    const timeAccountSettings = ui.settings.workTimeTracking.timeAccount;
-    const referenceDate = this.parseReferenceDate(timeAccountSettings.referenceDate);
-    const referenceBalance = timeAccountSettings.referenceBalance || 0;
+    const balance = await statistics.calculateTimeAccountBalance(ui.settings);
 
-    // Ohne Stichtag gibt es keine Basis zum Rechnen. Ohne diesen Guard würde
-    // new Date(null) den 01.01.1970 ergeben und die Schleife unten über
-    // 20.000 Tage laufen - mit absurd negativem Saldo als Ergebnis.
-    if (!referenceDate) {
+    if (balance === null) {
       console.warn('recalculateTimeAccountBalance: kein Stichtag gesetzt, übersprungen');
       return;
     }
 
-    // Get all entries for quick lookup
-    const allEntries = await storage.getAllWorklogEntries();
-    const entryMap = new Map();
-    for (const entry of allEntries) {
-      entryMap.set(entry.date, entry);
-    }
-
-    // Loop through ALL days from reference date to today (INCLUSIVE!)
-    const today = new Date();
-    today.setHours(23, 59, 59, 999); // End of today to ensure today is included
-
-    let balanceChange = 0;
-    // Ab dem Stichtag selbst - der Saldo gilt zum Ende des Vormonats,
-    // der 1. des Folgemonats zählt also bereits mit
-    const currentDate = new Date(referenceDate);
-
-    while (currentDate <= today) {
-      const dateStr = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`;
-      const day = statistics.getDayBalance(currentDate, entryMap.get(dateStr), ui.settings);
-
-      balanceChange += (day.actual - day.target);
-
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    // Set current balance = reference + changes
-    ui.settings.workTimeTracking.timeAccount.currentBalance = referenceBalance + balanceChange;
+    ui.settings.workTimeTracking.timeAccount.currentBalance = balance;
     await storage.saveSettings(ui.settings);
+  }
+
+  /**
+   * Zeitkonto-Saldo für die Anzeige, inklusive der laufenden Session.
+   *
+   * Bewusst frisch gerechnet statt aus currentBalance gelesen: der
+   * gespeicherte Wert stammt vom letzten Speichern eines Eintrags. Startet
+   * man morgens eine Session, ohne vorher etwas gespeichert zu haben, fehlt
+   * darin das Tagessoll von heute - der angezeigte Saldo wäre um ein volles
+   * Tagessoll zu hoch.
+   *
+   * @returns {Promise<{base: number, balance: number}|null>}
+   *   base = Saldo ohne die laufende Session, damit die Anzeige nur noch
+   *   die verstrichene Zeit addieren muss und nicht jede Sekunde neu rechnet
+   */
+  async getLiveTimeAccountBalance() {
+    const base = await statistics.calculateTimeAccountBalance(ui.settings);
+    if (base === null) return null;
+
+    const running = this.session
+      ? (Date.now() - new Date(this.session.start).getTime()) / 3600000
+      : 0;
+
+    return { base, balance: base + running };
   }
 
   async showAbsenceTypeDialog() {
@@ -5041,20 +5034,11 @@ class App {
     // Work Time Tracking Widget (if enabled)
     let wttWidgetHtml = '';
     if (ui.settings.workTimeTracking?.enabled) {
-      let timeAccountBalance = ui.settings.workTimeTracking.timeAccount.currentBalance || 0;
+      // Frisch rechnen, nicht den gespeicherten Saldo lesen - siehe
+      // getLiveTimeAccountBalance()
+      const live = await this.getLiveTimeAccountBalance();
+      const timeAccountBalance = live ? live.balance : 0;
       const vacationDays = ui.settings.workTimeTracking.vacation.remainingDays || 0;
-
-      // Add current session to time account (live calculation)
-      if (this.session) {
-        const sessionStart = new Date(this.session.start);
-        const currentDuration = (Date.now() - sessionStart.getTime()) / (1000 * 60 * 60);
-
-        // Nur die gelaufene Dauer addieren. Das Tagessoll ist im gespeicherten
-        // Saldo bereits abgezogen, weil für heute noch kein Eintrag existiert
-        // (recalculateTimeAccountBalance bucht Tage ohne Eintrag als Schuld).
-        // Ein zweiter Abzug hier würde den Live-Saldo um ein Tagessoll drücken.
-        timeAccountBalance += currentDuration;
-      }
 
       const timeAccountColor = timeAccountBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
       const timeAccountSign = timeAccountBalance >= 0 ? '+' : '';
