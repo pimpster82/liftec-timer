@@ -45,6 +45,19 @@ class ExcelExport {
       }
     };
 
+    // Bereitschaft je Kalendertag. Nur wenn der Monat überhaupt welche hat,
+    // bekommt das Blatt die zusätzliche Spalte - sonst bleibt es wie gehabt.
+    const onCallByDay = await callouts.getOnCallHoursByDay(year, month);
+    const hasOnCall = onCallByDay.size > 0;
+
+    // Die Bereitschaftsspalte sitzt hinter der Schmutzzulage (G). Alles ab den
+    // Tätigkeitskürzeln rückt dadurch um eine Spalte nach rechts.
+    const COL_ONCALL = 8;
+    const shift = hasOnCall ? 1 : 0;
+    const COL_N = 8 + shift;
+    const COL_W = 11 + shift;
+    const COL_DESC = 12 + shift;
+
     // Set column widths
     worksheet.columns = [
       { width: 11 },  // Datum
@@ -54,6 +67,7 @@ class ExcelExport {
       { width: 9 },   // Pause
       { width: 9 },   // Fahrt
       { width: 9 },   // Schmutz
+      ...(hasOnCall ? [{ width: 10 }] : []),  // Bereitschaft
       { width: 4 },   // Neuanlage (N)
       { width: 4 },   // Demontage (D)
       { width: 4 },   // Reparatur (R)
@@ -82,7 +96,7 @@ class ExcelExport {
       right: { style: 'thin' }
     };
 
-    const nameCell = worksheet.getCell('L1');
+    const nameCell = worksheet.getCell(1, COL_DESC);
     nameCell.value = `NAME: ${userName}`;
     nameCell.fill = {
       type: 'pattern',
@@ -110,6 +124,7 @@ class ExcelExport {
       'Pause\nDauer',
       'Fahrt\nzeit',
       'Schmutz\nzulage',
+      ...(hasOnCall ? ['Bereit\nschaft'] : []),
       'Neuanlage',
       'Demontage',
       'Reparatur',
@@ -125,7 +140,7 @@ class ExcelExport {
       };
       cell.font = { bold: true, size: 10 };
 
-      if (colNumber >= 8 && colNumber <= 11) {
+      if (colNumber >= COL_N && colNumber <= COL_W) {
         cell.alignment = {
           vertical: 'middle',
           horizontal: 'center',
@@ -236,12 +251,20 @@ class ExcelExport {
       row.getCell(7).value = timeToExcelTime(schmutzZulage);
       row.getCell(7).numFmt = '[h]:mm;;';
 
-      row.getCell(8).value = flags.N;
-      row.getCell(9).value = flags.D;
-      row.getCell(10).value = flags.R;
-      row.getCell(11).value = flags.W;
+      if (hasOnCall) {
+        // Tage ohne Bereitschaft bleiben leer - das ';;' im Format blendet
+        // die Null aus, damit die Spalte nur zeigt, wo wirklich etwas war
+        const onCallHours = onCallByDay.get(dateStr) || 0;
+        row.getCell(COL_ONCALL).value = onCallHours / 24;
+        row.getCell(COL_ONCALL).numFmt = '[h]:mm;;';
+      }
 
-      row.getCell(12).value = tasksDescription;
+      row.getCell(COL_N).value = flags.N;
+      row.getCell(COL_N + 1).value = flags.D;
+      row.getCell(COL_N + 2).value = flags.R;
+      row.getCell(COL_W).value = flags.W;
+
+      row.getCell(COL_DESC).value = tasksDescription;
 
       // Format
       row.eachCell((cell, colNumber) => {
@@ -253,7 +276,7 @@ class ExcelExport {
         };
 
         // Align
-        if (colNumber <= 11) {
+        if (colNumber <= COL_W) {
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
         } else {
           cell.alignment = { vertical: 'middle', horizontal: 'left' };
@@ -289,7 +312,7 @@ class ExcelExport {
     currentRow = await this.addOnCallSummary(worksheet, currentRow, year, month);
 
     // Bereitschaftseinsätze
-    currentRow = await this.addCalloutsTable(worksheet, currentRow, year, month);
+    currentRow = await this.addCalloutsTable(worksheet, currentRow, year, month, COL_DESC);
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
@@ -421,8 +444,9 @@ class ExcelExport {
   }
 
   // Tabelle der Bereitschaftseinsätze des Monats
+  // lastCol: letzte Spalte des Rasters - die Beschreibung reicht bis dorthin
   // Gibt die nächste freie Zeile zurück
-  async addCalloutsTable(worksheet, startRow, year, month) {
+  async addCalloutsTable(worksheet, startRow, year, month, lastCol = 12) {
     try {
       const monthCallouts = await callouts.getCalloutsForMonth(year, month);
 
@@ -440,7 +464,7 @@ class ExcelExport {
       this.formatHeaderCell(headerRow.getCell(4), 'Bis');
       this.formatHeaderCell(headerRow.getCell(5), 'Dauer');
 
-      worksheet.mergeCells(startRow, 6, startRow, 12);
+      worksheet.mergeCells(startRow, 6, startRow, lastCol);
       this.formatHeaderCell(headerRow.getCell(6), 'Beschreibung');
 
       startRow++;
@@ -465,7 +489,7 @@ class ExcelExport {
         dataRow.getCell(5).numFmt = '[h]:mm';
         this.formatDataCell(dataRow.getCell(5));
 
-        worksheet.mergeCells(startRow, 6, startRow, 12);
+        worksheet.mergeCells(startRow, 6, startRow, lastCol);
         const descCell = dataRow.getCell(6);
         descCell.value = callout.description || '';
         descCell.alignment = { vertical: 'middle', horizontal: 'left' };

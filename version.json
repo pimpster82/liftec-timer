@@ -1,7 +1,9 @@
 {
-  "version": "1.31.0",
+  "version": "1.32.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Die Pause z\u00e4hlt jetzt als Bereitschaft \u2013 abgezogen wird nur die Nettoarbeitszeit",
+    "Neu: Excel-Export zeigt die Bereitschaft je Tag in einer eigenen Spalte",
     "Neu: Mehrere Einträge auf einmal teilen (Aufzeichnungen \u2192 Mehrere teilen)",
     "Mehrere Einträge gehen als Stapel raus - alle kommen an oder keiner",
     "Fix: Das Info-Symbol in den Einstellungen war riesig",

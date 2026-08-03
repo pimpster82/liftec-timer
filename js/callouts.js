@@ -130,6 +130,15 @@ class Callouts {
    * Bereitschaftsstunden in einem Zeitfenster.
    * Bereitschaft = Fensterdauer - überlappende Arbeitszeit - überlappende Einsätze.
    * Es wird nur der Teil einer Schicht abgezogen, der tatsächlich im Fenster liegt.
+   *
+   * Die Pause zählt als Bereitschaft: wer Mittagspause macht, arbeitet nicht,
+   * ist aber weiter erreichbar. Abgezogen wird deshalb die Nettoarbeitszeit
+   * (Ende - Start - Pause), nicht die ganze Schicht. So rechnet auch die
+   * Lohnverrechnung.
+   *
+   * Die Pause hat keinen Zeitstempel, nur eine Dauer. Ragt eine Schicht nur
+   * teilweise ins Fenster, wird sie anteilig angerechnet - liegt die Schicht
+   * ganz im Fenster (der Normalfall), ist das die volle Pause.
    */
   async calculateOnCallHours(windowStart, windowEnd) {
     const totalHours = (windowEnd - windowStart) / 3600000;
@@ -151,7 +160,15 @@ class Callouts {
       for (const entry of entries) {
         const shift = this.getShiftInterval(entry);
         if (!shift) continue;
-        deducted += this.overlapHours(windowStart, windowEnd, shift.start, shift.end);
+
+        const overlap = this.overlapHours(windowStart, windowEnd, shift.start, shift.end);
+        if (overlap <= 0) continue;
+
+        const gross = (shift.end - shift.start) / 3600000;
+        const pause = entry.pause ? this._timeToHours(entry.pause) : 0;
+
+        // Anteil der Pause, der auf den überlappenden Teil der Schicht entfällt
+        deducted += Math.max(0, overlap - pause * (overlap / gross));
       }
     } catch (error) {
       console.error('Error loading worklog entries for on-call calculation:', error);
@@ -218,6 +235,46 @@ class Callouts {
     }
 
     return result;
+  }
+
+  /**
+   * Bereitschaftsstunden eines Monats, aufgeschlüsselt nach Kalendertag.
+   *
+   * Für die Tagesspalte im Excel-Export, damit die Lohnverrechnung sie
+   * direkt übernehmen kann. Bewusst über calculateOnCallHours je Tag statt
+   * über eine eigene Formel - so kann die Spalte gar nicht von der
+   * Gesamtsumme abweichen, sie ist deren Zerlegung.
+   *
+   * @param {number} year
+   * @param {number} month - 1-12
+   * @returns {Promise<Map<string, number>>} 'DD.MM.YYYY' -> Stunden
+   */
+  async getOnCallHoursByDay(year, month) {
+    const { start, end } = this.getMonthBounds(year, month);
+    const periods = await this.getOnCallPeriodsInWindow(start, end);
+
+    const byDay = new Map();
+    if (periods.length === 0) return byDay;
+
+    const lastDay = new Date(year, month, 0).getDate();
+
+    for (let day = 1; day <= lastDay; day++) {
+      const dayStart = new Date(year, month - 1, day, 0, 0);
+      const dayEnd = new Date(year, month - 1, day + 1, 0, 0);
+
+      let hours = 0;
+      for (const period of periods) {
+        const from = period.start > dayStart ? period.start : dayStart;
+        const to = period.end < dayEnd ? period.end : dayEnd;
+        if (to <= from) continue;
+
+        hours += await this.calculateOnCallHours(from, to);
+      }
+
+      if (hours > 0) byDay.set(this.formatDate(dayStart), hours);
+    }
+
+    return byDay;
   }
 
   // ===== Einsätze: Speicherung =====
