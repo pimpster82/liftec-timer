@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.32.1';
+const APP_VERSION = '1.33.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1061,12 +1061,49 @@ class App {
     `;
   }
 
+  // ===== Zeitkonto-Anzeige =====
+
+  timeAccountColorClass(balance) {
+    return balance >= 0
+      ? 'text-green-600 dark:text-green-400'
+      : 'text-red-600 dark:text-red-400';
+  }
+
+  formatTimeAccountValue(balance) {
+    return `${balance >= 0 ? '+' : ''}${ui.formatHours(balance)}`;
+  }
+
+  /**
+   * Schreibt den Saldo in die Anzeige. Wird beim Aufbau und im Sekundentakt
+   * benutzt, damit beim Vorzeichenwechsel auch die Farbe mitgeht.
+   */
+  paintTimeAccount(element, balance) {
+    const text = this.formatTimeAccountValue(balance);
+
+    // Der Text ändert sich nur einmal pro Minute - nicht jede Sekunde neu setzen
+    if (element.textContent !== text) {
+      element.textContent = text;
+      element.className = this.timeAccountColorClass(balance);
+    }
+  }
+
   // ===== Duration Updater =====
 
   startDurationUpdater() {
     // Update every second
     this.durationInterval = setInterval(() => {
       if (this.session) {
+        const elapsedHours = (Date.now() - new Date(this.session.start).getTime()) / 3600000;
+
+        // Das Zeitkonto in den Aufzeichnungen läuft mit, solange der Dialog offen ist
+        const balanceElement = document.getElementById('wtt-live-balance');
+        if (balanceElement) {
+          const base = parseFloat(balanceElement.dataset.base);
+          if (!isNaN(base)) {
+            this.paintTimeAccount(balanceElement, base + elapsedHours);
+          }
+        }
+
         const durationElement = document.querySelector('.duration');
         const labelElement = document.querySelector('#hero-time-display .text-xs');
 
@@ -5040,8 +5077,6 @@ class App {
       const timeAccountBalance = live ? live.balance : 0;
       const vacationDays = ui.settings.workTimeTracking.vacation.remainingDays || 0;
 
-      const timeAccountColor = timeAccountBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-      const timeAccountSign = timeAccountBalance >= 0 ? '+' : '';
       const timeAccountLiveIndicator = isSessionActive ? `<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse ml-1"></span>` : '';
 
       wttWidgetHtml = `
@@ -5049,7 +5084,12 @@ class App {
           <div class="grid grid-cols-2 gap-4">
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('timeAccount')}</div>
-              <div class="text-2xl font-bold ${timeAccountColor} flex items-center">${timeAccountSign}${ui.formatHours(timeAccountBalance)}${timeAccountLiveIndicator}</div>
+              <div class="text-2xl font-bold flex items-center">
+                <!-- data-base = Saldo ohne die laufende Session. Der Sekundentakt
+                     addiert nur noch die verstrichene Zeit dazu. -->
+                <span id="wtt-live-balance" class="${this.timeAccountColorClass(timeAccountBalance)}" data-base="${live ? live.base : 0}">${this.formatTimeAccountValue(timeAccountBalance)}</span>
+                ${timeAccountLiveIndicator}
+              </div>
             </div>
             <div>
               <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('remainingVacation')}</div>

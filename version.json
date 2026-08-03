@@ -1,7 +1,8 @@
 {
-  "version": "1.32.1",
+  "version": "1.33.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Das Zeitkonto in den Aufzeichnungen l\u00e4uft w\u00e4hrend einer Session mit",
     "Fix: Das Zeitkonto in den Aufzeichnungen war w\u00e4hrend einer Session um ein Tagessoll zu hoch",
     "Die Pause z\u00e4hlt jetzt als Bereitschaft \u2013 abgezogen wird nur die Nettoarbeitszeit",
     "Neu: Excel-Export zeigt die Bereitschaft je Tag in einer eigenen Spalte",
