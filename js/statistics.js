@@ -147,7 +147,12 @@ class Statistics {
       holidayDays: 0, timeoffDays: 0, missingDays: 0,
       onCallHours: 0, calloutHours: 0, calloutCount: 0,
       onCallEuro: null, onCallZaHours: null,
-      hasRunningOnCall: false
+      hasRunningOnCall: false,
+      // Anteil der laufenden Session an actualHours. Die Anzeige braucht ihn,
+      // um den Wert im Sekundentakt fortschreiben zu können, ohne alles neu
+      // zu rechnen: Basis = actualHours - runningHours.
+      runningHours: 0,
+      hasRunningSession: false
     };
 
     // Laufende Session: Tag und bisher gelaufene Dauer merken, damit der
@@ -159,6 +164,8 @@ class Statistics {
       if (start >= from && start < to) {
         runningDateStr = callouts.formatDate(start);
         runningHours = Math.max(0, (Date.now() - start.getTime()) / 3600000);
+        result.runningHours = runningHours;
+        result.hasRunningSession = true;
       }
     }
 

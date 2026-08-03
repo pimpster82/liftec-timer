@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.33.1';
+const APP_VERSION = '1.34.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -1081,10 +1081,52 @@ class App {
     const text = this.formatTimeAccountValue(balance);
 
     // Der Text ändert sich nur einmal pro Minute - nicht jede Sekunde neu setzen
-    if (element.textContent !== text) {
-      element.textContent = text;
-      element.className = this.timeAccountColorClass(balance);
-    }
+    if (element.textContent === text) return;
+    element.textContent = text;
+
+    // Über classList statt className: die Elemente tragen noch andere Klassen
+    // (live-balance, font-semibold), die nicht verschwinden dürfen
+    const positive = balance >= 0;
+    element.classList.toggle('text-green-600', positive);
+    element.classList.toggle('dark:text-green-400', positive);
+    element.classList.toggle('text-red-600', !positive);
+    element.classList.toggle('dark:text-red-400', !positive);
+  }
+
+  /**
+   * data-base-Attribut für ein mitlaufendes Element.
+   *
+   * Nur wenn die laufende Session in den Zeitraum fällt - sonst bekommt das
+   * Element keine Basis und der Sekundentakt lässt es in Ruhe. In der
+   * Statistik darf eine vergangene Woche nicht mitticken.
+   */
+  liveBaseAttr(summary, value) {
+    return summary.hasRunningSession
+      ? ` data-base="${value - summary.runningHours}"`
+      : '';
+  }
+
+  /**
+   * Schreibt alle mitlaufenden Werte fort.
+   *
+   * Jedes Element trägt in data-base seinen Wert OHNE die laufende Session,
+   * hier kommt nur die verstrichene Zeit dazu. Fehlt data-base, gehört das
+   * Element nicht zum laufenden Zeitraum und bleibt stehen - so tickt in der
+   * Statistik eine vergangene Woche nicht mit.
+   */
+  updateLiveValues(elapsedHours) {
+    document.querySelectorAll('.live-hours').forEach(element => {
+      const base = parseFloat(element.dataset.base);
+      if (isNaN(base)) return;
+
+      const text = callouts.hoursToHHMM(base + elapsedHours);
+      if (element.textContent !== text) element.textContent = text;
+    });
+
+    document.querySelectorAll('.live-balance').forEach(element => {
+      const base = parseFloat(element.dataset.base);
+      if (!isNaN(base)) this.paintTimeAccount(element, base + elapsedHours);
+    });
   }
 
   // ===== Duration Updater =====
@@ -1095,14 +1137,8 @@ class App {
       if (this.session) {
         const elapsedHours = (Date.now() - new Date(this.session.start).getTime()) / 3600000;
 
-        // Das Zeitkonto in den Aufzeichnungen läuft mit, solange der Dialog offen ist
-        const balanceElement = document.getElementById('wtt-live-balance');
-        if (balanceElement) {
-          const base = parseFloat(balanceElement.dataset.base);
-          if (!isNaN(base)) {
-            this.paintTimeAccount(balanceElement, base + elapsedHours);
-          }
-        }
+        // Zeitkonto und Wochen-/Monatskacheln laufen mit, solange der Dialog offen ist
+        this.updateLiveValues(elapsedHours);
 
         const durationElement = document.querySelector('.duration');
         const labelElement = document.querySelector('#hero-time-display .text-xs');
@@ -2320,9 +2356,9 @@ class App {
         <!-- Saldo -->
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-4 border border-blue-200 dark:border-gray-600">
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('balance')}</div>
-          <div class="text-3xl font-bold ${balanceColor}">${balanceSign}${hhmm(summary.balance)}</div>
+          <div class="text-3xl font-bold"><span class="live-balance ${balanceColor}"${this.liveBaseAttr(summary, summary.balance)}>${balanceSign}${hhmm(summary.balance)}</span></div>
           <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            ${ui.t('actual')} ${hhmm(summary.actualHours)} · ${ui.t('target')} ${hhmm(summary.targetHours)}
+            ${ui.t('actual')} <span class="live-hours"${this.liveBaseAttr(summary, summary.actualHours)}>${hhmm(summary.actualHours)}</span> · ${ui.t('target')} ${hhmm(summary.targetHours)}
           </div>
         </div>
 
@@ -5074,7 +5110,7 @@ class App {
               <div class="text-2xl font-bold flex items-center">
                 <!-- data-base = Saldo ohne die laufende Session. Der Sekundentakt
                      addiert nur noch die verstrichene Zeit dazu. -->
-                <span id="wtt-live-balance" class="${this.timeAccountColorClass(timeAccountBalance)}" data-base="${live ? live.base : 0}">${this.formatTimeAccountValue(timeAccountBalance)}</span>
+                <span class="live-balance ${this.timeAccountColorClass(timeAccountBalance)}" data-base="${live ? live.base : 0}">${this.formatTimeAccountValue(timeAccountBalance)}</span>
                 ${timeAccountLiveIndicator}
               </div>
             </div>
@@ -5104,6 +5140,8 @@ class App {
 
     // Untere Zeile der Kachel: mit Arbeitszeiterfassung der Saldo, sonst
     // nur die Zahl der Arbeitstage - ohne Soll wäre ein Saldo bedeutungslos
+    const liveBase = (summary, value) => this.liveBaseAttr(summary, value);
+
     const tileFooter = (summary) => {
       if (!statsLinked) {
         return `<div class="text-xs text-gray-500 mt-1">${summary.workDays} ${summary.workDays === 1 ? 'Tag' : 'Tage'}</div>`;
@@ -5116,7 +5154,7 @@ class App {
 
       return `
         <div class="text-xs mt-1">
-          <span class="font-semibold ${color}">${sign}${callouts.hoursToHHMM(summary.balance)}</span>
+          <span class="live-balance font-semibold ${color}"${liveBase(summary, summary.balance)}>${sign}${callouts.hoursToHHMM(summary.balance)}</span>
           <span class="text-gray-500"> · ${ui.t('target')} ${callouts.hoursToHHMM(summary.targetHours)}</span>
         </div>
       `;
@@ -5128,13 +5166,13 @@ class App {
         <${tileTag} ${statsLinked ? 'id="stats-week-tile"' : ''} class="relative bg-primary bg-opacity-20 rounded-lg p-4 text-left w-full${statsLinked ? ' hover:bg-opacity-30 transition-colors btn-press' : ''}">
           ${tileArrow}
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('thisWeek')}</div>
-          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${callouts.hoursToHHMM(weekSummary.actualHours)}${liveIndicator}</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center"><span class="live-hours"${liveBase(weekSummary, weekSummary.actualHours)}>${callouts.hoursToHHMM(weekSummary.actualHours)}</span>${liveIndicator}</div>
           ${tileFooter(weekSummary)}
         </${tileTag}>
         <${tileTag} ${statsLinked ? 'id="stats-month-tile"' : ''} class="relative bg-blue-100 dark:bg-blue-900 rounded-lg p-4 text-left w-full${statsLinked ? ' hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors btn-press' : ''}">
           ${tileArrow}
           <div class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">${ui.t('thisMonth')}</div>
-          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">${callouts.hoursToHHMM(monthSummary.actualHours)}${liveIndicator}</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white flex items-center"><span class="live-hours"${liveBase(monthSummary, monthSummary.actualHours)}>${callouts.hoursToHHMM(monthSummary.actualHours)}</span>${liveIndicator}</div>
           ${tileFooter(monthSummary)}
         </${tileTag}>
       </div>
