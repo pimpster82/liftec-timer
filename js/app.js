@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.34.2';
+const APP_VERSION = '1.35.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2292,23 +2292,173 @@ class App {
    * werden nach jedem Render neu gebunden.
    */
   async showStatistics(mode = 'month', refDate = new Date()) {
-    const isWeek = mode === 'week';
-    const bounds = isWeek
-      ? statistics.getWeekBounds(refDate)
-      : callouts.getMonthBounds(refDate.getFullYear(), refDate.getMonth() + 1);
+    let series = null;
 
+    try {
+      series = await statistics.calculateSeries({
+        mode,
+        endDate: refDate,
+        settings: ui.settings,
+        session: this.session,
+        includeOnCall: !!ui.settings?.onCallEnabled
+      });
+    } catch (error) {
+      // Ohne Reihe bleibt die Detailansicht stehen - besser als ein leerer Dialog
+      console.error('Statistik-Reihe fehlgeschlagen:', error);
+    }
+
+    this.statsState = {
+      mode,
+      endDate: new Date(refDate),
+      // Im Monat sagen Tage mehr, in der Woche Stunden - umschaltbar bleibt beides
+      barMode: mode === 'week' ? 'hours' : 'days',
+      series,
+      selected: series?.buckets?.length ? series.buckets.length - 1 : 0
+    };
+
+    const tabClass = (active) => active
+      ? 'flex-1 px-3 py-2 text-sm rounded-lg border bg-primary border-primary text-gray-900 font-semibold'
+      : 'flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary';
+
+    ui.showModalWithHeader({
+      title: ui.t('statistics'),
+      icon: 'chart-bar',
+      content: `
+        <div class="space-y-4">
+          <div class="flex gap-2">
+            <button id="stats-mode-week" class="${tabClass(mode === 'week')}">${ui.t('week')}</button>
+            <button id="stats-mode-month" class="${tabClass(mode !== 'week')}">${ui.t('month')}</button>
+          </div>
+
+          <!-- Zwei stabile Container. Beim Wechsel der Auswahl wird nur der
+               Inhalt von #stats-detail ersetzt; das Diagramm bleibt dasselbe
+               DOM-Element, seine Scrollposition kann also gar nicht
+               verlorengehen. -->
+          <div id="stats-chart-host"></div>
+          <div id="stats-detail"></div>
+        </div>
+      `
+    });
+
+    this.renderStatsChart();
+    await this.renderStatsDetail(this.statsState.selected);
+    this.bindStatsListeners();
+  }
+
+  /**
+   * Beschriftungen und Formatierung für das Diagramm.
+   * chart.js kennt keine Sprache - alle Texte kommen von hier.
+   */
+  statsChartOptions(host) {
+    return {
+      barMode: this.statsState.barMode,
+      selected: this.statsState.selected,
+      monthNames: ui.t('monthNames'),
+      weekPrefix: ui.t('weekShort'),
+      formatHours: (hours) => callouts.hoursToHHMM(hours),
+      containerWidth: host?.clientWidth || 320,
+      ariaLabel: ui.t('statistics'),
+      labels: {
+        work: ui.t('entryTypeWork'),
+        vacation: ui.t('entryTypeVacation'),
+        sick: ui.t('entryTypeSick'),
+        holiday: ui.t('entryTypeHoliday'),
+        timeoff: ui.t('entryTypeTimeOff'),
+        missing: ui.t('missingDays'),
+        account: ui.t('timeAccountTrend'),
+        actual: ui.t('actual'),
+        plus: ui.t('plusHours'),
+        minus: ui.t('minusHours')
+      }
+    };
+  }
+
+  renderStatsChart() {
+    const host = document.getElementById('stats-chart-host');
+    if (!host) return;
+
+    const state = this.statsState;
+    const buckets = state.series?.buckets || [];
+
+    // Ein einzelner Zeitraum ist kein Diagramm, sondern eine Zahl mit Rahmen -
+    // dann bleiben nur die Kacheln darunter. Dasselbe, wenn die Reihe gar
+    // nicht zustande kam.
+    if (buckets.length < 2) {
+      host.innerHTML = '';
+      return;
+    }
+
+    // Scrollposition merken: beim Wechsel der Balkenart bleibt das Raster
+    // gleich, da soll die Ansicht nicht ans Ende springen
+    const vorher = document.getElementById('stats-chart-scroll');
+    const scrollLeft = vorher ? vorher.scrollLeft : null;
+
+    const options = this.statsChartOptions(host);
+
+    const chipClass = (active) => active
+      ? 'px-3 py-1 text-xs rounded-full border bg-primary border-primary text-gray-900 font-semibold'
+      : 'px-3 py-1 text-xs rounded-full border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300';
+
+    const chips = [
+      { key: 'days', label: ui.t('barModeDays') },
+      { key: 'hours', label: ui.t('barModeHours') },
+      { key: 'balance', label: ui.t('barModeBalance') }
+    ].map(chip => `
+      <button type="button" class="stats-bar-mode ${chipClass(chip.key === state.barMode)}" data-mode="${chip.key}">${chip.label}</button>
+    `).join('');
+
+    host.innerHTML = `
+      <div class="flex gap-1.5 mb-2">${chips}</div>
+      <div id="stats-chart-scroll" class="overflow-x-auto">${chart.renderSeriesChart(state.series, options)}</div>
+      <div class="mt-2">
+        ${chart.renderLegend(state.barMode, {
+          labels: options.labels,
+          showAccount: state.series.accountAvailable
+        })}
+      </div>
+    `;
+
+    const scroll = document.getElementById('stats-chart-scroll');
+    if (!scroll) return;
+
+    // Im gerade eingeblendeten Modal steht das Layout noch nicht
+    requestAnimationFrame(() => {
+      scroll.scrollLeft = scrollLeft !== null ? scrollLeft : scroll.scrollWidth;
+    });
+  }
+
+  /**
+   * Detailkarten des gewählten Zeitraums.
+   *
+   * Auf mobil gibt es kein Hover - diese Karten sind der Tooltip des
+   * Diagramms: dauerhaft sichtbar, kein Finger davor. Sie sorgen zugleich
+   * dafür, dass Farbe nie die einzige Kodierung ist.
+   */
+  async renderStatsDetail(index) {
+    const container = document.getElementById('stats-detail');
+    if (!container) return;
+
+    const state = this.statsState;
+    const bucket = state.series?.buckets?.[index];
+
+    const bounds = bucket
+      ? { start: bucket.start, end: bucket.end }
+      : (state.mode === 'week'
+        ? statistics.getWeekBounds(state.endDate)
+        : callouts.getMonthBounds(state.endDate.getFullYear(), state.endDate.getMonth() + 1));
+
+    // Mit dem Datenbeutel der Reihe - also ohne einen einzigen Datenbankzugriff
     const summary = await statistics.calculatePeriodSummary(
-      bounds.start, bounds.end, ui.settings, this.session
+      bounds.start, bounds.end, ui.settings, this.session, state.series?.data
     );
 
-    // Titel
     let periodLabel;
-    if (isWeek) {
+    if (state.mode === 'week') {
       const last = new Date(bounds.end.getTime() - 1);
       const short = (d) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`;
-      periodLabel = `KW ${statistics.getWeekNumber(bounds.start)} · ${short(bounds.start)}–${short(last)}${last.getFullYear()}`;
+      periodLabel = `${ui.t('weekShort')} ${statistics.getWeekNumber(bounds.start)} · ${short(bounds.start)}–${short(last)}${last.getFullYear()}`;
     } else {
-      periodLabel = `${ui.t('monthNames')[refDate.getMonth()]} ${refDate.getFullYear()}`;
+      periodLabel = `${ui.t('monthNames')[bounds.start.getMonth()]} ${bounds.start.getFullYear()}`;
     }
 
     const hhmm = (h) => callouts.hoursToHHMM(h);
@@ -2330,19 +2480,10 @@ class App {
       </div>
     `;
 
-    const tabClass = (active) => active
-      ? 'flex-1 px-3 py-2 text-sm rounded-lg border bg-primary border-primary text-gray-900 font-semibold'
-      : 'flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary';
-
-    const contentHtml = `
+    container.innerHTML = `
       <div class="space-y-4">
-        <!-- Umschalter -->
-        <div class="flex gap-2">
-          <button id="stats-mode-week" class="${tabClass(isWeek)}">${ui.t('week')}</button>
-          <button id="stats-mode-month" class="${tabClass(!isWeek)}">${ui.t('month')}</button>
-        </div>
-
-        <!-- Navigation -->
+        <!-- Navigation: verschiebt die Auswahl im Diagramm um einen Zeitraum.
+             Am Rand präziser als ein 44px-Balken. -->
         <div class="flex items-center justify-between">
           <button id="stats-prev" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 btn-press">
             ${ui.icon('chevron-left', 'w-6 h-6')}
@@ -2407,30 +2548,68 @@ class App {
         </div>
       </div>
     `;
+  }
 
-    ui.showModalWithHeader({
-      title: ui.t('statistics'),
-      icon: 'chart-bar',
-      content: contentHtml
+  /**
+   * Listener EINMAL binden. Sie liegen per Delegation auf den beiden stabilen
+   * Containern - deren Inhalt wird ausgetauscht, sie selbst bleiben. Die
+   * Regel "nach jedem Render neu binden" gilt hier nur noch fürs Gerüst.
+   */
+  bindStatsListeners() {
+    document.getElementById('stats-mode-week')?.addEventListener('click',
+      () => this.showStatistics('week', this.statsState.endDate));
+    document.getElementById('stats-mode-month')?.addEventListener('click',
+      () => this.showStatistics('month', this.statsState.endDate));
+
+    document.getElementById('stats-chart-host')?.addEventListener('click', (e) => {
+      const chip = e.target.closest('.stats-bar-mode');
+      if (chip) {
+        this.statsState.barMode = chip.dataset.mode;
+        this.renderStatsChart();
+        return;
+      }
+
+      const hit = e.target.closest('[data-index]');
+      if (hit) this.selectStatsBucket(parseInt(hit.dataset.index, 10));
     });
 
-    // Listener nach jedem Render neu binden
-    document.getElementById('stats-mode-week').addEventListener('click',
-      () => this.showStatistics('week', refDate));
-    document.getElementById('stats-mode-month').addEventListener('click',
-      () => this.showStatistics('month', refDate));
-
-    document.getElementById('stats-prev').addEventListener('click', () => {
-      const d = new Date(refDate);
-      isWeek ? d.setDate(d.getDate() - 7) : d.setMonth(d.getMonth() - 1, 1);
-      this.showStatistics(mode, d);
+    document.getElementById('stats-detail')?.addEventListener('click', (e) => {
+      if (e.target.closest('#stats-prev')) this.stepStatsSelection(-1);
+      else if (e.target.closest('#stats-next')) this.stepStatsSelection(1);
     });
+  }
 
-    document.getElementById('stats-next').addEventListener('click', () => {
-      const d = new Date(refDate);
-      isWeek ? d.setDate(d.getDate() + 7) : d.setMonth(d.getMonth() + 1, 1);
-      this.showStatistics(mode, d);
-    });
+  async selectStatsBucket(index) {
+    const state = this.statsState;
+    const buckets = state.series?.buckets || [];
+
+    if (index < 0 || index >= buckets.length || index === state.selected) return;
+
+    state.selected = index;
+    chart.setSelection(document.querySelector('#stats-chart-scroll svg'), index);
+    await this.renderStatsDetail(index);
+  }
+
+  stepStatsSelection(direction) {
+    const state = this.statsState;
+    const buckets = state.series?.buckets || [];
+    const next = state.selected + direction;
+
+    if (next >= 0 && next < buckets.length) {
+      this.selectStatsBucket(next);
+      return;
+    }
+
+    // Nach rechts gibt es nichts - der letzte Zeitraum ist der laufende.
+    // Nach links wird das Raster um einen Zeitraum verschoben, damit auch
+    // ältere Monate erreichbar bleiben.
+    if (direction > 0) return;
+
+    const d = new Date(state.endDate);
+    if (state.mode === 'week') d.setDate(d.getDate() - 7);
+    else d.setMonth(d.getMonth() - 1, 1);
+
+    this.showStatistics(state.mode, d);
   }
   // ===== Sollstunden & Sätze =====
 
