@@ -1,7 +1,9 @@
 {
-  "version": "1.35.0",
+  "version": "1.35.1",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Fix: Der laufende Monat bzw. die laufende Woche wird nur noch bis heute gerechnet",
+    "Fix: K\u00fcnftige Tage z\u00e4hlten als Fehltage mit vollem Soll",
     "Neu: Statistik mit Diagramm \u2013 Verlauf \u00fcber 24 Monate bzw. 26 Wochen",
     "Balken antippen w\u00e4hlt den Zeitraum, Umschalter f\u00fcr Tage / Stunden / Saldo",
     "Zeitausgleich als Linie: der Kontostand am Ende jedes Zeitraums",

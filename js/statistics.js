@@ -36,15 +36,26 @@ class Statistics {
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   }
 
+  /**
+   * Ende des heutigen Tages - die Grenze, bis zu der gerechnet wird.
+   */
+  endOfToday() {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    return end;
+  }
+
   // ===== Tagesberechnung =====
 
   /**
    * Ist- und Sollstunden EINES Tages.
    *
    * Regeln:
+   *   - Künftige Tage: zählen gar nicht
+   *   - Heute ohne Eintrag: Soll zählt, aber noch kein Fehltag
    *   - Urlaub/Krankenstand/Feiertag: Soll auf 0 -> saldoneutral
    *   - Zeitausgleich/unbezahlt: Ist 0, Soll bleibt -> verbraucht Überstunden
-   *   - Tag ohne Eintrag: Soll als Schuld, ausser an Feiertagen
+   *   - Vergangener Tag ohne Eintrag: Soll als Schuld, ausser an Feiertagen
    *
    * @param {Date} date
    * @param {Object|undefined} entry - Worklog-Eintrag dieses Tages, falls vorhanden
@@ -52,6 +63,14 @@ class Statistics {
    * @returns {{actual: number, target: number, missing: boolean}}
    */
   getDayBalance(date, entry, settings) {
+    // Künftige Tage haben noch nicht stattgefunden. Sie gelten als erfüllt,
+    // und ein erfüllter Tag trägt Ist - Soll = 0 bei - er zählt also gar
+    // nicht. Ohne diese Regel wäre der halbe Monat Schuld, sobald man ihn
+    // ansieht, und die Zeitkonto-Linie stürzte am Ende ab.
+    if (date > this.endOfToday()) {
+      return { actual: 0, target: 0, missing: false };
+    }
+
     if (entry) {
       // Historisches Soll aus dem Eintrag bevorzugen. Bewusst ?? statt ||:
       // ein gespeichertes Soll von 0 (Wochenende, Abwesenheit) ist gültig und
@@ -75,7 +94,12 @@ class Statistics {
     const target = timeAccount.getDailyTargetHours(date, settings);
 
     if (target > 0 && !austrianHolidays.isHoliday(callouts.formatDate(date)).isHoliday) {
-      return { actual: 0, target, missing: true };
+      // Heute ist noch nicht vorbei. Das Soll steht als Schuld - darauf baut
+      // der Live-Saldo auf, den die laufende Session auffüllt - aber ein
+      // Fehltag ist es erst, wenn der Tag um ist.
+      const istHeute = callouts.formatDate(date) === callouts.formatDate(new Date());
+
+      return { actual: 0, target, missing: !istHeute };
     }
 
     return { actual: 0, target: 0, missing: false };

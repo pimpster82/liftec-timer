@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.35.0';
+const APP_VERSION = '1.35.1';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2459,6 +2459,12 @@ class App {
       periodLabel = `${ui.t('weekShort')} ${statistics.getWeekNumber(bounds.start)} · ${short(bounds.start)}–${short(last)}${last.getFullYear()}`;
     } else {
       periodLabel = `${ui.t('monthNames')[bounds.start.getMonth()]} ${bounds.start.getFullYear()}`;
+    }
+
+    // Der laufende Zeitraum wird nur bis heute gerechnet - das muss dranstehen,
+    // sonst liest sich der kürzere Balken wie ein schwacher Monat
+    if (bucket?.isCurrent) {
+      periodLabel += ` · ${ui.t('untilToday')}`;
     }
 
     const hhmm = (h) => callouts.hoursToHHMM(h);

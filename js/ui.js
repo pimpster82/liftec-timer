@@ -205,6 +205,7 @@ class UI {
         // Share Entry Feature
         shareEntry: 'Teilen',
         weekShort: 'KW',
+        untilToday: 'bis heute',
         statsNoData: 'Noch keine Daten für eine Auswertung',
         barModeDays: 'Tage',
         barModeHours: 'Stunden',
@@ -651,6 +652,7 @@ class UI {
         // Share Entry Feature
         shareEntry: 'Share',
         weekShort: 'CW',
+        untilToday: 'to date',
         statsNoData: 'No data to analyse yet',
         barModeDays: 'Days',
         barModeHours: 'Hours',
@@ -1097,6 +1099,7 @@ class UI {
         // Share Entry Feature
         shareEntry: 'Dijeli',
         weekShort: 'TJ',
+        untilToday: 'do danas',
         statsNoData: 'Još nema podataka za analizu',
         barModeDays: 'Dani',
         barModeHours: 'Sati',
