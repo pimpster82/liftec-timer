@@ -135,6 +135,15 @@ class Chart {
 
           parts.push(`<rect x="${this._num(x)}" y="${this._num(baseline)}" width="${barW}" height="${this._num(drawn)}" rx="2" fill="${serie.color}"/>`);
         }
+
+        // Vorschau: was im laufenden Zeitraum noch aussteht. Gestrichelter
+        // Rand statt durchgezogen - durchgezogen heisst "versaeumt",
+        // gestrichelt heisst "steht noch aus".
+        const offen = bucket.remainingWorkDays || 0;
+        if (offen > 0) {
+          const h = offen / scale.max * height;
+          parts.push(this._forecastRect(x, baseline - h, barW, h));
+        }
         continue;
       }
 
@@ -144,9 +153,20 @@ class Chart {
           parts.push(`<rect x="${this._num(x)}" y="${this._num(top + height - h)}" width="${barW}" height="${this._num(h)}" rx="2" fill="var(--chart-work)"/>`);
         }
 
-        // Soll als Markierung, nicht als zweiter Balken - es ist die Referenz
-        if (bucket.targetHours > 0) {
-          const y = this._crisp(yOf(bucket.targetHours));
+        // Vorschau: die noch ausstehenden Sollstunden oben drauf. Reicht der
+        // Stapel bis zur Soll-Marke, liegt man im Plan.
+        const offen = bucket.remainingTargetHours || 0;
+        if (offen > 0) {
+          const oh = offen / scale.max * height;
+          parts.push(this._forecastRect(x, top + height - h - oh, barW, oh));
+        }
+
+        // Soll als Markierung, nicht als zweiter Balken - es ist die Referenz.
+        // Im laufenden Zeitraum das VOLLE Periodensoll, damit die Vorschau
+        // etwas zum Anstreben hat.
+        const soll = (bucket.targetHours || 0) + offen;
+        if (soll > 0) {
+          const y = this._crisp(yOf(soll));
           parts.push(`<line x1="${this._num(x - 3)}" y1="${y}" x2="${this._num(x + barW + 3)}" y2="${y}" stroke="var(--chart-line)" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.75"/>`);
         }
         continue;
@@ -166,6 +186,17 @@ class Chart {
     parts.push(`<line x1="0" y1="${zeroY}" x2="${geo.totalW}" y2="${zeroY}" stroke="var(--chart-grid)" stroke-width="1"/>`);
 
     return parts.join('');
+  }
+
+  /**
+   * Das Vorschau-Segment: blasse Flaeche mit duennem GESTRICHELTEM Rand.
+   * Der Fehltage-Geist traegt denselben Aufbau mit durchgezogenem Rand -
+   * daran unterscheidet man "versaeumt" von "steht noch aus".
+   */
+  _forecastRect(x, y, width, height) {
+    if (height <= 0) return '';
+
+    return `<rect x="${this._num(x + 0.5)}" y="${this._num(y + 0.5)}" width="${this._num(width - 1)}" height="${this._num(Math.max(0, height - 1))}" rx="2" fill="var(--chart-forecast)" stroke="var(--chart-forecast-border)" stroke-width="1" stroke-dasharray="3 2"/>`;
   }
 
   // ===== Panel B: Zeitkonto-Linie =====
@@ -324,6 +355,16 @@ class Chart {
       items = [{ color: 'var(--chart-work)', label: labels.actual || '' }];
     }
 
+    // Der Eintrag erscheint nur, wenn im Bild tatsaechlich etwas aussteht
+    if (options.showForecast && barMode !== 'balance') {
+      items.push({
+        color: 'var(--chart-forecast)',
+        label: labels.stillOpen || '',
+        border: 'var(--chart-forecast-border)',
+        dashed: true
+      });
+    }
+
     if (options.showAccount) {
       items.push({ color: 'var(--chart-line)', label: labels.account || '', line: true });
     }
@@ -332,7 +373,7 @@ class Chart {
       <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
         ${items.map(item => `
           <span class="flex items-center gap-1.5">
-            <span class="inline-block ${item.line ? 'w-3 h-0.5' : 'w-2.5 h-2.5 rounded-sm'}" style="background:${item.color}${item.border ? `;border:1px solid ${item.border}` : ''}"></span>
+            <span class="inline-block ${item.line ? 'w-3 h-0.5' : 'w-2.5 h-2.5 rounded-sm'}" style="background:${item.color}${item.border ? `;border:1px ${item.dashed ? 'dashed' : 'solid'} ${item.border}` : ''}"></span>
             <span>${this._escape(item.label)}</span>
           </span>
         `).join('')}

@@ -67,8 +67,16 @@ class Statistics {
     // und ein erfüllter Tag trägt Ist - Soll = 0 bei - er zählt also gar
     // nicht. Ohne diese Regel wäre der halbe Monat Schuld, sobald man ihn
     // ansieht, und die Zeitkonto-Linie stürzte am Ende ab.
+    //
+    // upcomingTarget sagt zusätzlich, was an dem Tag noch ansteht. Die
+    // Vorschau im Diagramm braucht das, und so bleibt die Frage "ist das ein
+    // Arbeitstag" an dieser einen Stelle statt zweimal im Code.
     if (date > this.endOfToday()) {
-      return { actual: 0, target: 0, missing: false };
+      const upcoming = timeAccount.getDailyTargetHours(date, settings);
+      const frei = upcoming <= 0
+        || austrianHolidays.isHoliday(callouts.formatDate(date)).isHoliday;
+
+      return { actual: 0, target: 0, missing: false, upcomingTarget: frei ? 0 : upcoming };
     }
 
     if (entry) {
@@ -158,7 +166,10 @@ class Statistics {
     return {
       actualHours: 0, targetHours: 0, balance: 0,
       workDays: 0, vacationDays: 0, sickDays: 0,
-      holidayDays: 0, timeoffDays: 0, missingDays: 0
+      holidayDays: 0, timeoffDays: 0, missingDays: 0,
+      // Was im laufenden Zeitraum noch aussteht - fuer die Vorschau im
+      // Diagramm. In abgeschlossenen Zeitraeumen immer 0.
+      remainingWorkDays: 0, remainingTargetHours: 0
     };
   }
 
@@ -186,6 +197,11 @@ class Statistics {
 
     totals.actualHours += actual;
     totals.targetHours += day.target;
+
+    if (day.upcomingTarget > 0) {
+      totals.remainingTargetHours += day.upcomingTarget;
+      totals.remainingWorkDays++;
+    }
 
     if (missing) {
       totals.missingDays++;
@@ -522,8 +538,11 @@ class Statistics {
     };
 
     for (const b of buckets) {
-      scale.maxStackDays = Math.max(scale.maxStackDays, stack(b));
-      scale.maxHours = Math.max(scale.maxHours, b.actualHours, b.targetHours);
+      // Die Vorschau sitzt oben auf dem Stapel und zaehlt fuer die Skala mit
+      scale.maxStackDays = Math.max(scale.maxStackDays, stack(b) + b.remainingWorkDays);
+      scale.maxHours = Math.max(scale.maxHours,
+        b.actualHours + b.remainingTargetHours,
+        b.targetHours + b.remainingTargetHours);
       scale.balanceMin = Math.min(scale.balanceMin, b.balance);
       scale.balanceMax = Math.max(scale.balanceMax, b.balance);
       scale.maxOnCallHours = Math.max(scale.maxOnCallHours, b.onCallHours);

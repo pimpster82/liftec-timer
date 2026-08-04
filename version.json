@@ -1,7 +1,8 @@
 {
-  "version": "1.35.1",
+  "version": "1.36.0",
   "releaseDate": "2026-08-02",
   "changelog": [
+    "Neu: Das Diagramm zeigt beim laufenden Monat, was noch aussteht",
     "Fix: Der laufende Monat bzw. die laufende Woche wird nur noch bis heute gerechnet",
     "Fix: K\u00fcnftige Tage z\u00e4hlten als Fehltage mit vollem Soll",
     "Neu: Statistik mit Diagramm \u2013 Verlauf \u00fcber 24 Monate bzw. 26 Wochen",

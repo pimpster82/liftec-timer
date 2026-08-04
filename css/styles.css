@@ -30,6 +30,11 @@
   --chart-missing: rgba(107, 114, 128, 0.10);
   --chart-missing-border: #9CA3AF;   /* gray-400 */
 
+  /* Vorschau "noch offen": derselbe Aufbau, aber gestrichelter Rand.
+   * Durchgezogen heisst versaeumt, gestrichelt heisst steht noch aus. */
+  --chart-forecast: rgba(255, 179, 0, 0.10);
+  --chart-forecast-border: #FFB300;   /* primary */
+
   --chart-plus: #16A34A;          /* green-600 - wie timeAccountColorClass */
   --chart-minus: #DC2626;         /* red-600 */
   --chart-line: #111827;          /* gray-900 - Haupttext, bewusst neutral */
@@ -52,6 +57,9 @@
 
     --chart-missing: rgba(156, 163, 175, 0.14);
     --chart-missing-border: #6B7280;   /* gray-500 */
+
+    --chart-forecast: rgba(255, 179, 0, 0.14);
+    --chart-forecast-border: #FFA000;  /* primary-dark */
 
     --chart-plus: #4ADE80;        /* green-400 */
     --chart-minus: #F87171;       /* red-400 */

@@ -1,6 +1,6 @@
 // LIFTEC Timer - Main Application
 
-const APP_VERSION = '1.35.1';
+const APP_VERSION = '1.36.0';
 
 const TASK_TYPES = {
   N: 'Neuanlage',
@@ -2365,6 +2365,7 @@ class App {
         holiday: ui.t('entryTypeHoliday'),
         timeoff: ui.t('entryTypeTimeOff'),
         missing: ui.t('missingDays'),
+        stillOpen: ui.t('stillOpen'),
         account: ui.t('timeAccountTrend'),
         actual: ui.t('actual'),
         plus: ui.t('plusHours'),
@@ -2413,7 +2414,8 @@ class App {
       <div class="mt-2">
         ${chart.renderLegend(state.barMode, {
           labels: options.labels,
-          showAccount: state.series.accountAvailable
+          showAccount: state.series.accountAvailable,
+          showForecast: buckets.some(b => b.remainingWorkDays > 0)
         })}
       </div>
     `;
